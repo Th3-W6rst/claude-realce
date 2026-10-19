@@ -1,0 +1,198 @@
+import type { Elements, On, RenderElement } from 'claude-code'
+
+import { highlight } from '../code/highlight'
+import { cachedEnv } from '../env'
+import { flagsVersion, getFlags } from '../flags'
+import { memo } from '../memo'
+import { CODE, SCREEN } from '../palette'
+import type { TestScore } from '../../types'
+import { formatScore, parseTestSummary } from './score'
+import { asRecord, bashText, EDIT_TOOLS, editCounts, editedPath, shortPath, str } from './toolInfo'
+import { timed } from '../perf'
+
+type T = Pick<Elements['terminal'], 'Box' | 'Text'>
+
+export type ToolKind = 'read' | 'edit' | 'run' | 'agent' | 'web' | 'plan' | 'mcp'
+
+export type ToolSummary = { kind: ToolKind; icon: string; verb: string; target: string; added?: number; removed?: number; isNew?: boolean }
+
+const READ_VERBS: Record<string, string> = { Read: 'Leu', NotebookRead: 'Leu', Grep: 'Buscou', Glob: 'Procurou', LS: 'Listou' }
+
+const TASK_STATUS: Record<string, string> = { pending: 'pendente', in_progress: 'em andamento', completed: 'concluída', deleted: 'removida' }
+
+/** A tool call as one row of its kind; null for a tool this mod leaves to the engine. */
+export function summarizeTool(tool: string, input: unknown, cwd: string | null, output?: unknown): ToolSummary | null {
+  const inp = asRecord(input)
+  const path = (key: string) => shortPath(str(inp[key]) ?? '', cwd)
+  if (tool in READ_VERBS) {
+    const target = tool === 'Grep' || tool === 'Glob' ? str(inp.pattern) ?? '' : path(tool === 'NotebookRead' ? 'notebook_path' : tool === 'LS' ? 'path' : 'file_path')
+    return { kind: 'read', icon: '◇', verb: READ_VERBS[tool]!, target }
+  }
+  if (EDIT_TOOLS.has(tool)) {
+    const { added, removed, isNew } = editCounts(tool, input, output)
+    return { kind: 'edit', icon: '✎', verb: tool === 'Write' ? 'Escreveu' : 'Editou', target: shortPath(editedPath(input) ?? '', cwd), added, removed, isNew }
+  }
+  if (tool === 'Bash') return { kind: 'run', icon: '▶', verb: '', target: str(inp.command) ?? '' }
+  if (tool === 'BashOutput') return { kind: 'run', icon: '▶', verb: 'Saída de', target: str(inp.bash_id) ?? '' }
+  if (tool === 'KillShell') return { kind: 'run', icon: '▶', verb: 'Encerrou', target: str(inp.shell_id) ?? '' }
+  if (tool === 'Agent' || tool === 'Task') {
+    const type = str(inp.subagent_type)
+    return { kind: 'agent', icon: '◆', verb: type ? `Agente ${type}:` : 'Agente:', target: str(inp.description) ?? '' }
+  }
+  if (tool === 'WebSearch') return { kind: 'web', icon: '◎', verb: 'Buscou:', target: str(inp.query) ?? '' }
+  if (tool === 'WebFetch') return { kind: 'web', icon: '◎', verb: 'Abriu:', target: str(inp.url) ?? '' }
+  if (tool === 'TodoWrite') {
+    const todos = Array.isArray(inp.todos) ? inp.todos.map(asRecord) : []
+    return { kind: 'plan', icon: '☰', verb: 'Plano:', target: `${todos.filter(t => t.status === 'completed').length}/${todos.length}` }
+  }
+  if (tool === 'TaskCreate') return { kind: 'plan', icon: '☰', verb: 'Plano:', target: `+ ${str(inp.subject) ?? ''}` }
+  if (tool === 'TaskUpdate') {
+    const status = str(inp.status)
+    return { kind: 'plan', icon: '☰', verb: 'Plano:', target: `#${str(inp.taskId) ?? '?'} ${status !== null ? (TASK_STATUS[status] ?? status) : 'atualizada'}` }
+  }
+  if (tool === 'TaskList') return { kind: 'plan', icon: '☰', verb: 'Plano:', target: 'lista' }
+  if (tool === 'TaskGet') return { kind: 'plan', icon: '☰', verb: 'Plano:', target: `#${str(inp.taskId) ?? '?'}` }
+  const mcp = /^mcp__(.+?)__(.+)$/.exec(tool)
+  if (mcp !== null) return { kind: 'mcp', icon: '⬡', verb: '', target: `${mcp[1]} · ${mcp[2]}` }
+  return null
+}
+
+// A folded group's words per tool: verb, one, many.
+const GROUP_WORDS: Record<string, readonly [string, string, string]> = {
+  Read: ['leu', 'arquivo', 'arquivos'],
+  NotebookRead: ['leu', 'arquivo', 'arquivos'],
+  Grep: ['buscou', 'vez', 'vezes'],
+  Glob: ['procurou', 'padrão', 'padrões'],
+  LS: ['listou', 'pasta', 'pastas'],
+  Bash: ['rodou', 'comando', 'comandos'],
+}
+const OTHER_WORDS = ['usou', 'outra ferramenta', 'outras ferramentas'] as const
+
+/** 'Leu 6 arquivos · buscou 3 vezes': what a folded group did, in the order it did it. */
+export function summarizeGroup(calls: readonly { tool: string; input: unknown }[]): string {
+  const counts = new Map<readonly [string, string, string], number>()
+  for (const call of calls) {
+    const words = GROUP_WORDS[call.tool] ?? OTHER_WORDS
+    // Read and NotebookRead share one count.
+    const key = [...counts.keys()].find(k => k[0] === words[0] && k[1] === words[1]) ?? words
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  const text = [...counts].map(([[verb, one, many], n]) => `${verb} ${n} ${n === 1 ? one : many}`).join(' · ')
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+const DRAWN_TOOLS = [
+  'Read', 'NotebookRead', 'Grep', 'Glob', 'LS', 'Edit', 'MultiEdit', 'Write', 'NotebookEdit', 'Bash', 'BashOutput', 'KillShell',
+  'Agent', 'Task', 'WebSearch', 'WebFetch', 'TodoWrite', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', /^mcp__.+__.+$/,
+]
+
+const KIND_COLOR: Record<ToolKind, string> = { read: SCREEN.dim, edit: SCREEN.edit, run: SCREEN.run, agent: SCREEN.agent, web: SCREEN.web, plan: SCREEN.plan, mcp: SCREEN.mcp }
+
+type RowState = { isRunning: boolean; isErrored: boolean; isInterrupted: boolean }
+
+function shellLine(t: T, line: string): RenderElement[] {
+  const { Text } = t
+  return (highlight(line, 'sh')[0] ?? []).map(tok => (tok.kind ? <Text {...CODE[tok.kind]}>{tok.text}</Text> : tok.text) as RenderElement)
+}
+
+function toolRow(t: T, s: ToolSummary, state: RowState, score: TestScore | null = null): RenderElement {
+  const { Box, Text } = t
+  const icon = state.isRunning ? '◌' : state.isErrored ? '✖' : s.icon
+  const head = s.verb === '' ? `${icon} ` : `${icon} ${s.verb} `
+  const tail = state.isInterrupted ? <Text color={SCREEN.dim}> · interrompida</Text> : null
+  if (s.kind === 'run') {
+    const lines = s.target.split('\n')
+    const more = lines.length > 2 ? ' …' : ''
+    return (
+      <Box key="realce-tool" flexDirection="column">
+        {lines.slice(0, 2).map((line, i) =>
+          state.isErrored ? (
+            <Text color={SCREEN.bad} wrap="truncate-end">{`${i === 0 ? head : '  '}${line}${i === 1 ? more : ''}`}</Text>
+          ) : (
+            <Text wrap="truncate-end">
+              <Text color={SCREEN.run}>{i === 0 ? head : '  '}</Text>
+              {shellLine(t, line)}
+              {i === 1 && more}
+              {i === Math.min(lines.length, 2) - 1 && tail}
+            </Text>
+          ),
+        )}
+        {score !== null && (
+          <Box key="realce-score">
+            <Text color={score.failed === 0 ? SCREEN.ok : SCREEN.bad} wrap="truncate-end">{`  ${formatScore(score)}`}</Text>
+          </Box>
+        )}
+      </Box>
+    )
+  }
+  if (state.isErrored) {
+    return (
+      <Box key="realce-tool">
+        <Text color={SCREEN.bad} wrap="truncate-end">{`${head}${s.target}`}</Text>
+      </Box>
+    )
+  }
+  if (s.kind === 'edit') {
+    const hasCounts = (s.added ?? 0) > 0 || (s.removed ?? 0) > 0 || s.isNew === true
+    return (
+      <Box key="realce-tool">
+        <Text wrap="truncate-end">
+          <Text color={SCREEN.edit}>{head}</Text>
+          {s.target}
+          {hasCounts && '  '}
+          {hasCounts && <Text color={SCREEN.ok}>{`+${s.added ?? 0}`}</Text>}
+          {hasCounts && (s.isNew ? <Text color={SCREEN.dim}> (novo)</Text> : ' ')}
+          {hasCounts && !s.isNew && <Text color={SCREEN.bad}>{`−${s.removed ?? 0}`}</Text>}
+          {tail}
+        </Text>
+      </Box>
+    )
+  }
+  return (
+    <Box key="realce-tool">
+      <Text color={KIND_COLOR[s.kind]} wrap="truncate-end">
+        {`${head}${s.target}`}
+        {tail}
+      </Text>
+    </Box>
+  )
+}
+
+export function registerTools(on: On): void {
+  // Only the tools summarizeTool draws: any other call never leaves the engine for this mod.
+  on('ui.render', { component: 'ToolUse', props: { tool: DRAWN_TOOLS } }, async ($, e, next) => timed('ToolUse', async () => {
+    const flags = await getFlags($)
+    if (!flags.ferramentas || e.surface !== 'terminal') return next(e)
+    const { isRunning, isErrored, isInterrupted, output } = e.props
+    const cwd = cachedEnv()?.cwd ?? null
+    // A row changes only with its call's state: everything else is the same call drawn again.
+    const key = `${e.requestId}|${isRunning}|${isErrored}|${isInterrupted}|${output === undefined}|${flagsVersion()}|${cwd}`
+    const row = memo('ToolUse', key, () => {
+      const summary = summarizeTool(e.props.tool, e.props.input, cwd, isErrored ? undefined : output)
+      // The test score rides the command's own row: a result hook cost a trip to the engine for every result drawn.
+      const score = flags.placar && e.props.tool === 'Bash' && output !== undefined ? parseTestSummary(bashText(output)) : null
+      return summary === null ? null : toolRow($.ui.resolve(e), summary, e.props, score)
+    })
+    return row ?? next(e)
+  }))
+
+  on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => timed('ToolGroup', async () => {
+    const flags = await getFlags($)
+    if (!flags.ferramentas || e.surface !== 'terminal' || e.props.isExpanded) return next(e)
+    const calls = e.props.calls
+    const key = `${e.requestId}|${flagsVersion()}|${calls.map(c => `${c.tool}${+c.isRunning}${+c.isErrored}`).join(',')}`
+    return memo('ToolGroup', key, () => {
+      const { Box, Text } = $.ui.resolve(e)
+      const errored = calls.filter(c => c.isErrored).length
+      const icon = calls.some(c => c.isRunning) ? '◌' : '◇'
+      return (
+        <Box key="realce-group">
+          <Text color={SCREEN.dim} wrap="truncate-end">
+            {`${icon} ${summarizeGroup(calls)}`}
+            {errored > 0 && <Text color={SCREEN.bad}>{` · ${errored} com erro`}</Text>}
+          </Text>
+        </Box>
+      )
+    })
+  }))
+}

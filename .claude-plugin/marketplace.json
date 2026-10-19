@@ -1,0 +1,14 @@
+{
+  "name": "claude-realce",
+  "owner": {
+    "name": "Th3-W6rst"
+  },
+  "description": "Mods do Claude Code de Th3-W6rst",
+  "plugins": [
+    {
+      "name": "realce",
+      "source": "./",
+      "description": "Cores por sentido nas respostas do Claude, código, ferramentas e turnos legíveis num relance"
+    }
+  ]
+}

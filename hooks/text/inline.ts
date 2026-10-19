@@ -1,0 +1,240 @@
+import type { ProseKind } from '../palette'
+import { scanDeltas } from './deltas'
+
+// One run of text and the kinds painting it, outermost first: the renderer
+// merges their paints in order, so an inner kind overrides an outer one.
+export type Span = { text: string; kinds: ProseKind[]; href?: string }
+
+/** `enfase` off: no guesses but paths and links, no labels; `deltas` off: no delta spans. Both default on. */
+export type InlineOpts = { enfase?: boolean; deltas?: boolean }
+
+/** What a run of spans shows, its marks gone. */
+export const plainText = (spans: readonly Span[]): string => spans.map(s => s.text).join('')
+
+// `L`/`N` boundaries instead of \b, which treats "ã" or "é" as a word break.
+const B = '(?<![\\p{L}\\p{N}_])'
+const E = '(?![\\p{L}\\p{N}_])'
+
+const MARKUP = new RegExp(
+  [
+    '(?<code>(?<ticks>`+)(?<codeBody>[^`]|[^`][\\s\\S]*?[^`])\\k<ticks>(?!`))',
+    '(?<link>\\[(?<linkText>[^\\]\\n]+)\\]\\((?<linkHref>[^)\\s]+)\\))',
+    '(?<url>https?:\\/\\/[^\\s<>()]+[^\\s<>().,;:!?\'"])',
+    '(?<strong>\\*\\*(?=\\S)(?<strongBody>.+?)(?<=\\S)\\*\\*)',
+    `(?<strongU>${B}__(?=\\S)(?<strongUBody>.+?)(?<=\\S)__${E})`,
+    '(?<highlight>==(?=\\S)(?<highlightBody>.+?)(?<=\\S)==)',
+    '(?<good>\\{\\+(?<goodBody>.+?)\\+\\})',
+    '(?<bad>\\{-(?<badBody>.+?)-\\})',
+    '(?<warn>\\{!(?<warnBody>.+?)!\\})',
+    '(?<strike>~~(?=\\S)(?<strikeBody>.+?)(?<=\\S)~~)',
+    '(?<italic>(?<![\\p{L}\\p{N}*\\\\])\\*(?=[^\\s*])(?<italicBody>[^*\\n]+?)(?<=[^\\s*])\\*(?![\\p{L}\\p{N}*]))',
+    `(?<italicU>${B}_(?=[^\\s_])(?<italicUBody>[^_\\n]+?)(?<=[^\\s_])_${E})`,
+  ].join('|'),
+  'gu',
+)
+
+const PATH_EXT =
+  'tsx?|jsx?|mjs|cjs|mts|cts|py|ipynb|rb|go|rs|swift|kt|java|c|h|cc|cpp|hpp|cs|m|mm|sh|zsh|bash|fish|md|mdx|json|jsonl|ya?ml|toml|ini|cfg|conf|sql|html?|css|scss|lock|txt|log|env|xml|plist|csv|pdf|png|jpe?g|svg|ler|d\\.ts'
+const PATH =
+  // a path that is obviously one (rooted, or with an extension), so "e/ou" stays prose
+  `(?:~|\\.{1,2})?\\/?(?:[\\w@.+-]+\\/)*[\\w@+-][\\w@.+-]*\\.(?:${PATH_EXT})(?::\\d+(?::\\d+)?)?${E}` +
+  `|(?:~|\\.{1,2})?\\/(?:[\\w@.+-]+\\/)*[\\w@.+-]*[\\p{L}][\\w@.+-]*\\/?` +
+  `|[\\w@.+-]*\\p{L}[\\w@.+-]*(?:\\/[\\w@.+-]*\\p{L}[\\w@.+-]*){2,}\\/?`
+
+const GOOD_WORDS = [
+  'passa', 'passam', 'passou', 'passaram', 'passando', 'ok', 'corrigido', 'corrigida', 'corrigidos', 'corrigidas',
+  'resolvido', 'resolvida', 'resolvidos', 'resolvidas', 'funciona', 'funcionam', 'funcionou', 'sucesso', 'verde',
+  'pronto', 'pronta', 'prontos', 'prontas', 'concluído', 'concluída', 'concluídos', 'concluídas', 'melhorou',
+  'fixed', 'passed', 'passing', 'works', 'success', 'green', 'done', '✅', '✓', '✔',
+]
+const BAD_WORDS = [
+  'falha', 'falhas', 'falham', 'falhou', 'falharam', 'falhando', 'erro', 'erros', 'errado', 'errada', 'errados',
+  'erradas', 'quebrou', 'quebrado', 'quebrada', 'quebraram', 'piorou', 'piora', 'pioraram', 'bug', 'bugs',
+  'regressão', 'regressões', 'crash', 'travou', 'vermelho', 'failed', 'failing', 'fails', 'error', 'errors',
+  'broken', 'regression', '❌', '✗', '✘',
+]
+const WARN_WORDS = [
+  'falta', 'faltam', 'faltando', 'pendente', 'pendentes', 'atenção', 'cuidado', 'risco', 'riscos', 'bloqueado',
+  'bloqueada', 'bloqueados', 'bloqueadas', 'aguardando', 'warning', 'pending', 'blocked', 'risk', '⚠️', '⚠',
+]
+// Case-sensitive: "GO" is the person's go-ahead, "go" is a language.
+const WARN_EXACT = ['GO', 'TODO', 'FIXME', 'WIP']
+
+const words = (list: string[]) => list.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+
+const HEURISTICS = new RegExp(
+  [
+    `(?<url>https?:\\/\\/[^\\s<>()]+[^\\s<>().,;:!?'"])`,
+    '(?<quote>"[^"\\n]{1,160}"|“[^”\\n]{1,160}”)',
+    `(?<path>(?<![\\p{L}\\p{N}_\\/.@-])(?:${PATH}))`,
+    `(?<number>(?<![\\p{L}\\p{N}_.,:\\/-])(?:\\d{1,2}[-\\/]\\d{4}|\\d{1,2}[-\\/]\\d{1,2}(?:[-\\/]\\d{2,4})?|\\d+(?:[.,:]\\d+)*(?:%|k|K|M|B|ms|s|min|h|x|GB|MB|KB|px)?)${E})`,
+    `(?<good>${B}(?:${words(GOOD_WORDS)})${E})`,
+    `(?<bad>${B}(?:${words(BAD_WORDS)})${E})`,
+    `(?<warn>${B}(?:${words(WARN_WORDS)})${E}|${B}(?:${WARN_EXACT.join('|')})${E})`,
+  ].join('|'),
+  'gu',
+)
+// Status words ignore case; GO/TODO keep it, so the group is checked again below.
+const HEURISTICS_I = new RegExp(HEURISTICS.source, 'giu')
+const WARN_EXACT_RE = new RegExp(`^(?:${WARN_EXACT.join('|')})$`, 'u')
+
+const QUOTED = /"[^"\n]{1,160}"|“[^”\n]{1,160}”/gu
+
+const LOOKS_LIKE_PATH = new RegExp(`^(?:${PATH})$`, 'u')
+
+// Bare prose with its deltas cut out, each a span of its own after the second number.
+function prose(text: string, outer: ProseKind[], opts: InlineOpts): Span[] {
+  if (outer.length > 0 || opts.deltas === false) return heuristics(text, outer, opts)
+  const spans: Span[] = []
+  let at = 0
+  // A quotation is cited as written: a delta inside it would cut its color in two.
+  const quotes = [...text.matchAll(QUOTED)].map(m => [m.index ?? 0, (m.index ?? 0) + m[0].length] as const)
+  for (const d of scanDeltas(text)) {
+    if (quotes.some(([from, to]) => d.start < to && d.end > from)) continue
+    if (d.arrow !== undefined) {
+      spans.push(...heuristics(text.slice(at, d.arrow.start), outer, opts), { text: text.slice(d.arrow.start, d.arrow.end), kinds: ['delta'] })
+      at = d.arrow.end
+    }
+    spans.push(...heuristics(text.slice(at, d.end), outer, opts), { text: ` ${d.label}`, kinds: ['delta'] })
+    at = d.end
+  }
+  spans.push(...heuristics(text.slice(at), outer, opts))
+  return spans
+}
+
+function heuristics(text: string, outer: ProseKind[], opts: InlineOpts): Span[] {
+  if (text === '') return []
+  // Only bare prose gets the guesses: inside a marked span the writer already chose the color.
+  if (outer.length > 0) return [{ text, kinds: outer }]
+  const spans: Span[] = []
+  let at = 0
+  HEURISTICS_I.lastIndex = 0
+  for (const m of text.matchAll(HEURISTICS_I)) {
+    const g = m.groups ?? {}
+    const kind: ProseKind | undefined = g.url
+      ? 'link'
+      : g.quote
+        ? 'quote'
+        : g.path
+          ? 'path'
+          : g.number
+            ? 'number'
+            : g.good
+              ? 'statusGood'
+              : g.bad
+                ? 'statusBad'
+                : g.warn
+                  ? 'statusWarn'
+                  : undefined
+    if (kind === undefined) continue
+    // With enfase off only what a link needs is found; the rest is the engine's plain text.
+    if (opts.enfase === false && kind !== 'link' && kind !== 'path') continue
+    // `i` lets "go" match the case-sensitive list; only the exact spelling counts.
+    if (kind === 'statusWarn' && !WARN_WORDS.some(w => w.toLowerCase() === m[0].toLowerCase()) && !WARN_EXACT_RE.test(m[0])) continue
+    const start = m.index ?? 0
+    if (start > at) spans.push({ text: text.slice(at, start), kinds: [] })
+    spans.push(kind === 'link' ? { text: m[0], kinds: [kind], href: m[0] } : { text: m[0], kinds: [kind] })
+    at = start + m[0].length
+  }
+  if (at < text.length) spans.push({ text: text.slice(at), kinds: [] })
+  return spans
+}
+
+/**
+ * Splits one line of prose into painted spans: the markdown and the typed
+ * emphasis the writer marked, then guesses (numbers, paths, status words) on
+ * the bare text between. `isLineStart` makes a leading `**x**` a label.
+ */
+export function parseInline(text: string, outer: ProseKind[] = [], isLineStart = true, opts: InlineOpts = {}): Span[] {
+  const spans: Span[] = []
+  let at = 0
+  const re = new RegExp(MARKUP.source, MARKUP.flags)
+  for (const m of text.matchAll(re)) {
+    const g = m.groups ?? {}
+    const start = m.index ?? 0
+    spans.push(...prose(text.slice(at, start), outer, opts))
+    at = start + m[0].length
+    if (g.code !== undefined) {
+      const body = g.codeBody ?? ''
+      // A one-space pad either side is markdown's way to start or end on a backtick.
+      const inner = /^ .* $/s.test(body) && body.trim() !== '' ? body.slice(1, -1) : body
+      spans.push({ text: inner, kinds: [...outer, 'code', ...(LOOKS_LIKE_PATH.test(inner) ? (['path'] as const) : [])] })
+    } else if (g.link !== undefined) {
+      spans.push(...parseInline(g.linkText ?? '', [...outer, 'link'], false, opts).map(s => ({ ...s, href: g.linkHref })))
+    } else if (g.url !== undefined) {
+      spans.push({ text: g.url, kinds: [...outer, 'link'], href: g.url })
+    } else {
+      const [kind, body] = pick(g)
+      const isLabel = kind === 'strong' && isLineStart && start === 0 && outer.length === 0 && opts.enfase !== false
+      spans.push(...parseInline(body, [...outer, isLabel ? 'label' : kind], false, opts))
+      // "**Label**:" reads as one label; the colon joins it.
+      if (isLabel && text[at] === ':') {
+        spans.push({ text: ':', kinds: ['label'] })
+        at += 1
+      }
+    }
+  }
+  spans.push(...prose(text.slice(at), outer, opts))
+  return merge(spans)
+}
+
+function pick(g: Record<string, string | undefined>): [ProseKind, string] {
+  if (g.strong !== undefined) return ['strong', g.strongBody ?? '']
+  if (g.strongU !== undefined) return ['strong', g.strongUBody ?? '']
+  if (g.highlight !== undefined) return ['highlight', g.highlightBody ?? '']
+  if (g.good !== undefined) return ['good', g.goodBody ?? '']
+  if (g.bad !== undefined) return ['bad', g.badBody ?? '']
+  if (g.warn !== undefined) return ['warn', g.warnBody ?? '']
+  if (g.strike !== undefined) return ['strike', g.strikeBody ?? '']
+  if (g.italic !== undefined) return ['italic', g.italicBody ?? '']
+  if (g.italicU !== undefined) return ['italic', g.italicUBody ?? '']
+  throw new Error('realce: a markup match named no group')
+}
+
+function merge(spans: Span[]): Span[] {
+  const out: Span[] = []
+  for (const s of spans) {
+    if (s.text === '') continue
+    const last = out[out.length - 1]
+    if (last && last.href === s.href && last.kinds.join() === s.kinds.join()) last.text += s.text
+    else out.push({ ...s, kinds: [...s.kinds] })
+  }
+  return out
+}
+
+/**
+ * The typed emphasis as plain markdown (`**x**`), for every place this mod
+ * does not draw itself: other surfaces, tables, summaries. Code is left alone.
+ */
+export function toPlainMarkdown(text: string): string {
+  const out: string[] = []
+  let inFence: string | null = null
+  for (const line of text.split('\n')) {
+    const fence = /^\s*(`{3,}|~{3,})/.exec(line)?.[1]
+    if (inFence !== null) {
+      if (fence !== undefined && fence[0] === inFence[0] && fence.length >= inFence.length) inFence = null
+      out.push(line)
+      continue
+    }
+    if (fence !== undefined) {
+      inFence = fence
+      out.push(line)
+      continue
+    }
+    out.push(
+      line
+        .split(/(`+[^`]*`+)/)
+        .map(part =>
+          part.startsWith('`')
+            ? part
+            : part
+                .replace(/==(?=\S)(.+?)(?<=\S)==/g, '**$1**')
+                .replace(/\{\+(.+?)\+\}/g, '**$1**')
+                .replace(/\{-(.+?)-\}/g, '**$1**')
+                .replace(/\{!(.+?)!\}/g, '**$1**'),
+        )
+        .join(''),
+    )
+  }
+  return out.join('\n')
+}
