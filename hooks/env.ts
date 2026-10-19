@@ -23,15 +23,22 @@ export async function detectEditor($: EngineInterface): Promise<Editor> {
   return 'file'
 }
 
+let mermaid: Promise<string | null> | null = null
+
+/** Where `which` finds the mermaid CLI, or null: asked once per load, whoever asks first. */
+export function findMermaid($: EngineInterface): Promise<string | null> {
+  mermaid ??= $.process.run(['which', 'mmdc']).then(w => (w.exitCode === 0 && w.stdout.trim() !== '' ? w.stdout.trim() : null))
+  return mermaid
+}
+
 /** Records what the session runs in, once per load: directory, home, editor, UTC offset and the mermaid CLI. */
 export async function recordEnv($: EngineInterface, e: Args<'session.start'>): Promise<void> {
-  const [home, editor, date, which] = await Promise.all([
+  const [home, editor, date, mmdc] = await Promise.all([
     $.env.get('HOME'),
     detectEditor($),
     $.process.run(['date', '+%z']),
-    $.process.run(['which', 'mmdc']),
+    findMermaid($),
   ])
-  const mmdc = which.exitCode === 0 && which.stdout.trim() !== '' ? which.stdout.trim() : null
   current = { cwd: e.cwd, home: home ?? '', editor, tzOffsetMinutes: parseTzOffset(date.stdout), mmdc }
   await update($, ENV, () => current)
   // Rows drawn before the env was known read it from the module, not the state: draw them again.

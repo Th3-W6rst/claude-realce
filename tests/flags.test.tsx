@@ -137,6 +137,17 @@ describe('prompt section', () => {
     expect((await $.prompt.compose({ ...COMPOSE, surfaces: [], traits: ['print'] })).sections.map(s => s.id)).toEqual(['intro'])
   })
 
+  test('a compose ahead of session.start still teaches diagrams where mmdc is', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    baseSections(on)
+    on('process.run', ($, e) => ({
+      value: { exitCode: 0, stdout: e.argv[0] === 'which' ? '/opt/homebrew/bin/mmdc\n' : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+    }))
+    const section = (await $.prompt.compose(COMPOSE)).sections.find(s => s.id === 'realce:reading-aids')
+    expect(section?.text).toContain('```mermaid')
+  })
+
   test('/realce status says whether the last request taught the aids', async ($, on) => {
     mock.store(on)
     mock.clock(on)

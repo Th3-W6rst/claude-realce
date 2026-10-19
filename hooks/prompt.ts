@@ -1,6 +1,7 @@
 import { atom, read } from 'claude-code'
 import type { EngineInterface, On, PromptComposeSection } from 'claude-code'
 
+import { findMermaid } from './env'
 import { FLAGS, getFlags, getStoredFlags, isMasterOn, type Flags } from './flags'
 import { perfLines } from './perf'
 
@@ -67,7 +68,11 @@ export function registerPrompt(on: On): void {
     const composed = await next(e)
     // Marks only pay off where this mod draws them: the terminal.
     const isTaught = e.surfaces.includes('terminal') && !e.traits.includes('bare')
-    const section = isTaught ? buildSection(await getFlags($), ((await read($, ENV))?.mmdc ?? null) !== null) : null
+    // The session's first compose runs before session.start has recorded the env, and that prompt is the one the
+    // session keeps: ask for mmdc directly, or no session is ever taught diagrams. A refused `which` is logged by
+    // session.start (the same promise) and takes only the diagrams with it, not the marks.
+    const hasMermaid = isTaught && (await findMermaid($).then(m => m !== null, () => false))
+    const section = isTaught ? buildSection(await getFlags($), hasMermaid) : null
     lastCompose = { at: new Date(await $.clock.now()).toISOString(), surfaces: e.surfaces, traits: e.traits, isAdded: section !== null }
     return section === null ? composed : { sections: [...composed.sections, section] }
   })
