@@ -169,6 +169,8 @@ O mesmo navegador gera o PNG do `/realce print`.
   jest, vitest, bun, mocha, cargo, go test, XCTest, Swift Testing, `node --test`, RSpec e Deno.
 - **Régua depois de um agente em segundo plano:** o Claude Code mede o turno que a notificação do agente abre desde o
   seu último prompt, e não só esse turno; a régua dele fica com a duração apenas.
+- **Deltas:** "de 87 para 106" e uma seta com unidade ("22 ms → 9 ms") ganham a diferença; uma seta entre números
+  soltos ("4 → 8") não, porque costuma ser entrada → saída.
 - **Diagrama durante a resposta:** enquanto ela ainda está sendo escrita, o bloco mermaid aparece como código.
 - **Pergunta:** o Claude Code não deixa redesenhar o diálogo de pergunta; o mod só põe uma linha acima dele.
 - **Cartão de agente:** depende do texto da notificação; num formato que o mod não reconhece, fica o desenho do
