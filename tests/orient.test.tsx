@@ -973,6 +973,11 @@ describe('pane links', () => {
 describe('session report', () => {
   const PASSED = { runner: 'pytest', passed: 12, failed: 0, skipped: 0, unit: 'testes' as const }
 
+  test("the last failure's explanation rides under it", () => {
+    const text = reportText({ timeline: [], files: [], commits: [], failures: [{ command: 'cat x', line: 'cat: x: No such file', at: 1 }], cwd: '/', tzOffsetMinutes: 0, lastWhy: 'O arquivo x não existe; confira o nome.' })
+    expect(text).toContain('- **Falhas:** 1 (última: `cat x` → cat: x: No such file)\n  - Por quê: O arquivo x não existe; confira o nome.')
+  })
+
   test('the report sums turns, seals, files, commits and failures', () => {
     const text = reportText({
       timeline: [

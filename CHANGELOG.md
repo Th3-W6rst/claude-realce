@@ -2,6 +2,9 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.36
+- `/realce resumo` leva a explicação da última falha, quando o Haiku já respondeu.
+
 ## 0.4.35
 - O painel da sessão mostra, sob cada falha, a explicação do Haiku assim que ela chega.
 

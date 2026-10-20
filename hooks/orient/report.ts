@@ -3,7 +3,7 @@ import type { EngineInterface } from 'claude-code'
 
 import type { Failure, FileTouch, TimelineRow } from '../../types'
 import { formatClock, formatDuration, plural, testCount } from '../format'
-import { allCommits } from '../screen/notes'
+import { allCommits, explanationFor } from '../screen/notes'
 import { shortPath } from '../screen/toolInfo'
 import { sealLabel } from '../screen/turns'
 
@@ -23,6 +23,8 @@ export type ReportInput = {
   // The session keeps the last 50 turns and 20 failures: past that the report says it shows the latest.
   isTimelineFull?: boolean
   isFailuresFull?: boolean
+  // The Haiku's sentence for the last failure, once it came back.
+  lastWhy?: string
 }
 
 /** A command as one inline-code run: its first line, and no backtick that would close the run early. */
@@ -68,6 +70,7 @@ export function reportText(r: ReportInput): string {
   if (r.failures.length > 0) {
     const f = r.failures[r.failures.length - 1]!
     lines.push(`- **Falhas:** ${r.isFailuresFull === true ? `as últimas ${r.failures.length}` : r.failures.length} (última: ${inlineCode(f.command)} → ${f.line.replace(/`/g, 'ˋ')})`)
+    if (r.lastWhy !== undefined) lines.push(`  - Por quê: ${r.lastWhy}`)
   }
   return lines.join('\n')
 }
@@ -75,7 +78,12 @@ export function reportText(r: ReportInput): string {
 /** `/realce resumo`: the report shown, and on the clipboard. */
 export async function reportCommand($: EngineInterface, cwd: string, tzOffsetMinutes: number): Promise<string> {
   const [timeline, files, failures] = await Promise.all([read($, TIMELINE), read($, FILES), read($, FAILURES)])
-  const text = reportText({ timeline, files, commits: allCommits(), failures, cwd, tzOffsetMinutes, isTimelineFull: timeline.length >= 50, isFailuresFull: failures.length >= 20 })
+  const lastId = failures[failures.length - 1]?.toolUseId
+  const why = lastId === undefined ? null : explanationFor(lastId)
+  const text = reportText({
+    timeline, files, commits: allCommits(), failures, cwd, tzOffsetMinutes, isTimelineFull: timeline.length >= 50, isFailuresFull: failures.length >= 20,
+    ...(why?.status === 'ready' ? { lastWhy: why.text } : {}),
+  })
   const copied = await $.ui.copy({ text })
   // The clipboard takes the markdown; the transcript shows it as text, where the marks would print as written.
   const plain = text.replace(/\*\*/g, '').replace(/`/g, '').replace(/^## /gm, '')
