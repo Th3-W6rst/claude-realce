@@ -1,5 +1,9 @@
 # Novidades do realce
 
+## 0.4.12
+- Placar e selo de prova também entendem `node --test`, RSpec e Deno (além de pytest, jest, vitest, bun, mocha,
+  cargo, go, XCTest e Swift Testing).
+
 ## 0.4.11
 - O Claude é avisado de que a régua sela o turno pelos testes (com `selo` ligado): roda os testes antes de dizer
   que terminou.

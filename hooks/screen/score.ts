@@ -101,7 +101,37 @@ function swiftTesting(text: string): Found | null {
   return { score: { runner: 'swift-testing', passed: total - failed, failed, skipped: 0, seconds: Number(m[3]), unit: 'testes' }, at: m.index! + m[0].length }
 }
 
-const RUNNERS = [pytest, jest, vitest, bun, mocha, cargo, goTest, xctest, swiftTesting]
+// node --test: "ℹ pass 11" (or "# pass 11" in TAP) lines, then "duration_ms 52.3".
+function nodeTest(text: string): Found | null {
+  const m = lastMatch(text, /^[ℹ#] tests (\d+)$/gmu)
+  if (m === undefined) return null
+  const rest = text.slice(m.index!)
+  const count = (word: string) => Number(new RegExp(`^[ℹ#] ${word} (\\d+)$`, 'mu').exec(rest)?.[1] ?? 0)
+  const duration = /^[ℹ#] duration_ms ([\d.]+)$/mu.exec(rest)
+  const end = duration === null ? m.index! + m[0].length : m.index! + duration.index + duration[0].length
+  const score: TestScore = { runner: 'node', passed: count('pass'), failed: count('fail') + count('cancelled'), skipped: count('skipped') + count('todo'), ...(duration ? { seconds: Number(duration[1]) / 1000 } : {}), unit: 'testes' }
+  return { score, at: end }
+}
+
+// rspec: "12 examples, 1 failure, 2 pending", after "Finished in 0.5 seconds".
+function rspec(text: string): Found | null {
+  const m = lastMatch(text, /^(\d+) examples?, (\d+) failures?(?:, (\d+) pending)?/gm)
+  if (m === undefined) return null
+  const total = Number(m[1])
+  const failed = Number(m[2])
+  const skipped = Number(m[3] ?? 0)
+  const time = lastMatch(text.slice(0, m.index!), /^Finished in ([\d.]+) seconds?/gm)
+  return { score: { runner: 'rspec', passed: total - failed - skipped, failed, skipped, ...(time ? { seconds: Number(time[1]) } : {}), unit: 'testes' }, at: m.index! + m[0].length }
+}
+
+// deno test: "ok | 12 passed | 0 failed (52ms)", "FAILED | 11 passed | 1 failed | 2 ignored (60ms)".
+function deno(text: string): Found | null {
+  const m = lastMatch(text, /^(?:ok|FAILED) \| (\d+) passed(?: \(\d+ steps?\))? \| (\d+) failed(?: \| (\d+) ignored)?(?: \| \d+ \w+)* \(([\d.]+)(ms|s|m)\)/gm)
+  if (m === undefined) return null
+  return { score: { runner: 'deno', passed: Number(m[1]), failed: Number(m[2]), skipped: Number(m[3] ?? 0), seconds: toSeconds(m[4]!, m[5]!), unit: 'testes' }, at: m.index! + m[0].length }
+}
+
+const RUNNERS = [pytest, jest, vitest, bun, mocha, cargo, goTest, xctest, swiftTesting, nodeTest, rspec, deno]
 
 /** The test summary a command printed: the last one any known runner wrote, or null for none. */
 export function parseTestSummary(output: string): TestScore | null {

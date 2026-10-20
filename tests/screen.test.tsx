@@ -198,6 +198,10 @@ describe('test score', () => {
   test('mocha', () => expect(score('  42 passing (2s)\n  1 failing')).toEqual([42, 1, 0, 2, 'testes']))
   test('cargo', () => expect(score('test result: ok. 42 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.52s')).toEqual([42, 0, 1, 0.52, 'testes']))
   test('go', () => expect(score('ok  \tgithub.com/x/a\t0.1s\nFAIL\tgithub.com/x/b\t0.2s')).toEqual([1, 1, 0, undefined, 'pacotes']))
+  test('node --test', () => expect(score('ℹ tests 12\nℹ suites 0\nℹ pass 11\nℹ fail 1\nℹ cancelled 0\nℹ skipped 2\nℹ todo 0\nℹ duration_ms 52.3')).toEqual([11, 1, 2, 0.0523, 'testes']))
+  test('node --test, the TAP spelling', () => expect(score('# tests 3\n# pass 3\n# fail 0\n# skipped 0\n# duration_ms 8.1')).toEqual([3, 0, 0, 0.0081, 'testes']))
+  test('rspec', () => expect(score('Finished in 0.5 seconds (files took 0.2 seconds to load)\n12 examples, 1 failure, 2 pending')).toEqual([9, 1, 2, 0.5, 'testes']))
+  test('deno', () => expect(score('FAILED | 11 passed | 1 failed | 2 ignored (60ms)')).toEqual([11, 1, 2, 0.06, 'testes']))
   test('XCTest', () => expect(score('Executed 42 tests, with 1 failure (0 unexpected) in 1.234 (1.300) seconds')).toEqual([41, 1, 0, 1.234, 'testes']))
   test('Swift Testing', () => expect(score('✔ Test run with 42 tests in 5 suites passed after 0.123 seconds.')).toEqual([42, 0, 0, 0.123, 'testes']))
 
