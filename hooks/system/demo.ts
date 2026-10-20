@@ -73,7 +73,7 @@ export async function welcomeHint($: EngineInterface, e: Args<'session.start'>):
   if (!e.isInteractive || !(await getFlags($)).demo) return
   if ((await $.store.get('demoHintShown')) === true) return
   await $.store.set('demoHintShown', true)
-  $.ui.toast('realce instalado: /realce demo mostra o que ele faz.')
+  $.ui.toast('realce instalado: /realce demo mostra o que ele faz; /realce ajuda lista os comandos.')
 }
 
 export function registerDemo(on: On): void {

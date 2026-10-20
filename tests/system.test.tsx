@@ -244,7 +244,7 @@ describe('welcome hint', () => {
     const toasts = startWorld(on)
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
-    expect(toasts.filter(t => t === 'realce instalado: /realce demo mostra o que ele faz.')).toHaveLength(1)
+    expect(toasts.filter(t => t === 'realce instalado: /realce demo mostra o que ele faz; /realce ajuda lista os comandos.')).toHaveLength(1)
   })
 
   test('a -p run gets no hint', async ($, on) => {

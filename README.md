@@ -136,6 +136,9 @@ O mod ensina ao Claude (pelo system prompt) um vocabulário curto, e só ensina 
 | `{!texto!}` | Precisa da sua atenção ou decisão | amarelo |
 | `> [!DECISÃO] …` | Caixa de decisão (também `RISCO`, `FEITO`, `RESUMO`, `NOTA`, `DICA`) | cor do tipo |
 
+Com o selo de prova ligado, o Claude também fica sabendo que a régua do turno mostra se ele rodou os testes depois
+da última edição antes de dizer que terminou.
+
 Com o mod desligado, essas marcas aparecem como negrito comum.
 
 ## Diagramas
@@ -193,7 +196,10 @@ claude --plugin-dir .      # sessão com o mod da pasta
 claude plugin test .       # suíte inteira (~2 s)
 tsc -p .                   # tipos (o motor grava .claude-plugin/types ao carregar o mod)
 claude plugin validate .   # o que o motor recusaria ao carregar
+python3 scripts/flags-table.py --check   # a tabela de flags do README bate com hooks/flags.ts
 ```
+
+Mudou uma flag? `python3 scripts/flags-table.py` reescreve a tabela.
 
 Regras do motor que derrubam o módulo inteiro se violadas:
 
@@ -208,4 +214,5 @@ Regras do motor que derrubam o módulo inteiro se violadas:
 5. Uma variável local chamada `h` quebra o JSX (o factory é `h`).
 6. O system prompt de uma sessão em que o mod entrou por hot reload não é recomposto.
 
-A auditoria de latência (tmux + Ghostty): `python3 scripts/audit/drive.py`.
+A auditoria de latência (tmux + Ghostty): `python3 scripts/audit/drive.py compare <rótulo> <saída.jsonl>` mede com o mod
+ligado e com `/realce off`, e religa o mod no fim.

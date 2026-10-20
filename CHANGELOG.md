@@ -1,5 +1,12 @@
 # Novidades do realce
 
+## 0.4.11
+- O Claude é avisado de que a régua sela o turno pelos testes (com `selo` ligado): roda os testes antes de dizer
+  que terminou.
+- A dica de boas-vindas cita o `/realce ajuda`.
+- Desenvolvimento: `scripts/flags-table.py` gera e confere a tabela de flags do README; `drive.py compare` mede com o
+  mod ligado e desligado e sempre o religa.
+
 ## 0.4.10
 - Painel da sessão com uma linha de uso: contexto e janelas de 5 h e de 7 dias, coloridas pelo quanto já foi usado
   (flag `limite`, agora "Uso e limites").

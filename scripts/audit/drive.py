@@ -8,6 +8,7 @@ tmux's screen: the app's own reaction, Ghostty's paint aside.
   drive.py prompt "<text>"        type a prompt, press Enter, wait for the turn to end
   drive.py keys <key> [<key>...]  send tmux key names (PageUp, C-o, Escape, Enter...)
   drive.py measure <label> <out>  one latency run (typing, scroll, expand), appended to <out> as a JSON line
+  drive.py compare <label> <out>  a run with the mod on, then one with `/realce off`, and the mod back on whatever happens
 """
 import json
 import statistics
@@ -112,3 +113,21 @@ if __name__ == '__main__':
         with open(out, 'a') as f:
             f.write(json.dumps(result, ensure_ascii=False) + '\n')
         print(json.dumps(result, ensure_ascii=False))
+    elif cmd == 'compare':
+        label, out = rest
+        results = [run(f'{label}-on')]
+        # `/realce off` is stored for the person's install: every session of theirs would start off without the `on`.
+        try:
+            keys('-l', '/realce off')
+            keys('Enter')
+            time.sleep(2)
+            results.append(run(f'{label}-off'))
+        finally:
+            keys('-l', '/realce on')
+            keys('Enter')
+            time.sleep(2)
+        with open(out, 'a') as f:
+            for r in results:
+                f.write(json.dumps(r, ensure_ascii=False) + '\n')
+        for r in results:
+            print(r['label'], {k: v.get('median') for k, v in r.items() if isinstance(v, dict)})

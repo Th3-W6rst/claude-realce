@@ -179,6 +179,11 @@ describe('prompt section', () => {
     for (const aid of ['{!attention!}', '[!DECISÃO]', 'de X para Y', 'markdown table', '```mermaid']) expect(text).toContain(aid)
   })
 
+  test('selo tells the model the turn is sealed by its tests', () => {
+    expect(buildSection(allFlags(true), true)?.text).toContain('seals each turn')
+    expect(buildSection({ ...allFlags(true), selo: false }, true)?.text).not.toContain('seals each turn')
+  })
+
   test('no mermaid without mmdc or with diagramas off', () => {
     expect(buildSection(allFlags(true), false)?.text).not.toContain('mermaid')
     expect(buildSection({ ...allFlags(true), diagramas: false }, true)?.text).not.toContain('mermaid')

@@ -33,6 +33,10 @@ Marks span a few words; never nest them, never put them inside code spans or blo
     text: "- A quote opening with `[!DECISÃO]` (a decision only the person can make), `[!RISCO]` (a risk or a regression), `[!FEITO]` (a delivered result), `[!RESUMO]` (the summary of a long reply, placed first), `[!NOTA]` or `[!DICA]` becomes a colored box; the rest of that first line is its title. At most two per reply.",
   },
   { flag: 'tabelas', text: '- Prefer a markdown table to compare three or more items across the same attributes.' },
+  {
+    flag: 'selo',
+    text: '- The terminal seals each turn you end by saying the work is done, fixed or passing: ✔ when tests ran after your last edit and passed, ⚠ when none ran since it, ✖ when they failed. Run the tests before you claim it.',
+  },
   { flag: 'deltas', text: '- Write a change as `de X para Y` or `X → Y`, both numbers in the same unit; the terminal adds the difference.' },
   {
     flag: 'diagramas',
