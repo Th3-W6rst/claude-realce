@@ -18,6 +18,9 @@ const ANSWER_COMMANDS: ReadonlySet<string> = new Set(['grep', 'rg', 'test', '[',
 const seen = new Set<string>()
 let sent = 0
 
+/** For /realce status: how many failures went to the model in this load, of how many it may send. */
+export const explanationsSent = () => ({ sent, max: MAX_PER_LOAD })
+
 export const errorKey = (command: string, line: string) => `${command}\n${line}`
 
 /** Whether any part of the command is one whose failure is an answer (`grep x f`, `test -f a && …`, `command -v`). */

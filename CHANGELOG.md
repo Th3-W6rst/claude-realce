@@ -1,5 +1,9 @@
 # Novidades do realce
 
+## 0.4.15
+- Painel de flags com um botão para ligar e desligar o realce inteiro.
+- `/realce status` conta quantos erros já foram explicados pelo Haiku (de no máximo 20 por carga).
+
 ## 0.4.14
 - Painel da sessão: cada arquivo tocado abre no editor (com `caminhos` ligado) e cada falha rola até o seu
   comando na conversa.

@@ -135,7 +135,7 @@ describe('flags pane', () => {
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
     for (const group of ['Texto', 'Código', 'Ferramentas', 'Orientação', 'Sistema']) expect(await ui.find({ type: 'Text', text: group })).toBeDefined()
     expect(await ui.find({ key: 'flag-atualizacao' })).toBeDefined()
-    const buttons = await ui.findAll({ type: 'Button' })
+    const buttons = (await ui.findAll({ type: 'Button' })).filter(b => b.key?.startsWith('flag-'))
     expect(buttons).toHaveLength(37)
     // The engine takes 36 keys (a–z, 0–9): the 37th flag is reached with Tab and Enter.
     expect(new Set(buttons.map(b => b.props.hotkey).filter(k => k !== undefined)).size).toBe(36)
@@ -158,6 +158,17 @@ describe('flags pane', () => {
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
     await ui.press({ key: 'flag-selo' })
     expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Selo de prova, Modo foco/)
+  })
+
+  test('the pane switches the whole mod on and off', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    on('prompt.compose', () => ({ sections: [] }))
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
+    expect((await ui.find({ key: 'master' }))?.text).toBe('[x] Realce ligado')
+    await ui.press({ key: 'master' })
+    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/^Realce desligado\./)
+    expect((await ui.find({ key: 'master' }))?.text).toBe('[ ] Realce ligado')
   })
 
   test('with the master off the pane says so', async ($, on) => {

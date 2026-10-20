@@ -497,6 +497,18 @@ describe('error explained', () => {
     expect(asked).toHaveLength(1)
   })
 
+  test('status counts the explanations sent', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    on('prompt.compose', () => ({ sections: [] }))
+    await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
+    await $.tool.call({ tool: 'Bash', command: 'cat b', tool_use_id: 'b2' })
+    await clock.settle()
+    const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
+    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Erros explicados pelo Haiku nesta carga: 2 de 20\./)
+  })
+
   test('the 21st error is not sent', async ($, on) => {
     mock.store(on)
     const clock = mock.clock(on)

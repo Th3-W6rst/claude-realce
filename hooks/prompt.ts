@@ -5,6 +5,7 @@ import { findMermaid } from './env'
 import { FLAGS, getFlags, getStoredFlags, isMasterOn, type Flags } from './flags'
 import { lastNotifyFailure, lastNotifyWasBanner } from './orient/notify'
 import { updateStatus } from './system/update'
+import { explanationsSent } from './screen/explainError'
 import { currentTheme, type ThemeKind } from './theme'
 import { perfLines } from './perf'
 
@@ -111,6 +112,7 @@ export async function status($: EngineInterface, isFullscreen?: boolean): Promis
       ? 'Ambiente da sessão: ainda não lido.'
       : `Editor dos links: ${env.editor}. Diagramas: ${env.mmdc === null ? 'mmdc não encontrado' : `mmdc em ${env.mmdc}`}.`,
     `Cores: tema ${THEME_NAMES[currentTheme()]}.`,
+    ...(explanationsSent().sent === 0 ? [] : [`Erros explicados pelo Haiku nesta carga: ${explanationsSent().sent} de ${explanationsSent().max}.`]),
     ...(isFullscreen === undefined
       ? []
       : [isFullscreen ? 'Tela cheia: sim.' : 'Tela cheia: não. Rolar pela linha do tempo e pelas fixadas, e selecionar para o /realce explica, pedem "tui": "fullscreen" no settings.json.']),

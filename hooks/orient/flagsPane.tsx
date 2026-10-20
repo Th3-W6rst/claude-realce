@@ -1,6 +1,6 @@
 import type { EngineInterface, On } from 'claude-code'
 
-import { FLAG_GROUPS, FLAGS, getStoredFlags, isMasterOn, setFlag, type FlagId } from '../flags'
+import { FLAG_GROUPS, FLAGS, getStoredFlags, isMasterOn, setFlag, setMaster, type FlagId } from '../flags'
 import { refreshTheme } from '../theme'
 import { SCREEN } from '../palette'
 import { timed } from '../perf'
@@ -31,6 +31,9 @@ export function registerFlagsPane(on: On): void {
     const cells = Math.max(10, e.props.bodyColumns - 3)
     return (
       <Box flexDirection="column">
+        <Button plain key="master" onPress={() => setMaster($, !isOn)}>
+          {isOn ? '[x] Realce ligado' : '[ ] Realce ligado'}
+        </Button>
         {!isOn && <Text color={SCREEN.warn}>Realce desligado: /realce on liga.</Text>}
         {FLAG_GROUPS.map(group => (
           <Box flexDirection="column" marginTop={1}>
