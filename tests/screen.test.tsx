@@ -615,7 +615,9 @@ describe('error explained', () => {
     expect(isAnswerExit('test -f a && echo sim', 'Exit code 1')).toBe(true)
     expect(isAnswerExit('grep x sumiu.txt', 'Exit code 2\ngrep: sumiu.txt: No such file or directory')).toBe(false)
     expect(isAnswerExit('cat x', 'Exit code 1\ncat: x: No such file or directory')).toBe(false)
-    expect(isAnswerExit('which mmdc', '')).toBe(true)
+    // No exit code (a timeout, a sandbox refusal) is no answer.
+    expect(isAnswerExit('which mmdc', '')).toBe(false)
+    expect(isAnswerExit('grep -r x .', 'Command timed out after 2m')).toBe(false)
   })
 
   test('a grep that could not read its file is explained', async ($, on) => {
@@ -672,6 +674,17 @@ describe('focus mode', () => {
     const answered = row('Bash', { command: 'grep -q TODO x.ts' }, { isErrored: true }, 'g1')
     expect(await isHidden(await $.ui.mount({ ...answered, props: { ...answered.props, output: 'Exit code 1' } }))).toBe(true)
     const result = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolResult', requestId: 'g1', props: { tool_use_id: 'g1', tool: 'Bash', output: 'Exit code 1', isErrored: true } })
+    expect(await isHidden(result)).toBe(true)
+  })
+
+  test('foco after a reload hides an answered row and its result alike', async ($, on) => {
+    // From the review: with no tool.call seen (a reload, a resumed session) the row was hidden by its text, the result kept.
+    mock.store(on, { flags: { foco: true } })
+    engineRow(on, 'ToolUse')
+    engineRow(on, 'ToolResult')
+    const answered = row('Bash', { command: 'grep -q TODO y.ts' }, { isErrored: true }, 'g9')
+    expect(await isHidden(await $.ui.mount({ ...answered, props: { ...answered.props, output: 'Exit code 1' } }))).toBe(true)
+    const result = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolResult', requestId: 'g9', props: { tool_use_id: 'g9', tool: 'Bash', output: 'Exit code 1', isErrored: true } })
     expect(await isHidden(result)).toBe(true)
   })
 
@@ -992,6 +1005,25 @@ describe('spinner', () => {
     expect(isAnswerStyle('command -v mmdc')).toBe(true)
     expect(isAnswerStyle('echo "a; grep x"')).toBe(false)
     expect(isAnswerStyle('cat x')).toBe(false)
+    // From the review: a chain whose exit 1 may come from a real failure is no answer.
+    expect(isAnswerStyle('npm run build && grep -q ok dist/out')).toBe(false)
+    expect(isAnswerStyle('grep -q x f || { echo missing; exit 1; }')).toBe(false)
+    expect(isAnswerStyle('cd app && grep -q x f')).toBe(false)
+  })
+
+  test('heredoc bodies and comments are not commands', () => {
+    expect(shellCommands('cat > a.md <<EOF\ntest coverage is low\nnpm test\nEOF\nls')).toEqual([['cat', '>', 'a.md'], ['ls']])
+    expect(shellCommands("cat <<-'END'\n\tnpm test\n\tEND\necho fim")).toEqual([['cat'], ['echo', 'fim']])
+    expect(shellCommands('cat <<< "npm test"')).toEqual([['cat', '<<<', 'npm test']])
+    expect(shellCommands('grep -q x f 2>&1')).toEqual([['grep', '-q', 'x', 'f', '2>&1']])
+    expect(shellCommands('npm test &> log.txt; echo $?')).toEqual([['npm', 'test', '&>', 'log.txt'], ['echo', '$?']])
+    expect(shellCommands('make 2>&1 |& tee out')).toEqual([['make', '2>&1'], ['tee', 'out']])
+    expect(isAnswerStyle('grep -q x f 2>&1')).toBe(true)
+    expect(shellCommands("# don't do this\nnpm test")).toEqual([['npm', 'test']])
+    expect(shellCommands('echo a#b # comment')).toEqual([['echo', 'a#b']])
+    expect(isTestCommand("# don't do this\nnpm test")).toBe(true)
+    expect(isTestCommand('cat > notes.md <<EOF\nnpm test\nEOF')).toBe(false)
+    expect(isTestCommand('PYTHONPATH=./src pytest -q')).toBe(true)
   })
 
   test('a test command is told apart from any other', () => {

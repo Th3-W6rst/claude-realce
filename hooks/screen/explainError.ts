@@ -25,18 +25,27 @@ export const explanationsSent = () => ({ sent, max: MAX_PER_LOAD })
 
 export const errorKey = (command: string, line: string) => `${command}\n${line}`
 
-/** Whether any part of the command is one whose failure is an answer (`grep x f`, `test -f a && …`, `command -v`). */
+// Commands that do not fail on their own: beside an answer they leave the exit status the answer's.
+const QUIET_COMMANDS: ReadonlySet<string> = new Set(['echo', 'printf', 'true', ':', 'head', 'tail', 'wc', 'sort', 'uniq', 'cut', 'tr'])
+
+const isAnswerCommand = ([first = '', second]: readonly string[]) => ANSWER_COMMANDS.has(first) || (first === 'command' && second === '-v')
+
+/**
+ * Whether the command's failure can only be an answer (`grep x f`, `test -f a && echo sim`, `command -v`): one of its
+ * parts asks, and every other one cannot fail. `npm run build && grep -q ok` exiting 1 may be the build.
+ */
 export function isAnswerStyle(command: string): boolean {
-  return shellCommands(command).some(([first = '', second]) => ANSWER_COMMANDS.has(first) || (first === 'command' && second === '-v'))
+  const parts = shellCommands(command)
+  return parts.some(isAnswerCommand) && parts.every(part => isAnswerCommand(part) || QUIET_COMMANDS.has(part[0] ?? ''))
 }
 
 /**
  * A failure that is an answer: an answer-style command that exited 1 (no match, false, a difference). Exit 2 is
- * their real error (`grep x sumiu.txt`); output with no exit code is taken as the usual 1.
+ * their real error (`grep x sumiu.txt`), and output with no exit code (a timeout, a refusal) is no answer either.
  */
 export function isAnswerExit(command: string, output: string): boolean {
   const code = /^Exit code (\d+)/m.exec(output)?.[1]
-  return isAnswerStyle(command) && (code === undefined || code === '1')
+  return code === '1' && isAnswerStyle(command)
 }
 
 // The calls of this load whose failure was an answer, for the result rows that carry no command to tell.

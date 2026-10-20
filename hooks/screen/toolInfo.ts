@@ -76,13 +76,16 @@ export function shortPath(path: string, cwd: string | null): string {
 
 /**
  * A shell command's simple commands, each as its words: split at `&&`, `||`, `;`, `|`, `&`, newlines and parentheses
- * outside quotes, the quotes dropped from the words. Enough to read what runs, not a shell.
+ * outside quotes, the quotes dropped from the words; heredoc bodies and `#` comments are no commands. Enough to read
+ * what runs, not a shell.
  */
 export function shellCommands(command: string): string[][] {
   const commands: string[][] = []
   let words: string[] = []
   let word: string | null = null
   let quote: '"' | "'" | null = null
+  // Heredocs opened on the current line, whose bodies start after its newline.
+  let heredocs: { delimiter: string; isIndented: boolean }[] = []
   const endWord = () => {
     if (word !== null) words.push(word)
     word = null
@@ -102,8 +105,35 @@ export function shellCommands(command: string): string[][] {
       quote = c
       word ??= ''
     } else if (c === '\\' && i + 1 < command.length) word = (word ?? '') + command[++i]!
-    else if (/\s/.test(c) && c !== '\n') endWord()
-    else if ('&|;()\n'.includes(c)) endCommand()
+    else if (c === '#' && word === null) {
+      // A comment runs to the end of its line.
+      const end = command.indexOf('\n', i)
+      i = (end === -1 ? command.length : end) - 1
+    } else if (c === '<' && word === null && command[i + 1] === '<' && command[i + 2] !== '<') {
+      const m = /^<<(-?)\s*(['"]?)([\w.-]+)\2/.exec(command.slice(i))
+      if (m === null) word = c
+      else {
+        heredocs.push({ delimiter: m[3]!, isIndented: m[1] === '-' })
+        i += m[0].length - 1
+      }
+    } else if (c === '\n') {
+      endCommand()
+      // Skip each body to its closing line.
+      let next = i + 1
+      for (const doc of heredocs) {
+        while (next <= command.length) {
+          const end = command.indexOf('\n', next)
+          const line = command.slice(next, end === -1 ? command.length : end)
+          next = end === -1 ? command.length + 1 : end + 1
+          if ((doc.isIndented ? line.replace(/^\t+/, '') : line) === doc.delimiter) break
+        }
+      }
+      heredocs = []
+      i = next - 1
+    } else if (/\s/.test(c)) endWord()
+    // `2>&1`, `>&2` and `&>` redirect: their `&` sends nothing to the background.
+    else if (c === '&' && (command[i - 1] === '>' || command[i - 1] === '<' || command[i + 1] === '>')) word = (word ?? '') + c
+    else if ('&|;()'.includes(c)) endCommand()
     else word = (word ?? '') + c
   }
   endCommand()

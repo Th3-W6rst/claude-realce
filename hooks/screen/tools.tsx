@@ -7,7 +7,7 @@ import { memo } from '../memo'
 import { CODE, SCREEN, type ScreenTone } from '../palette'
 import type { Explanation, TestScore } from '../../types'
 import { CARD_TONE, cardText, commitCards, type CommitCard } from './commit'
-import { isAnswerExit, wasAnswer } from './explainError'
+import { isAnswerExit, rememberAnswer, wasAnswer } from './explainError'
 import { commitFor, explanationFor } from './notes'
 import { formatScore, parseTestSummary } from './score'
 import { asRecord, bashText, EDIT_TOOLS, editCounts, editedPath, shortPath, str } from './toolInfo'
@@ -109,7 +109,10 @@ type CallState = { tool_use_id?: string; tool: string; input: unknown; isErrored
 export function isAnswered(call: CallState): boolean {
   if (!call.isErrored || call.tool !== 'Bash') return false
   if (call.tool_use_id !== undefined && wasAnswer(call.tool_use_id)) return true
-  return typeof call.output === 'string' && /^Exit code \d+/m.test(call.output) && isAnswerExit(str(asRecord(call.input).command) ?? '', call.output)
+  const isAnswer = typeof call.output === 'string' && isAnswerExit(str(asRecord(call.input).command) ?? '', call.output)
+  // Told by its text: kept, so its result row (which carries no command) is told the same.
+  if (isAnswer && call.tool_use_id !== undefined) rememberAnswer(call.tool_use_id)
+  return isAnswer
 }
 
 const hasFailed = (call: CallState): boolean => call.isErrored && !isAnswered(call)

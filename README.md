@@ -12,7 +12,7 @@ Plugin (mod) do Claude Code que deixa a tela mais fácil de ler. Cada recurso te
 *Gerada pelo próprio mod: `/realce demo` e depois `/realce print`; os números da tabela são só de exemplo. No tema
 claro: [demo-claro.png](images/demo-claro.png).*
 
-Versão atual: 0.4.30 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
+Versão atual: 0.4.31 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (dúvidas e problemas em *Issues*).
 
 ## Requisitos
@@ -55,7 +55,8 @@ e reabra o Claude Code. O `/realce status` avisa quando há versão nova.
    com todos os recursos, sem chamar o modelo.
 2. `/realce` abre o **painel de flags**. `/realce painel` abre o **painel da sessão**, que também abre sozinho num
    terminal com 144 colunas ou mais.
-3. Peça ao Claude: *crie soma.py com uma função soma e um teste pytest, e rode o teste*. A linha que fecha o turno (a
+3. Peça ao Claude: *crie soma.py com uma função soma e um teste pytest, e rode o teste*. Enquanto o teste roda, o
+   spinner diz "Rodando os testes" (e, da segunda vez, quanto levou na anterior). A linha que fecha o turno (a
    **régua**: hora, duração, ferramentas) ganha o selo `✔ provado`. Se ele editar e disser que terminou sem testar,
    o selo é `⚠ sem prova`.
 4. `/realce ajuda` lista os comandos; `/realce status` mostra o que está ligado.
@@ -136,7 +137,7 @@ desliga o recurso (o comando passa a dizer como religar).
 | `==fato==` | O fato mais importante da resposta | marca-texto amarelo |
 | `{+texto+}` | Deu certo | verde |
 | `{-texto-}` | Deu errado | vermelho sobre vinho |
-| `{!texto!}` | Precisa da sua atenção ou decisão | amarelo |
+| `{!texto!}` | Precisa da sua atenção ou decisão; também sobe para a faixa "Precisa de você" acima do prompt | amarelo |
 | `> [!DECISÃO] …` | Caixa de decisão (também `RISCO`, `FEITO`, `RESUMO`, `NOTA`, `DICA`) | cor do tipo |
 
 Com o selo ligado, o Claude também sabe que a régua mostra se ele rodou os testes antes de dizer que terminou. Com o

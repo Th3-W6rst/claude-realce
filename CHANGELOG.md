@@ -2,6 +2,13 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.31
+- Um `grep` no fim de uma cadeia (`npm run build && grep -q ok`) não esconde mais uma falha real do build: só conta
+  como resposta quando nada mais no comando pode falhar.
+- Saída sem código de erro (tempo esgotado, recusa) não conta como resposta.
+- O spinner ignora o corpo de heredocs e comentários `#`, e entende `PYTHONPATH=./src pytest` e `2>&1`.
+- Modo foco: depois de recarregar o mod, a linha e o resultado de um `grep` sem resultado somem juntos.
+
 ## 0.4.30
 - Correção da 0.4.29: num grupo dobrado, um `grep` com erro de verdade volta a contar "com erro".
 

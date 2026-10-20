@@ -56,9 +56,11 @@ function programWords(command: readonly string[]): string[] {
   const words = [...command]
   let isAfterWrapper = false
   while (words.length > 0) {
-    const first = baseName(words[0]!)
+    // An assignment's value may hold a path (`PYTHONPATH=./src`): it is read before the program's file name.
+    const raw = words[0]!
+    const first = baseName(raw)
     const second = words[1] ?? ''
-    if (/^\w+=/.test(first) || (isAfterWrapper && first.startsWith('-'))) words.shift()
+    if (/^\w+=/.test(raw) || (isAfterWrapper && first.startsWith('-'))) words.shift()
     else if (WRAPPERS.has(first)) {
       words.shift()
       isAfterWrapper = true
