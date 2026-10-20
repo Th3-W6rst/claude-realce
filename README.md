@@ -72,7 +72,7 @@ e reabra o Claude Code.
 | `/realce ajuda` | Lista os comandos |
 | `/realce on` / `/realce off` | Liga ou desliga tudo, sem perder a escolha de cada flag |
 | `/realce <recurso> on\|off` | Liga ou desliga um recurso (`/realce coluna off`) |
-| `/realce painel` | Abre ou fecha o painel lateral da sessão (plano, linha do tempo, fixadas, arquivos, falhas, agentes) |
+| `/realce painel` | Abre ou fecha o painel lateral da sessão (uso, plano, linha do tempo, fixadas, arquivos, falhas, agentes) |
 | `/realce foco` | Liga ou desliga o modo foco: esconde as ferramentas concluídas sem erro |
 | `/realce explica` | Explica no painel o trecho selecionado na conversa (Haiku) |
 | `/realce fixar` | Fixa no painel a resposta selecionada, ou a última; de novo, desafixa |
@@ -116,7 +116,7 @@ e reabra o Claude Code.
 | Orientação | `perguntas` | Cabeçalho de pergunta: Uma linha colorida acima das perguntas do Claude | ligado |
 | Orientação | `fixar` | Fixar respostas: /realce fixar guarda uma resposta no painel | ligado |
 | Orientação | `explica` | Explica isso: /realce explica explica o trecho selecionado (Haiku) | ligado |
-| Orientação | `limite` | Alerta de limite: Faixa quando o limite de uso ou o contexto se aproxima do fim | ligado |
+| Orientação | `limite` | Uso e limites: Uso no painel; faixa quando um limite ou o contexto se aproxima do fim | ligado |
 | Sistema | `tema` | Segue o tema: Cores para fundo claro, daltônicos e ANSI, pelo tema do Claude Code | ligado |
 | Sistema | `print` | Print bonito: /realce print salva a última resposta como imagem | ligado |
 | Sistema | `demo` | Demonstração: /realce demo mostra tudo o que o mod faz | ligado |

@@ -1,5 +1,9 @@
 # Novidades do realce
 
+## 0.4.10
+- Painel da sessão com uma linha de uso: contexto e janelas de 5 h e de 7 dias, coloridas pelo quanto já foi usado
+  (flag `limite`, agora "Uso e limites").
+
 ## 0.4.9
 - Alerta de limite: o contexto avisa a partir de 90% (as janelas de uso, de 80%); a renovação a mais de um dia diz a
   data; ocultar vale só para aquela fonte; enquanto o Claude trabalha, a barra do plano vem antes.

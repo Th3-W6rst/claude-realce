@@ -3,7 +3,7 @@ import type { Engine } from 'claude-code/testing'
 import type { AgentInfo, On, PromptEditInput, RenderPropsOf } from 'claude-code'
 
 import { awaySummary, awayText } from '../hooks/orient/away'
-import { limitText, limitWarning } from '../hooks/orient/limits'
+import { limitText, limitWarning, usageLine } from '../hooks/orient/limits'
 import { togglePin } from '../hooks/orient/pins'
 import { questionHeader } from '../hooks/orient/question'
 import { extractPending } from '../hooks/orient/pending'
@@ -852,6 +852,22 @@ describe('usage limit', () => {
     expect(await ui.find({ text: /Limite de 5 h/ })).toBeUndefined()
     await $.session.measure(measure([{ kind: 'five_hour', percentUsed: 91 }]))
     expect(await ui.find({ text: '⚠ Limite de 5 h em 91%' })).toBeDefined()
+  })
+
+  test('the usage line names the context and each window', () => {
+    expect(usageLine({ context: 30, windows: [{ label: '5 h', percent: 46 }, { label: '7 dias', percent: 12 }] }).map(s => s.text).join('')).toBe('Contexto 30% · 5 h 46% · 7 dias 12%')
+    expect(usageLine({ context: null, windows: [] })).toEqual([])
+  })
+
+  test('the session pane shows the usage once measured', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    engine(on)
+    on('session.measure', ($, e) => ({ changed: e.changed }))
+    await $.session.measure(measure([{ kind: 'five_hour', percentUsed: 46 }, { kind: 'seven_day', percentUsed: 12 }]))
+    const ui = await mountPane($)
+    expect(await ui.find({ text: 'Uso' })).toBeDefined()
+    expect(await ui.find({ text: /Contexto 30% · 5 h 46% · 7 dias 12%/ })).toBeDefined()
   })
 
   test('limite off shows nothing', async ($, on) => {

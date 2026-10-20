@@ -53,7 +53,7 @@ export const FLAGS: readonly FlagSpec[] = [
   { id: 'demo', group: 'Sistema', label: 'Demonstração', description: '/realce demo mostra tudo o que o mod faz', isDefaultOn: true },
   { id: 'atualizacao', group: 'Sistema', label: 'Aviso de atualização', description: 'Avisa quando sair versão nova no GitHub', isDefaultOn: true },
   // Added after the 36 keys were given out: last in the table, so no earlier flag's key moves.
-  { id: 'limite', group: 'Orientação', label: 'Alerta de limite', description: 'Faixa quando o limite de uso ou o contexto se aproxima do fim', isDefaultOn: true },
+  { id: 'limite', group: 'Orientação', label: 'Uso e limites', description: 'Uso no painel; faixa quando um limite ou o contexto se aproxima do fim', isDefaultOn: true },
 ]
 
 export const FLAG_GROUPS: readonly FlagGroup[] = ['Texto', 'Código', 'Ferramentas', 'Orientação', 'Sistema']

@@ -1,11 +1,14 @@
 import { atom, update } from 'claude-code'
 import type { Args, EngineInterface, On } from 'claude-code'
 
-import type { LimitWarning } from '../../types'
+import type { LimitWarning, UsageReading } from '../../types'
+import { SCREEN } from '../palette'
+import type { Segment } from './fit'
 import { getFlags } from '../flags'
 import { formatClock, formatDayMonth } from '../format'
 
 const LIMIT = atom({ plugin: 'realce', key: 'limit' } as const, null)
+const USAGE = atom({ plugin: 'realce', key: 'usage' } as const, null)
 
 const WARN_AT = 80
 // A long session sits in the 80s of its context for a while; the warning waits for the 90s there.
@@ -42,6 +45,19 @@ export function limitText(w: LimitWarning, tzOffsetMinutes: number | undefined, 
   return `⚠ Limite de ${w.label} em ${w.percent}% · renova ${day}às ${formatClock(w.resetsAt, tzOffsetMinutes)}`
 }
 
+const tone = (percent: number) => (percent >= 95 ? SCREEN.bad : percent >= WARN_AT ? SCREEN.warn : SCREEN.dim)
+
+/** 'Contexto 30% · 5 h 46% · 7 dias 12%', each part in the color its fill calls for; nothing before a reading. */
+export function usageLine(u: UsageReading): Segment[] {
+  const parts = [...(u.context === null ? [] : [{ label: 'Contexto', percent: u.context }]), ...u.windows]
+  return parts.flatMap((p, i) => [...(i > 0 ? [{ text: ' · ', color: SCREEN.dim }] : []), { text: `${p.label} ${p.percent}%`, color: tone(p.percent) }])
+}
+
+const readingOf = (e: Pick<Args<'session.measure'>, 'context' | 'rateLimits'>): UsageReading => ({
+  context: e.context.percent === undefined ? null : Math.round(e.context.percent),
+  windows: e.rateLimits.map(r => ({ label: WINDOW_NAMES[r.kind] ?? r.kind, percent: Math.round(r.percentUsed) })),
+})
+
 export async function hideLimit($: EngineInterface, w: LimitWarning): Promise<void> {
   hidden = { label: w.label, step: stepOf(w.percent) }
   await update($, LIMIT, () => null)
@@ -53,6 +69,8 @@ async function noteMeasure($: EngineInterface, e: Args<'session.measure'>): Prom
     await update($, LIMIT, current => (current === null ? current : null))
     return
   }
+  const reading = readingOf(e)
+  await update($, USAGE, current => (JSON.stringify(current) === JSON.stringify(reading) ? current : reading))
   const warning = limitWarning(e)
   if (warning === null) {
     // A reading that left a unit out says nothing about it: only one that measured it clears what was hidden.

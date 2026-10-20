@@ -1,7 +1,8 @@
 import { atom, read } from 'claude-code'
 import type { On } from 'claude-code'
 
-import type { AgentRow, ExplainPanel, FileTouch, Pin, PlanItem, TimelineRow } from '../../types'
+import type { AgentRow, ExplainPanel, FileTouch, Pin, PlanItem, TimelineRow, UsageReading } from '../../types'
+import { usageLine } from './limits'
 import { formatClock } from '../format'
 import { SCREEN, type ScreenTone } from '../palette'
 import { fitEnd, fitSegments, fitStart, type Segment } from './fit'
@@ -19,6 +20,7 @@ const ENV = atom({ plugin: 'realce', key: 'env' } as const, null)
 const TIMELINE = atom({ plugin: 'realce', key: 'timeline' } as const, [])
 const EXPLAIN = atom({ plugin: 'realce', key: 'explain' } as const, null)
 const PINS = atom({ plugin: 'realce', key: 'pins' } as const, [])
+const USAGE = atom({ plugin: 'realce', key: 'usage' } as const, null)
 
 // A literal, so the module scan can name the pane's matcher; the type ties it to the toggle's id.
 const PANE_ID: typeof SESSION_PANE = 'realce-sessao'
@@ -76,7 +78,7 @@ export function registerSessionPane(on: On): void {
     const { Box, Text, Button } = $.ui.resolve(e)
     const cols = e.props.bodyColumns
     const flags = await getFlags($)
-    const [pending, plan, files, failures, agents, env, timeline, explain, pins] = await Promise.all([
+    const [pending, plan, files, failures, agents, env, timeline, explain, pins, usage] = await Promise.all([
       read($, PENDING),
       read($, PLAN),
       read($, FILES),
@@ -86,9 +88,10 @@ export function registerSessionPane(on: On): void {
       flags.linha ? read($, TIMELINE) : Promise.resolve([] as TimelineRow[]),
       flags.explica ? read($, EXPLAIN) : Promise.resolve(null as ExplainPanel | null),
       flags.fixar ? read($, PINS) : Promise.resolve([] as Pin[]),
+      flags.limite ? read($, USAGE) : Promise.resolve(null as UsageReading | null),
     ])
     const items = pending?.items ?? []
-    if (plan.length + items.length + files.length + failures.length + agents.length + timeline.length + pins.length === 0 && explain === null) {
+    if (plan.length + items.length + files.length + failures.length + agents.length + timeline.length + pins.length === 0 && explain === null && usage === null) {
       return <Text dimColor>Nada por aqui ainda.</Text>
     }
     const row = (segments: readonly Segment[]) => (
@@ -101,6 +104,12 @@ export function registerSessionPane(on: On): void {
     const sorted = [...agents].sort((a, b) => Number(ACTIVE_AGENT.has(b.status)) - Number(ACTIVE_AGENT.has(a.status)))
     return (
       <Box flexDirection="column" width={cols}>
+        {usage !== null && usageLine(usage).length > 0 && (
+          <Box flexDirection="column" marginBottom={1}>
+            {heading('Uso')}
+            {row(usageLine(usage))}
+          </Box>
+        )}
         {explain !== null && (
           <Box flexDirection="column" marginBottom={1}>
             {heading('Explicação')}

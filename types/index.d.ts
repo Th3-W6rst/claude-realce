@@ -28,6 +28,8 @@ export type Pin = { requestId: string; at: number; preview: string }
 
 export type LimitWarning = { kind: 'rate' | 'context'; label: string; percent: number; resetsAt: number | null }
 
+export type UsageReading = { context: number | null; windows: { label: string; percent: number }[] }
+
 export type FileTouch = { path: string; added: number; removed: number; edits: number; at: number }
 
 export type Failure = { command: string; line: string; at: number }
@@ -41,7 +43,7 @@ export type AgentRow = { id: string; type: string; description: string; status: 
 // The engine's scan lists what each file reads and writes, so every file declares the atoms it uses itself:
 // `const X = atom({ plugin: 'realce', key: '<key>' } as const, <initial>)`, with these initial values:
 // diagrams {}, env null, turn null, turns {}, files [], failures [], pending null, plan [], agents [],
-// paneOpen false, explanations {}, commits {}, away null, timeline [], explain null, pins [], limit null; folds is a family, read as `{ plugin: 'realce', key: 'folds', id }`.
+// paneOpen false, explanations {}, commits {}, away null, timeline [], explain null, pins [], limit null, usage null; folds is a family, read as `{ plugin: 'realce', key: 'folds', id }`.
 declare module 'claude-code' {
   interface PluginState {
     realce: {
@@ -64,6 +66,7 @@ declare module 'claude-code' {
       explain: ExplainPanel | null
       pins: Pin[]
       limit: LimitWarning | null
+      usage: UsageReading | null
     }
   }
 }
