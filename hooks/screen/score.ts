@@ -156,7 +156,7 @@ export function parseTestSummary(output: string): TestScore | null {
   return best?.score ?? null
 }
 
-function formatSeconds(seconds: number): string {
+export function formatSeconds(seconds: number): string {
   if (seconds >= 60) return formatDuration(seconds * 1000)
   return `${formatDecimal(seconds, seconds < 10 ? 2 : 1).replace(/,?0+$/, '')}s`
 }

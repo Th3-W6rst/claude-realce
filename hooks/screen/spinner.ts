@@ -4,6 +4,7 @@ import type { Args, EngineInterface, On, RenderPropsOf } from 'claude-code'
 import type { Activity, RunningCall } from '../../types'
 import { getFlags, isMasterOn } from '../flags'
 import { timed } from '../perf'
+import { formatSeconds } from './score'
 import { asRecord, EDIT_TOOLS, editedPath, shellCommands, str } from './toolInfo'
 
 // The main loop's calls still running, by tool_use_id: the one row that reads it is the spinner.
@@ -99,6 +100,17 @@ export function isTestCommand(command: string): boolean {
   return shellCommands(command).some(isTestRun)
 }
 
+// How long each test command took when it last printed its time, for the next run of the same command.
+const lastTestSeconds = new Map<string, number>()
+const MAX_REMEMBERED = 50
+
+/** A test run settled with its time: the next run of the same command says it. */
+export function rememberTestTime(command: string, seconds: number): void {
+  lastTestSeconds.delete(command)
+  lastTestSeconds.set(command, seconds)
+  if (lastTestSeconds.size > MAX_REMEMBERED) lastTestSeconds.delete(lastTestSeconds.keys().next().value!)
+}
+
 const TARGET_CHARS = 32
 const cut = (text: string): string => (text.length > TARGET_CHARS ? `${text.slice(0, TARGET_CHARS - 1)}…` : text)
 
@@ -124,7 +136,12 @@ export function activityOf(call: { tool: string } & Record<string, unknown>): Om
   const path = editedPath(input)
   if (call.tool === 'Read' && path !== null) return { activity: 'read', target: cut(baseName(path)) }
   if (EDIT_TOOLS.has(call.tool)) return { activity: 'edit', target: path === null ? null : cut(baseName(path)) }
-  if (call.tool === 'Bash') return { activity: bashActivity(str(input.command) ?? ''), target: null }
+  if (call.tool === 'Bash') {
+    const command = str(input.command) ?? ''
+    const activity = bashActivity(command)
+    const last = activity === 'test' ? lastTestSeconds.get(command) : undefined
+    return { activity, target: last === undefined ? null : `última: ${formatSeconds(last)}` }
+  }
   if (call.tool === 'Grep' || call.tool === 'Glob') {
     const pattern = str(input.pattern)
     return { activity: 'search', target: pattern === null ? null : `“${cut(pattern)}”` }
@@ -156,11 +173,11 @@ export function runningWord(calls: readonly Omit<RunningCall, 'id'>[]): string |
   if (first === undefined) return null
   if (calls.some(c => c.activity !== first.activity)) return `Executando ${calls.length} ferramentas`
   if (calls.length > 1) return MANY[first.activity]?.(calls.length) ?? DOING[first.activity]
-  // Tests, a commit, a push: the tool row above already shows the command.
-  const hasName = first.target !== null && !['test', 'commit', 'push', 'other'].includes(first.activity)
-  if (!hasName) return DOING[first.activity]
-  // A task is a phrase of its own ("Revisar o diff"), not an object of the verb.
-  return first.activity === 'agent' ? `Delegando: ${first.target}` : `${DOING[first.activity]} ${first.target}`
+  if (first.target === null) return DOING[first.activity]
+  // A task is a phrase of its own ("Revisar o diff"), not an object of the verb; a test run's is its last time.
+  if (first.activity === 'agent') return `Delegando: ${first.target}`
+  if (first.activity === 'test') return `${DOING.test} (${first.target})`
+  return `${DOING[first.activity]} ${first.target}`
 }
 
 /** Before a main-loop call runs: the spinner names it. Subagents' calls run under their own row. */

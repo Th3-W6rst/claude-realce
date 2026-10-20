@@ -9,6 +9,7 @@ import { loadNotes, setCommit } from './notes'
 import { maybeExplain } from './explainError'
 import { sealOf } from './seal'
 import { asRecord, bashText, EDIT_TOOLS, editCounts, editedPath, failureLine, hasBashEdits, str } from './toolInfo'
+import { rememberTestTime } from './spinner'
 import { rememberTurn } from './turns'
 
 // The screen area's share of the session's shared events. hooks/events.ts calls each by name (the engine follows $
@@ -53,6 +54,7 @@ export async function screenToolCall($: EngineInterface, e: Args<'tool.call'>, r
   const path = EDIT_TOOLS.has(e.tool) && !isError ? editedPath(e) : null
   const output = e.tool === 'Bash' ? (str(result.text) ?? bashText(result.result)) : ''
   const tests = e.tool === 'Bash' ? parseTestSummary(output) : null
+  if (tests?.seconds !== undefined && e.tool === 'Bash') rememberTestTime(e.command, tests.seconds)
   const isEdit = path !== null || (e.tool === 'Bash' && !isError && hasBashEdits(result.result))
 
   if ((await read($, TURN)) !== null) {

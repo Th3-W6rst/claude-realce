@@ -983,6 +983,41 @@ describe('spinner', () => {
     expect(word).toBe('Executando')
   })
 
+  test('a test run says how long the same command took last time', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    let calls = 0
+    let release = () => {}
+    const held = new Promise<void>(resolve => (release = resolve))
+    let releaseOther = () => {}
+    const heldOther = new Promise<void>(resolve => (releaseOther = resolve))
+    on('tool.call', async () => {
+      calls++
+      if (calls === 2) await held
+      if (calls === 3) await heldOther
+      return { result: BASH_OK('===== 12 passed in 6.20s =====') }
+    })
+    let word = ''
+    on('ui.render', { component: 'Spinner' }, ($, e) => {
+      word = e.props.word
+      const { Text } = $.ui.resolve(e)
+      return <Text>engine</Text>
+    })
+    const spinning = { word: 'Sauteing', suffix: '…', mode: 'tool-use' as const, message: null }
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Spinner', props: spinning })
+    await $.tool.call({ tool: 'Bash', command: 'pytest -q' })
+    const again = $.tool.call({ tool: 'Bash', command: 'pytest -q' })
+    await ui.redraw(spinning)
+    expect(word).toBe('Rodando os testes (última: 6,2s)')
+    release()
+    await again
+    const other = $.tool.call({ tool: 'Bash', command: 'pytest -q tests/other' })
+    await ui.redraw(spinning)
+    expect(word).toBe('Rodando os testes')
+    releaseOther()
+    await other
+  })
+
   test('a call whose end never came is dropped when the turn ends', async ($, on) => {
     // A reload cancels the old module's pending work: its finally never runs, and the entry would outlive the turn.
     mock.store(on)
