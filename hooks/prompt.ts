@@ -38,7 +38,10 @@ A mark wraps the few words it colors, never a tag in front of a sentence; never 
     flag: 'selo',
     text: '- The terminal seals each turn you end by saying the work is done, fixed or passing: ✔ when tests ran after your last edit and passed, ⚠ when none ran since it, ✖ when they failed. Run the tests before you claim it.',
   },
-  { flag: 'deltas', text: '- Write a change as `de X para Y` or `X → Y`, both numbers in the same unit; the terminal adds the difference.' },
+  {
+    flag: 'deltas',
+    text: '- Write a change as `de X para Y`, or `X ms → Y ms` with a unit, both numbers in the same unit; the terminal adds the difference. An arrow between bare numbers stays a mapping (input → output) and gets none.',
+  },
   {
     flag: 'diagramas',
     needsMermaid: true,

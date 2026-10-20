@@ -276,8 +276,8 @@ describe('deltas', () => {
 
   test('falls, arrows and decimals', () => {
     expect(findDeltas('de 106 para 87')[0]?.label).toBe('(−19)')
-    expect(findDeltas('87 → 106')[0]).toEqual({ end: 8, label: '(+19)', arrow: { start: 3, end: 4 } })
-    expect(findDeltas('87 -> 106')[0]).toMatchObject({ end: 9, label: '(+19)', arrow: { start: 3, end: 5 } })
+    expect(findDeltas('87 ms → 106 ms')[0]).toEqual({ end: 14, label: '(+19 ms)', arrow: { start: 6, end: 7 } })
+    expect(findDeltas('87 -> 106 ms')[0]).toMatchObject({ end: 12, label: '(+19 ms)', arrow: { start: 3, end: 5 } })
     expect(findDeltas('de 1,5 para 2')[0]?.label).toBe('(+0,5)')
     expect(findDeltas('de 1.5 para 2.25')[0]?.label).toBe('(+0,75)')
     expect(findDeltas('de 10% para 12,5%')[0]).toEqual({ end: 17, label: '(+2,5 p.p.)' })
@@ -289,6 +289,9 @@ describe('deltas', () => {
   test('what only looks like a change has no delta', () => {
     for (const text of ['de 2 GB para 3 MB', 'de 1.234 para 1.300', 'de 87 para', 'versão 2.1.303 → 2.1.304', 'de 5 para 5', 'de 10% para 12', 'de 87 para 106x2', 'v1 → v2', 'de 3 maçãs para 5'])
       expect(findDeltas(text)).toEqual([])
+    // An arrow between bare numbers maps an input to an output (seen live: "testa 4 → 8 (+4), -3 → -6 (−3)").
+    for (const text of ['testa 4 → 8, -3 → -6 e 0 → 0', '87 → 106', 'f(2) -> 4'])
+      expect([text, findDeltas(text)]).toEqual([text, []])
   })
 
   test('numbers parse with one decimal mark and never an ambiguous thousand', () => {
@@ -304,7 +307,7 @@ describe('deltas', () => {
   test('the delta is a span of its own', () => {
     expect(kindsOf('de 87 para 106')).toContainEqual([' (+19)', 'delta'])
     expect(kindsOf('de 87 para 106')).toContainEqual(['106', 'number'])
-    expect(kindsOf('87 → 106')).toContainEqual(['→', 'delta'])
+    expect(kindsOf('87 ms → 106 ms')).toContainEqual(['→', 'delta'])
     expect(kindsOf('de **87** para **106**').map(k => k[1])).not.toContain('delta')
   })
 
@@ -351,7 +354,7 @@ describe('enfase off', () => {
 
 describe('streaming', () => {
   const FULL = [
-    '## Título', '', 'de 87 para 106 e 87 → 106.', '', '> [!DECISÃO] Subir?', '> Falta o {!GO!}.', '',
+    '## Título', '', 'de 87 para 106 e 87 ms → 106 ms.', '', '> [!DECISÃO] Subir?', '> Falta o {!GO!}.', '',
     '| a | b |', '|---|--:|', '| `x|y` | 12,5% |', '', '- [x] feito', '  - sub', '', '```ts', 'const a = 1', '```',
   ].join('\n')
 

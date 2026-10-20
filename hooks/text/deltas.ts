@@ -1,4 +1,4 @@
-// "de 87 para 106" and "87 → 106" gain their difference, "(+19)": a change read at a glance.
+// "de 87 para 106" and "87 ms → 106 ms" gain their difference, "(+19)": a change read at a glance.
 
 /** `end`: just past the second number (and its unit); `arrow`: where the arrow is, for the arrow form. */
 export type Delta = { end: number; label: string; arrow?: { start: number; end: number } }
@@ -38,6 +38,8 @@ export function scanDeltas(text: string): (Delta & { start: number })[] {
   const out: (Delta & { start: number })[] = []
   for (const m of text.matchAll(DELTA)) {
     const g = m.groups ?? {}
+    // An arrow between bare numbers maps an input to an output ("4 → 8"): only with a unit is it a change.
+    if (g.arrow !== undefined && parseNumber(g.to2 ?? '')?.unit === '') continue
     const label = deltaLabel(g.from1 ?? g.from2 ?? '', g.to1 ?? g.to2 ?? '')
     if (label === null) continue
     const start = m.index ?? 0

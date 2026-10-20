@@ -2,6 +2,10 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.37
+- Uma seta entre números soltos ("testa 4 → 8") não ganha mais uma diferença falsa: é entrada → saída. A seta
+  com unidade ("22 ms → 9 ms") e o "de X para Y" continuam ganhando.
+
 ## 0.4.36
 - `/realce resumo` leva a explicação da última falha, quando o Haiku já respondeu.
 

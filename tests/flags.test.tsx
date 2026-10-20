@@ -210,6 +210,12 @@ describe('prompt section', () => {
     expect(text).toContain('never a tag in front of a sentence')
   })
 
+  test('an arrow is taught for changes with a unit only', () => {
+    const text = buildSection(allFlags(true), true)?.text ?? ''
+    expect(text).toContain('`X ms → Y ms`')
+    expect(text).toContain('arrow between bare numbers stays a mapping')
+  })
+
   test('selo tells the model the turn is sealed by its tests', () => {
     expect(buildSection(allFlags(true), true)?.text).toContain('seals each turn')
     expect(buildSection({ ...allFlags(true), selo: false }, true)?.text).not.toContain('seals each turn')
