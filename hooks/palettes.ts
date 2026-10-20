@@ -235,11 +235,12 @@ const LIGHT_ROLES: Roles = {
 const DARK_CB_ROLES: Roles = { ...DARK_ROLES, good: '#56B4E9', goodSoft: '#56B4E9', bad: '#E69F00', badBg: '#3A2A05', warn: '#F0E442' }
 const LIGHT_CB_ROLES: Roles = { ...LIGHT_ROLES, good: '#0072B2', goodSoft: '#0072B2', bad: '#D55E00', badBg: '#FCE6D9' }
 
-// Named colors follow the terminal's own sixteen, made for its background: one table serves light and dark.
+// The engine's theme keys: under an ANSI theme they are the terminal's own sixteen colors, made for its background
+// (a color name like 'green' is a fixed shade, not the terminal's). One table serves light and dark.
 const ansiRoles = (mermaidConfig: MermaidConfig, page: string): Roles => ({
-  good: 'green', goodSoft: 'green', bad: 'red', badBg: undefined, warn: 'yellow', label: 'red', strong: 'magenta',
-  hlFg: 'black', hlBg: 'yellow', code: 'cyan', codeBg: undefined, link: 'blue', number: 'yellow', quote: 'magenta',
-  decorator: 'magenta', property: 'blue', punct: 'gray', italic: undefined, dim: 'gray', rule: 'gray',
+  good: 'success', goodSoft: 'success', bad: 'error', badBg: undefined, warn: 'warning', label: 'error', strong: 'permission',
+  hlFg: 'inverseText', hlBg: 'warning', code: 'suggestion', codeBg: undefined, link: 'ide', number: 'claude', quote: 'merged',
+  decorator: 'merged', property: 'ide', punct: 'inactive', italic: undefined, dim: 'inactive', rule: 'subtle',
   zebra: undefined, page, mermaid: mermaidConfig,
 })
 

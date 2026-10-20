@@ -61,7 +61,9 @@ describe('theme', () => {
     expect(PROSE.good.color).toBe('#56B4E9')
     expect(SCREEN.bad).toBe('#E69F00')
     applyTheme('light-ansi')
-    expect(PROSE.good.color).toBe('green')
+    // ANSI themes paint with the theme's own keys: the engine maps those onto the terminal's sixteen colors.
+    expect(PROSE.good.color).toBe('success')
+    expect(SCREEN.dim).toBe('inactive')
     expect(PROSE.bad.backgroundColor).toBeUndefined()
     applyTheme('dark')
     expect(PROSE.good.color).toBe('#00FF41')
@@ -81,7 +83,7 @@ describe('theme', () => {
     mock.clock(on)
     world(on, 'custom:zero-bone-ansi', { '/Users/u/.claude/themes/zero-bone-ansi.json': '{"name":"Zero Bone","base":"light-ansi"}' })
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
-    expect(await goodColor(await mountGood($))).toBe('green')
+    expect(await goodColor(await mountGood($))).toBe('success')
   })
 
   test('auto follows macOS', async ($, on) => {

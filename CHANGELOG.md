@@ -1,5 +1,9 @@
 # Novidades do realce
 
+## 0.4.13
+- Temas ANSI: as cores do realce usam as chaves do tema do Claude Code, que seguem as 16 cores do terminal (antes os
+  nomes de cor viravam tons fixos).
+
 ## 0.4.12
 - Placar e selo de prova também entendem `node --test`, RSpec e Deno (além de pytest, jest, vitest, bun, mocha,
   cargo, go, XCTest e Swift Testing).
