@@ -32,7 +32,7 @@ export type UsageReading = { context: number | null; windows: { label: string; p
 
 export type FileTouch = { path: string; added: number; removed: number; edits: number; at: number }
 
-export type Failure = { command: string; line: string; at: number }
+export type Failure = { command: string; line: string; at: number; toolUseId?: string }
 
 export type PendingItems = { items: string[]; turnId: string }
 

@@ -697,7 +697,8 @@ describe('session tracking', () => {
     await $.tool.call({ tool: 'Bash', command: 'npm test' })
     expect((await $.tool.call(inSubagent({ tool: 'Edit', file_path: '/a/b/z.ts', old_string: 'a', new_string: 'b' }))).deny).toBeUndefined()
     expect(written.files).toEqual([{ path: '/a/b/x.ts', added: 4, removed: 0, edits: 2, at: 1_000 }])
-    expect(written.failures).toEqual([{ command: 'npm test', line: 'Tests:       2 failed, 424 passed, 426 total', at: 1_000 }])
+    expect(written.failures).toMatchObject([{ command: 'npm test', line: 'Tests:       2 failed, 424 passed, 426 total', at: 1_000 }])
+    expect(typeof (written.failures as { toolUseId?: string }[])[0]?.toolUseId).toBe('string')
   })
 
   test('the master switch off tracks nothing', async ($, on) => {

@@ -92,7 +92,7 @@ export async function screenToolCall($: EngineInterface, e: Args<'tool.call'>, r
   }
   if (e.tool === 'Bash' && isError) {
     await maybeExplain($, e.tool_use_id, (str(asRecord(e).command) ?? '').trim(), output, result.result)
-    const failure: Failure = { command: (str(asRecord(e).command) ?? '').trim().slice(0, 300), line: failureLine(output), at }
+    const failure: Failure = { command: (str(asRecord(e).command) ?? '').trim().slice(0, 300), line: failureLine(output), at, toolUseId: e.tool_use_id }
     await update($, FAILURES, failures => [...failures, failure].slice(-MAX_FAILURES))
   }
 }

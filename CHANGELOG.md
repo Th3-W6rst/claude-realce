@@ -1,5 +1,9 @@
 # Novidades do realce
 
+## 0.4.14
+- Painel da sessão: cada arquivo tocado abre no editor (com `caminhos` ligado) e cada falha rola até o seu
+  comando na conversa.
+
 ## 0.4.13
 - Temas ANSI: as cores do realce usam as chaves do tema do Claude Code, que seguem as 16 cores do terminal (antes os
   nomes de cor viravam tons fixos).

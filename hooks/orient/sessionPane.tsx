@@ -3,6 +3,7 @@ import type { On } from 'claude-code'
 
 import type { AgentRow, ExplainPanel, FileTouch, Pin, PlanItem, TimelineRow, UsageReading } from '../../types'
 import { usageLine } from './limits'
+import { pathHref } from '../code/links'
 import { formatClock } from '../format'
 import { SCREEN, type ScreenTone } from '../palette'
 import { fitEnd, fitSegments, fitStart, type Segment } from './fit'
@@ -75,7 +76,7 @@ function agentSegments(a: AgentRow, tzOffsetMinutes: number | undefined): Segmen
 
 export function registerSessionPane(on: On): void {
   on('ui.render', { component: 'Pane', requestId: PANE_ID }, async ($, e) => timed('Pane:sessao', async () => {
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const { Box, Text, Button, Link } = $.ui.resolve(e)
     const cols = e.props.bodyColumns
     const flags = await getFlags($)
     const [pending, plan, files, failures, agents, env, timeline, explain, pins, usage] = await Promise.all([
@@ -165,7 +166,10 @@ export function registerSessionPane(on: On): void {
         {files.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
             {heading(`Arquivos (${files.length})`)}
-            {files.slice(-MAX_FILES).reverse().map(f => row(fileSegments(f, env?.cwd, cols)))}
+            {files
+              .slice(-MAX_FILES)
+              .reverse()
+              .map(f => (flags.caminhos && env !== null ? <Link href={pathHref(f.path, env)}>{row(fileSegments(f, env.cwd, cols))}</Link> : row(fileSegments(f, env?.cwd, cols))))}
           </Box>
         )}
         {failures.length > 0 && (
@@ -173,9 +177,15 @@ export function registerSessionPane(on: On): void {
             {heading(`Falhas (${failures.length})`)}
             {failures.slice(-MAX_FAILURES).reverse().map(f => (
               <Box flexDirection="column">
-                <Text color={SCREEN.bad} wrap="truncate-end">
-                  {fitEnd(f.command, cols)}
-                </Text>
+                {f.toolUseId === undefined ? (
+                  <Text color={SCREEN.bad} wrap="truncate-end">
+                    {fitEnd(f.command, cols)}
+                  </Text>
+                ) : (
+                  <Button plain key={`fail-${f.toolUseId}`} onPress={() => void scrollToRow($, f.toolUseId!)}>
+                    <Text color={SCREEN.bad}>{fitEnd(f.command, cols)}</Text>
+                  </Button>
+                )}
                 <Box paddingLeft={2}>
                   <Text dimColor wrap="truncate-end">
                     {fitEnd(f.line, cols - 2)}

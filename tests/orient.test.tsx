@@ -879,3 +879,25 @@ describe('usage limit', () => {
     expect(await (await mountBand($)).find({ text: /Limite/ })).toBeUndefined()
   })
 })
+
+describe('pane links', () => {
+  test('a touched file opens in the editor, a failure scrolls to its command', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    // The specific tools answer before the engine's catch-all below them.
+    on('tool.call', { tool: 'Edit' }, () => ({ result: { filePath: '/a/b/x.ts', structuredPatch: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, lines: ['-a', '+b'] }] } }))
+    on('tool.call', { tool: 'Bash' }, () => ({ isError: true as const, result: 'Exit code 1\nnope', text: 'Exit code 1\nnope' }))
+    engine(on)
+    startStandIns(on)
+    on('model.complete', () => ({ value: { isAnswered: true, text: 'x', usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }) as never)
+    on('ui.invalidate', () => ({ value: undefined }))
+    on('ui.toast', () => ({ value: undefined }))
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    await $.tool.call({ tool: 'Edit', file_path: '/a/b/x.ts', old_string: 'a', new_string: 'b' })
+    await $.tool.call({ tool: 'Bash', command: 'npm test', tool_use_id: 'b1' })
+    const ui = await mountPane($)
+    const links = (await ui.findAll({ type: 'Link' })).map(l => l.props.href)
+    expect(links).toContain('file:///a/b/x.ts')
+    expect((await ui.find({ key: 'fail-b1' }))?.type).toBe('Button')
+  })
+})
