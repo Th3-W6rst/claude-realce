@@ -50,10 +50,26 @@ describe('commands', () => {
     expect(status).toMatch(/Coluna de leitura/)
   })
 
+  test('/realce status says whether the screen is fullscreen', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    baseSections(on)
+    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Tela cheia: sim\./)
+    const inline = (await $.command.run({ ...RUN, args: 'status', presentation: { isFullscreen: false, columns: 120 } })).text ?? ''
+    expect(inline).toMatch(/Tela cheia: não\. Rolar pela linha do tempo e pelas fixadas, e selecionar para o \/realce explica, pedem "tui": "fullscreen" no settings\.json\./)
+  })
+
+  test('/realce ajuda lists every command', async ($, on) => {
+    mock.store(on)
+    const text = (await $.command.run({ ...RUN, args: 'ajuda' })).text ?? ''
+    for (const word of ['/realce on', '/realce painel', '/realce foco', '/realce explica', '/realce fixar', '/realce print', '/realce demo', '/realce status']) expect(text).toContain(word)
+    expect(text.split('\n')[0]).toBe('Comandos do realce:')
+  })
+
   test('/realce with anything else answers the usage', async ($, on) => {
     mock.store(on)
     const text = (await $.command.run({ ...RUN, args: 'xyz' })).text ?? ''
-    expect(text).toMatch(/^Uso: \/realce \[on\|off\|status\|painel\|foco\|explica\|fixar\|print\|demo\|<recurso> on\|off\]/)
+    expect(text).toMatch(/^Uso: \/realce \[ajuda\|on\|off\|status\|painel\|foco\|explica\|fixar\|print\|demo\|<recurso> on\|off\]/)
     expect(text).toMatch(/coluna/)
   })
 

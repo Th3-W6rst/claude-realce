@@ -3,6 +3,7 @@ import type { Args, EngineInterface } from 'claude-code'
 import { getFlags } from '../flags'
 
 const REMOTE = 'https://raw.githubusercontent.com/Th3-W6rst/claude-realce/main/.claude-plugin/plugin.json'
+const CHANGELOG = 'https://github.com/Th3-W6rst/claude-realce/blob/main/CHANGELOG.md'
 const DAY_MS = 24 * 3_600_000
 // The public marketplace: what a copy not installed from a marketplace cache (a --plugin-dir run) updates from.
 const PUBLIC_MARKETPLACE = 'claude-realce'
@@ -74,7 +75,7 @@ async function runCheck($: EngineInterface): Promise<void> {
     lastStatus = `Atualização: em dia (${local}).`
     return
   }
-  lastStatus = `Atualização: ${remote} disponível (instalada ${local}).`
+  lastStatus = `Atualização: ${remote} disponível (instalada ${local}). Novidades: ${CHANGELOG}`
   const marketplace = marketplaceOf($.plugin.root)
   $.ui.toast(`realce ${remote} disponível: claude plugin marketplace update ${marketplace} e claude plugin update realce@${marketplace}`)
 }

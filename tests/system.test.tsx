@@ -25,6 +25,11 @@ describe('print html', () => {
     expect(replyHtml('levou 102761 ms', PALETTES.dark, () => null, { numeros: false })).not.toContain('(1m 42s)')
   })
 
+  test('a picture whose path has a space is still found', () => {
+    const html = replyHtml('```mermaid\ngraph TD\n  A-->B\n```', PALETTES.dark, () => ({ file: '/Users/Ana Paula/.cache/realce/diagrams/x.png', width: 720, height: 724 }))
+    expect(html).toContain('<img src="file:///Users/Ana%20Paula/.cache/realce/diagrams/x.png"')
+  })
+
   test('a ready diagram is its picture', () => {
     const html = replyHtml('```mermaid\ngraph TD\n  A-->B\n```', PALETTES.dark, () => ({ file: '/Users/u/.cache/realce/diagrams/x.png', width: 720, height: 724 }))
     expect(html).toContain('<img src="file:///Users/u/.cache/realce/diagrams/x.png"')
@@ -301,7 +306,7 @@ describe('update notice', () => {
     await clock.settle()
     expect(fetched).toEqual([RAW])
     expect(toasts).toContain('realce 0.4.1 disponível: claude plugin marketplace update claude-realce e claude plugin update realce@claude-realce')
-    expect(await status($)).toMatch(/Atualização: 0\.4\.1 disponível \(instalada 0\.4\.0\)\./)
+    expect(await status($)).toMatch(/Atualização: 0\.4\.1 disponível \(instalada 0\.4\.0\)\. Novidades: https:\/\/github\.com\/Th3-W6rst\/claude-realce\/blob\/main\/CHANGELOG\.md/)
   })
 
   test('the same version says nothing but the status', async ($, on) => {

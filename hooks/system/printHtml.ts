@@ -9,6 +9,9 @@ const PAGE_WIDTH = 960
 const LINE_PX = 22
 const CHARS_PER_LINE = 100
 
+/** A path as a file:// URL: spaces and the like percent-encoded, the slashes kept. */
+export const fileUrl = (path: string) => `file://${encodeURI(path)}`
+
 const escapeHtml = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 function css(p: Paint): string {
@@ -58,7 +61,7 @@ function blockHtml(b: Block, palette: PaletteSet, picture: (source: string) => P
   }
   if (b.type === 'code') {
     const pic = b.language.toLowerCase() === 'mermaid' ? picture(b.source) : null
-    if (pic !== null) return `<img src="file://${escapeHtml(pic.file)}" style="width: ${Math.min(PAGE_WIDTH, pic.width / 2)}px" alt="Diagrama">`
+    if (pic !== null) return `<img src="${escapeHtml(fileUrl(pic.file))}" style="width: ${Math.min(PAGE_WIDTH, pic.width / 2)}px" alt="Diagrama">`
     const back = palette.BG.code === undefined ? '' : `background: ${palette.BG.code}; `
     return `<pre style="${back}padding: 8px 12px; border-radius: 4px; white-space: pre-wrap">${escapeHtml(b.source)}</pre>`
   }

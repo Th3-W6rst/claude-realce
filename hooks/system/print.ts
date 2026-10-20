@@ -8,7 +8,7 @@ import { PALETTES } from '../palettes'
 import { parseBlocks } from '../text/blocks'
 import { getFlags } from '../flags'
 import { currentTheme } from '../theme'
-import { estimateHeight, replyHtml, type Picture } from './printHtml'
+import { estimateHeight, fileUrl, replyHtml, type Picture } from './printHtml'
 
 const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
 
@@ -50,7 +50,7 @@ export async function printCommand($: EngineInterface): Promise<string> {
   const pictures = parseBlocks(reply.text).flatMap(b => (b.type === 'code' ? [picture(b.source)] : [])).filter((p): p is Picture => p !== null)
   const height = estimateHeight(reply.text, pictures)
   const run = await $.process.run(
-    [chrome, '--headless', '--disable-gpu', '--hide-scrollbars', `--screenshot=${base}.png`, `--window-size=1000,${height}`, `file://${base}.html`],
+    [chrome, '--headless', '--disable-gpu', '--hide-scrollbars', `--screenshot=${base}.png`, `--window-size=1000,${height}`, fileUrl(`${base}.html`)],
     { timeoutMs: 30_000 },
   )
   if (run.exitCode !== 0) {

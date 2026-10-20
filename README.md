@@ -7,7 +7,8 @@ recursos tem a sua flag e liga ou desliga na hora.
 
 ![Demonstração do realce](images/demo.png)
 
-*A imagem foi gerada pelo próprio mod: `/realce demo` e depois `/realce print`.*
+*A imagem foi gerada pelo próprio mod: `/realce demo` e depois `/realce print`. A mesma resposta no tema claro:
+[demo-claro.png](images/demo-claro.png).*
 
 Feito para o terminal (testado no Ghostty com fundo `#111111`). Nas outras superfícies (desktop, mobile) o mod só
 converte as marcas do Claude em negrito comum.
@@ -34,7 +35,7 @@ Vem com todos os recursos ligados, menos o modo foco e o som. `/realce` abre o p
 o que cada um faz. As marcas
 coloridas chegam ao Claude a partir da primeira sessão aberta depois da instalação.
 
-Para atualizar:
+O que muda em cada versão está no [CHANGELOG](CHANGELOG.md). Para atualizar:
 
 ```sh
 claude plugin marketplace update claude-realce
@@ -59,7 +60,8 @@ e reabra o Claude Code.
 - **Painel lateral:** abre sozinho com o terminal a partir de 144 colunas; mais estreito, espera até caber.
 - **Tema:** as cores seguem o tema do Claude Code (`/config`): escuro, claro, daltônico e ANSI, inclusive temas
   `custom:` pelo campo `base`.
-- **Tela cheia** (`CLAUDE_CODE_NO_FLICKER=1`): para rolar pela linha do tempo e selecionar trechos.
+- **Tela cheia** (`"tui": "fullscreen"` no `~/.claude/settings.json`): para rolar pela linha do tempo e pelas
+  fixadas e selecionar trechos para o `/realce explica`.
 - **Diagramas:** veja [Diagramas](#diagramas); sem o `mmdc`, o recurso fica quieto.
 
 ## Comandos
@@ -67,6 +69,7 @@ e reabra o Claude Code.
 | Comando | O que faz |
 |---|---|
 | `/realce` | Abre o painel de flags: os 36 primeiros recursos têm a sua tecla (letra ou número), Tab e Enter alcançam todos, Esc fecha |
+| `/realce ajuda` | Lista os comandos |
 | `/realce on` / `/realce off` | Liga ou desliga tudo, sem perder a escolha de cada flag |
 | `/realce <recurso> on\|off` | Liga ou desliga um recurso (`/realce coluna off`) |
 | `/realce painel` | Abre ou fecha o painel lateral da sessão (plano, linha do tempo, fixadas, arquivos, falhas, agentes) |

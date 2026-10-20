@@ -90,7 +90,7 @@ const THEME_NAMES: Record<ThemeKind, string> = {
   'light-ansi': 'ANSI claro',
 }
 
-export async function status($: EngineInterface): Promise<string> {
+export async function status($: EngineInterface, isFullscreen?: boolean): Promise<string> {
   const last = lastCompose
   const stored = await getStoredFlags($)
   const off = FLAGS.filter(f => !stored[f.id]).map(f => f.label)
@@ -107,6 +107,9 @@ export async function status($: EngineInterface): Promise<string> {
       ? 'Ambiente da sessão: ainda não lido.'
       : `Editor dos links: ${env.editor}. Diagramas: ${env.mmdc === null ? 'mmdc não encontrado' : `mmdc em ${env.mmdc}`}.`,
     `Cores: tema ${THEME_NAMES[currentTheme()]}.`,
+    ...(isFullscreen === undefined
+      ? []
+      : [isFullscreen ? 'Tela cheia: sim.' : 'Tela cheia: não. Rolar pela linha do tempo e pelas fixadas, e selecionar para o /realce explica, pedem "tui": "fullscreen" no settings.json.']),
     ...(lastNotifyFailure() === null ? [] : [`Último aviso não enviado: ${lastNotifyFailure()}.`]),
     ...(lastNotifyWasBanner() ? ['Último aviso: pelo macOS (o terminal não dá canal ao Claude Code).'] : []),
     ...(updateStatus() === null ? [] : [updateStatus()!]),
