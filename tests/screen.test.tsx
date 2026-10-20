@@ -746,6 +746,13 @@ describe('proof seal', () => {
     for (const text of ['Ainda não está pronto', 'Vou rodar os testes.', 'not done yet', 'O que falta?', 'Não está corrigido ainda.']) expect(claimsDone(text)).toBe(false)
   })
 
+  test('English claims read as the Portuguese ones do: the done callout and tests that pass', () => {
+    for (const text of ['> [!DONE] Shipped', 'Fix: sum the quantities. All 4 tests pass (pytest, 0.03s).', 'The tests pass now.', 'Everything is passing.', 'The suite passes.', 'Resolved.'])
+      expect(claimsDone(text)).toBe(true)
+    for (const text of ["The tests don't pass yet.", 'I will pass the value along.', 'Two tests still fail.', 'It is not resolved.', 'Not passing yet.'])
+      expect(claimsDone(text)).toBe(false)
+  })
+
   test('contracted, short and cross-sentence negations read right', () => {
     for (const text of ["It isn't done yet.", "This isn't fixed.", "It hasn't been implemented.", 'Nem terminei.', 'Não sei se está pronto.', 'Nunca funcionando direito.']) expect(claimsDone(text)).toBe(false)
     for (const text of ['Não encontrei erros. Pronto.', 'Os testes ainda passam.', 'Não achei nada estranho, está pronto.']) expect(claimsDone(text)).toBe(true)

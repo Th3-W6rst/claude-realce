@@ -2,6 +2,11 @@
 
 Versions from October 19 to 20, 2026. Those that only changed internals are left out.
 
+## 0.5.3
+- The proof seal reads English claims: `[!DONE]`, "tests pass", "passing", "resolved". It knew only "all tests pass",
+  so "All 4 tests pass" left the turn with no seal.
+- README: pictures of a real session, and what the mod reads, runs and sends.
+
 ## 0.5.2
 - Perf files (`~/.cache/realce/perf-<session>.json`) a week old are removed when a session starts; they piled up, one
   per session.

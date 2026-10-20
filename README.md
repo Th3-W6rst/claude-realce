@@ -17,7 +17,7 @@ The interface follows Claude Code's language: English, or Portuguese for whoever
 *Drawn by the mod itself, as `/realce print` draws a reply (`/realce demo` shows it in the terminal); the table's
 numbers are just an example. On a light theme: [demo-light.png](images/demo-light.png).*
 
-Current version: 0.5.2 · what's new in the [CHANGELOG](CHANGELOG.md) · repository:
+Current version: 0.5.3 · what's new in the [CHANGELOG](CHANGELOG.md) · repository:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (questions and problems in *Issues*).
 
 ## Requirements
@@ -67,6 +67,16 @@ reopen Claude Code. `/realce status` says when a new version is out.
 4. `/realce help` lists the commands; `/realce status` shows what is on.
 
 A **turn** is one message of yours and everything Claude does until it answers.
+
+## In a session
+
+![A session where Claude fixes a failing test](images/session.png)
+
+*A real session in Ghostty, on a small test project: the reply colored by meaning, the rule that closes the turn, and
+the session pane with usage, turns and files. Below, the same turn in the detailed transcript (ctrl+o): the edit with
+its word diff and the test run's score.*
+
+![The same turn in the detailed transcript](images/session-detail.png)
 
 ## Commands
 
@@ -163,6 +173,25 @@ npx -y @puppeteer/browsers install chrome-headless-shell@154.0.8037.57 --path ~/
 The browser version is the one mermaid-cli 12 asks for; if `mmdc` complains about another, install the one it names.
 Without `mmdc` the feature stays quiet: Claude is not taught to draw diagrams, and mermaid blocks show as code. The
 same browser makes the PNG of `/realce print`.
+
+## What it reads, runs and sends
+
+- **Processes:** `date`, `uname` and `defaults read -g AppleInterfaceStyle` (clock offset, platform, system theme);
+  `which mmdc` and `mmdc` (mermaid-cli) to render diagrams into `~/.cache/realce/diagrams`; `osascript` for a macOS
+  notification when the terminal has no notification channel; `afplay` for a sound (off by default); `find` to locate
+  a headless Chrome for `/realce print` and to remove its own week-old perf files in `~/.cache/realce`; that headless
+  Chrome, to save `/realce print`'s PNG.
+- **Files:** reads its own `plugin.json` and, for a `custom:` theme, `~/.claude/themes/<name>.json`. Writes under
+  `~/.cache/realce/`; `/realce print` writes an HTML page and a PNG to the Desktop.
+- **Network:** one GET of its own `plugin.json` from raw.githubusercontent.com, at most once a day, to say when a new
+  version is out (`/realce updates off` stops it).
+- **Model:** the Haiku, to explain a failed command (up to 20 per session; `/realce errors off` stops it) and a
+  selection on `/realce explain`.
+- **Prompt:** one system prompt section that teaches Claude the marks; `/realce demo` submits one prompt, which the mod
+  answers itself, without the model.
+- **Environment:** reads `HOME` and `COLORTERM`.
+
+Every one of these calls goes through [hooks/io.ts](hooks/io.ts); `claude plugin validate .` lists them all.
 
 ## Known limitations
 

@@ -1,7 +1,7 @@
 import type { OpenTurn, Seal } from '../../types'
 
 // Words that say the work is delivered. JS's \b knows only ASCII, so the edges are letters and digits of any script.
-const CLAIM = /(?<![\p{L}\p{N}])(pront[oa]s?|feit[oa]s?|conclu[íi]d[oa]s?|terminei|implementad[oa]s?|corrigid[oa]s?|resolvid[oa]s?|funcionando|tudo verde|passam|passando|done|fixed|implemented|completed|all tests pass(?:ing)?)(?![\p{L}\p{N}])/giu
+const CLAIM = /(?<![\p{L}\p{N}])(pront[oa]s?|feit[oa]s?|conclu[íi]d[oa]s?|terminei|implementad[oa]s?|corrigid[oa]s?|resolvid[oa]s?|funcionando|tudo verde|passam|passando|done|fixed|implemented|completed|resolved|passing|passes|tests? pass)(?![\p{L}\p{N}])/giu
 
 // "isn't" splits into "isn" and "t": the stems stand for the contractions.
 const NEGATIONS: ReadonlySet<string> = new Set([
@@ -18,7 +18,7 @@ function isNegated(before: string): boolean {
 
 /** Whether the reply says the work is done, fixed or passing. */
 export function claimsDone(answer: string): boolean {
-  if (/\[!FEITO\]/i.test(answer)) return true
+  if (/\[!(?:FEITO|DONE)\]/i.test(answer)) return true
   for (const m of answer.matchAll(CLAIM)) if (!isNegated(answer.slice(0, m.index))) return true
   return false
 }
