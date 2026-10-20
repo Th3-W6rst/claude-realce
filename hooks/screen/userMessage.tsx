@@ -15,7 +15,7 @@ export function registerUserMessage(on: On): void {
     const flags = await getFlags($)
     if (!flags.agentes) return next(e)
     // A notification carries the agent's whole report: parsed once per text, not on every scroll past it.
-    const notice = memo('notice', `${e.props.task?.status}|${e.props.task?.durationMs}|${e.props.text}`, () => noticeOf(e.props), 500)
+    const notice = memo('notice', `${e.requestId}|${e.props.task?.status}|${e.props.task?.durationMs}|${e.props.text.length}`, () => noticeOf(e.props), 500)
     if (notice === null) return next(e)
     const taskId = e.props.task?.id
     const agent = taskId === undefined ? null : ((await read($, AGENTS)).find(a => a.id === taskId) ?? null)

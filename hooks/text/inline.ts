@@ -160,7 +160,7 @@ function heuristics(text: string, outer: ProseKind[], opts: InlineOpts): Span[] 
     spans.push(kind === 'link' ? { text: m[0], kinds: [kind], href: m[0] } : { text: m[0], kinds: [kind] })
     at = start + m[0].length
     if (kind === 'number' && opts.numeros === true) {
-      const reading = humanReading(m[0], text.slice(at), text.slice(0, start))
+      const reading = humanReading(m[0], text.slice(at), text.slice(Math.max(0, start - 24), start))
       if (reading !== null) {
         if (reading.unitText !== '') spans.push({ text: reading.unitText, kinds: [] })
         spans.push({ text: ` (${reading.label})`, kinds: ['aside'] })

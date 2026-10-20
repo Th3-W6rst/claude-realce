@@ -5,7 +5,7 @@ import type { Engine } from 'claude-code/testing'
 import { PALETTES } from '../hooks/palettes'
 import { DEMO_TEXT } from '../hooks/system/demo'
 import { compareVersions } from '../hooks/system/update'
-import { estimateHeight, replyHtml } from '../hooks/system/printHtml'
+import { estimateHeight, fileUrl, replyHtml } from '../hooks/system/printHtml'
 
 const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
 const CHROME = '/Users/u/.cache/puppeteer/chrome-headless-shell/mac_arm-154/chrome-headless-shell-mac-arm64/chrome-headless-shell'
@@ -30,9 +30,21 @@ describe('print html', () => {
     expect(html).toContain('<img src="file:///Users/Ana%20Paula/.cache/realce/diagrams/x.png"')
   })
 
+  test('a # or ? in a path stays part of the path', () => {
+    expect(fileUrl('/Users/u/C# notas/a?.html')).toBe('file:///Users/u/C%23%20notas/a%3F.html')
+  })
+
   test('a ready diagram is its picture', () => {
     const html = replyHtml('```mermaid\ngraph TD\n  A-->B\n```', PALETTES.dark, () => ({ file: '/Users/u/.cache/realce/diagrams/x.png', width: 720, height: 724 }))
     expect(html).toContain('<img src="file:///Users/u/.cache/realce/diagrams/x.png"')
+  })
+
+  test('a diagram that did not become a picture still counts its lines', () => {
+    const pic = { width: 1440, height: 1440 }
+    const block = (n: number) => '```mermaid\n' + Array.from({ length: 12 }, (_, i) => `  A${n}${i} --> B${i}`).join('\n') + '\n```'
+    const both = `${block(1)}\n${block(2)}`
+    const onlyFirst = estimateHeight(both, [pic], source => source.includes('A10'))
+    expect(onlyFirst).toBeGreaterThanOrEqual(estimateHeight('x', [pic]) + 12 * 22)
   })
 
   test('a pictured diagram counts as its picture, not as its source lines', () => {

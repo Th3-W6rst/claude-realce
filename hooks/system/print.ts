@@ -48,7 +48,7 @@ export async function printCommand($: EngineInterface): Promise<string> {
   const chrome = await findChrome($, home)
   if (chrome === null) return `PNG precisa do Chrome headless; HTML salvo em ${base}.html.`
   const pictures = parseBlocks(reply.text).flatMap(b => (b.type === 'code' ? [picture(b.source)] : [])).filter((p): p is Picture => p !== null)
-  const height = estimateHeight(reply.text, pictures)
+  const height = estimateHeight(reply.text, pictures, source => picture(source) !== null)
   const run = await $.process.run(
     [chrome, '--headless', '--disable-gpu', '--hide-scrollbars', `--screenshot=${base}.png`, `--window-size=1000,${height}`, fileUrl(`${base}.html`)],
     { timeoutMs: 30_000 },

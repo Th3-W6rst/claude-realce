@@ -14,7 +14,7 @@ const USAGE = '[ajuda|on|off|status|painel|foco|explica|fixar|print|demo|<recurs
 
 const HELP = [
   'Comandos do realce:',
-  '/realce — painel de flags (uma tecla por recurso, Esc fecha)',
+  '/realce — painel de flags (letra ou número alterna, Tab e Enter também, Esc fecha)',
   '/realce on | off — liga ou desliga tudo, sem perder a escolha de cada recurso',
   '/realce <recurso> on | off — liga ou desliga um recurso',
   '/realce painel — abre ou fecha o painel da sessão',

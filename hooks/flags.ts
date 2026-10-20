@@ -43,7 +43,6 @@ export const FLAGS: readonly FlagSpec[] = [
   { id: 'spinner', group: 'Orientação', label: 'Spinner em português', description: '"Pensando", "Escrevendo", "Executando"', isDefaultOn: true },
   { id: 'avisos', group: 'Orientação', label: 'Aviso quando termina', description: 'Notificação do macOS no fim de um turno longo ou numa pergunta', isDefaultOn: true },
   { id: 'som', group: 'Orientação', label: 'Som nos avisos', description: 'Um som curto junto da notificação', isDefaultOn: false },
-  { id: 'limite', group: 'Orientação', label: 'Alerta de limite', description: 'Faixa quando o limite de uso ou o contexto passa de 80%', isDefaultOn: true },
   { id: 'ausencia', group: 'Orientação', label: 'Enquanto você estava fora', description: 'Resumo do que aconteceu quando você volta a digitar', isDefaultOn: true },
   { id: 'linha', group: 'Orientação', label: 'Linha do tempo', description: 'Os turnos no painel, com clique para rolar até cada um', isDefaultOn: true },
   { id: 'perguntas', group: 'Orientação', label: 'Cabeçalho de pergunta', description: 'Uma linha colorida acima das perguntas do Claude', isDefaultOn: true },
@@ -53,6 +52,8 @@ export const FLAGS: readonly FlagSpec[] = [
   { id: 'print', group: 'Sistema', label: 'Print bonito', description: '/realce print salva a última resposta como imagem', isDefaultOn: true },
   { id: 'demo', group: 'Sistema', label: 'Demonstração', description: '/realce demo mostra tudo o que o mod faz', isDefaultOn: true },
   { id: 'atualizacao', group: 'Sistema', label: 'Aviso de atualização', description: 'Avisa quando sair versão nova no GitHub', isDefaultOn: true },
+  // Added after the 36 keys were given out: last in the table, so no earlier flag's key moves.
+  { id: 'limite', group: 'Orientação', label: 'Alerta de limite', description: 'Faixa quando o limite de uso ou o contexto se aproxima do fim', isDefaultOn: true },
 ]
 
 export const FLAG_GROUPS: readonly FlagGroup[] = ['Texto', 'Código', 'Ferramentas', 'Orientação', 'Sistema']

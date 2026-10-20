@@ -1,6 +1,6 @@
 {
   "name": "realce",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "description": "Colors Claude's replies by meaning and makes the session easier to follow, every aid behind its own flag",
   "author": { "name": "Th3-W6rst" },
   "types": "./types/index.d.ts"

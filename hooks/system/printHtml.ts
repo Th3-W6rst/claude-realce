@@ -10,7 +10,7 @@ const LINE_PX = 22
 const CHARS_PER_LINE = 100
 
 /** A path as a file:// URL: spaces and the like percent-encoded, the slashes kept. */
-export const fileUrl = (path: string) => `file://${encodeURI(path)}`
+export const fileUrl = (path: string) => `file://${encodeURI(path).replace(/[#?]/g, c => encodeURIComponent(c))}`
 
 const escapeHtml = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
@@ -86,10 +86,28 @@ export function replyHtml(text: string, palette: PaletteSet, picture: (source: s
 }
 
 /** The page's height in pixels, for the screenshot's window: rows of text plus the pictures at their drawn size. */
-export function estimateHeight(text: string, pictures: readonly { width: number; height: number }[]): number {
-  // A mermaid block drawn as its picture takes the picture's height, not its source's rows.
-  const shown = pictures.length === 0 ? text : text.replace(/^```mermaid[^\n]*\n[\s\S]*?^```[ \t]*$/gm, '')
-  const rows = shown.split('\n').reduce((n, line) => n + Math.max(1, Math.ceil([...line].length / CHARS_PER_LINE)), 0)
+export function estimateHeight(
+  text: string,
+  pictures: readonly { width: number; height: number }[],
+  isPictured: (source: string) => boolean = () => pictures.length > 0,
+): number {
+  // A mermaid block drawn as its picture takes the picture's height, not its source's rows; one still drawn as code
+  // keeps them.
+  const rowsOf = (line: string) => Math.max(1, Math.ceil([...line].length / CHARS_PER_LINE))
+  let rows = 0
+  let fence: { isMermaid: boolean; lines: string[] } | null = null
+  for (const line of text.split('\n')) {
+    const mark = /^\s*```\s*(\S*)/.exec(line)
+    if (fence === null && mark !== null) {
+      fence = { isMermaid: mark[1]!.toLowerCase() === 'mermaid', lines: [line] }
+    } else if (fence !== null && mark !== null && mark[1] === '') {
+      fence.lines.push(line)
+      if (!(fence.isMermaid && isPictured(fence.lines.slice(1, -1).join('\n')))) rows += fence.lines.reduce((n, l) => n + rowsOf(l), 0)
+      fence = null
+    } else if (fence !== null) fence.lines.push(line)
+    else rows += rowsOf(line)
+  }
+  if (fence !== null) rows += fence.lines.reduce((n, l) => n + rowsOf(l), 0)
   const images = pictures.reduce((n, p) => {
     const width = Math.min(PAGE_WIDTH, p.width / 2)
     return n + (p.height / p.width) * width

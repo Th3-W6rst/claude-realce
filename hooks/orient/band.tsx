@@ -65,12 +65,15 @@ export function registerBand(on: On): void {
         </Box>
       )
     }
-    if (limit !== null && bodyColumns > HIDE_CELLS) {
+    const progress = plan === null ? null : planProgress(plan)
+    // While Claude works, the plan is what moves: the limit waits for the turn to end.
+    if (limit !== null && bodyColumns > HIDE_CELLS && !(isWorking && progress !== null)) {
+      const text = limitText(limit, cachedEnv()?.tzOffsetMinutes, await $.clock.now())
       return (
         <Box flexDirection="row" width={bodyColumns}>
           <Box width={bodyColumns - HIDE_CELLS}>
             <Text color={SCREEN.warn} wrap="truncate-end">
-              {limitText(limit, cachedEnv()?.tzOffsetMinutes)}
+              {text}
             </Text>
           </Box>
           <Box marginLeft={1}>
@@ -97,7 +100,6 @@ export function registerBand(on: On): void {
         </Box>
       )
     }
-    const progress = plan === null ? null : planProgress(plan)
     if (progress === null) return next(e)
     return (
       <Text wrap="truncate-end">

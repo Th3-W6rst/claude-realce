@@ -1,5 +1,13 @@
 # Novidades do realce
 
+## 0.4.9
+- Alerta de limite: o contexto avisa a partir de 90% (as janelas de uso, de 80%); a renovação a mais de um dia diz a
+  data; ocultar vale só para aquela fonte; enquanto o Claude trabalha, a barra do plano vem antes.
+- Aviso pelo macOS fora do caminho da pergunta (nunca a atrasa) e com textos que começam com "-".
+- Print: a altura conta como código um diagrama que não virou imagem; caminhos com `#` e `?`.
+- Números humanos: um timestamp em ms não vira duração.
+- A flag `limite` não muda mais a tecla das outras.
+
 ## 0.4.8
 - `/realce ajuda` lista os comandos.
 - O status de atualização aponta para este CHANGELOG.

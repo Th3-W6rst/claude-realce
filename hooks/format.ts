@@ -16,6 +16,12 @@ export function formatClock(epochMs: number, tzOffsetMinutes: number): string {
   return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
 }
 
+/** 'DD/MM' at the session's offset from UTC. */
+export function formatDayMonth(epochMs: number, tzOffsetMinutes: number): string {
+  const d = new Date(epochMs + tzOffsetMinutes * 60_000)
+  return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}`
+}
+
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 /** A number in PT-BR spelling: comma decimals, as many as asked. */
@@ -33,8 +39,9 @@ export function parseTzOffset(text: string): number {
  * token counts. Shown beside the number, never in its place.
  */
 export function humanizeAmount(value: number, unit: string): string | null {
-  if (unit === 'ms') return value >= 10_000 ? formatDuration(value) : null
-  if (unit === 's') return value >= 90 ? formatDuration(value * 1000) : null
+  // Past a year it is a timestamp, not a duration.
+  if (unit === 'ms') return value >= 10_000 && value < 31_536_000_000 ? formatDuration(value) : null
+  if (unit === 's') return value >= 90 && value < 31_536_000 ? formatDuration(value * 1000) : null
   if (unit === 'bytes' || unit === 'B') {
     if (value < 10_000) return null
     if (value < 1024 ** 2) return `${Math.round(value / 1024)} KB`

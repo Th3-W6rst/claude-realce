@@ -111,7 +111,7 @@ export async function status($: EngineInterface, isFullscreen?: boolean): Promis
       ? []
       : [isFullscreen ? 'Tela cheia: sim.' : 'Tela cheia: não. Rolar pela linha do tempo e pelas fixadas, e selecionar para o /realce explica, pedem "tui": "fullscreen" no settings.json.']),
     ...(lastNotifyFailure() === null ? [] : [`Último aviso não enviado: ${lastNotifyFailure()}.`]),
-    ...(lastNotifyWasBanner() ? ['Último aviso: pelo macOS (o terminal não dá canal ao Claude Code).'] : []),
+    ...(lastNotifyWasBanner() ? ['Último aviso: entregue ao macOS (o terminal não dá canal ao Claude Code).'] : []),
     ...(updateStatus() === null ? [] : [updateStatus()!]),
     ...perfLines(),
   ].join('\n')

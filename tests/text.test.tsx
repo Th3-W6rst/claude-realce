@@ -445,6 +445,11 @@ describe('human numbers', () => {
     expect(text('são 73201 linhas')).toBe('são 73201 linhas')
   })
 
+  test('an epoch in ms is no duration', () => {
+    expect(parseInline('ms 1700000000000', [], true, { numeros: true }).some(s => s.kinds.includes('aside'))).toBe(false)
+    expect(parseInline('levou 1700000000000 ms', [], true, { numeros: true }).some(s => s.kinds.includes('aside'))).toBe(false)
+  })
+
   test('a number that already says its reading gets no second one', () => {
     expect(parseInline('levou 102761 ms (1m 42s)', [], true, { numeros: true }).some(s => s.kinds.includes('aside'))).toBe(false)
   })

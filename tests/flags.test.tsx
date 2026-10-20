@@ -66,6 +66,19 @@ describe('commands', () => {
     expect(text.split('\n')[0]).toBe('Comandos do realce:')
   })
 
+  test('the help does not promise a key to every flag', async ($, on) => {
+    mock.store(on)
+    expect((await $.command.run({ ...RUN, args: 'ajuda' })).text).not.toMatch(/uma tecla por recurso/)
+  })
+
+  test('the new flag takes no earlier flag\'s key', async ($, on) => {
+    mock.store(on)
+    on('prompt.compose', () => ({ sections: [] }))
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
+    expect((await ui.find({ key: 'flag-atualizacao' }))?.props.hotkey).toBe('9')
+    expect((await ui.find({ key: 'flag-limite' }))?.props.hotkey).toBeUndefined()
+  })
+
   test('/realce with anything else answers the usage', async ($, on) => {
     mock.store(on)
     const text = (await $.command.run({ ...RUN, args: 'xyz' })).text ?? ''

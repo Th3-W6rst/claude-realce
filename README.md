@@ -111,12 +111,12 @@ e reabra o Claude Code.
 | Orientação | `spinner` | Spinner em português: "Pensando", "Escrevendo", "Executando" | ligado |
 | Orientação | `avisos` | Aviso quando termina: Notificação do macOS no fim de um turno longo ou numa pergunta | ligado |
 | Orientação | `som` | Som nos avisos: Um som curto junto da notificação | desligado |
-| Orientação | `limite` | Alerta de limite: Faixa quando o limite de uso ou o contexto passa de 80% | ligado |
 | Orientação | `ausencia` | Enquanto você estava fora: Resumo do que aconteceu quando você volta a digitar | ligado |
 | Orientação | `linha` | Linha do tempo: Os turnos no painel, com clique para rolar até cada um | ligado |
 | Orientação | `perguntas` | Cabeçalho de pergunta: Uma linha colorida acima das perguntas do Claude | ligado |
 | Orientação | `fixar` | Fixar respostas: /realce fixar guarda uma resposta no painel | ligado |
 | Orientação | `explica` | Explica isso: /realce explica explica o trecho selecionado (Haiku) | ligado |
+| Orientação | `limite` | Alerta de limite: Faixa quando o limite de uso ou o contexto se aproxima do fim | ligado |
 | Sistema | `tema` | Segue o tema: Cores para fundo claro, daltônicos e ANSI, pelo tema do Claude Code | ligado |
 | Sistema | `print` | Print bonito: /realce print salva a última resposta como imagem | ligado |
 | Sistema | `demo` | Demonstração: /realce demo mostra tudo o que o mod faz | ligado |

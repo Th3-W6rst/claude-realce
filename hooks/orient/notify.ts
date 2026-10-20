@@ -50,11 +50,21 @@ async function playSound($: EngineInterface, file: string): Promise<void> {
 /** The system's own banner, text and title as arguments (no AppleScript quoting); the reason when it fails. */
 async function systemBanner($: EngineInterface, text: string, title: string): Promise<string | null> {
   try {
-    const run = await $.process.run(['osascript', '-e', 'on run argv', '-e', 'display notification (item 1 of argv) with title (item 2 of argv)', '-e', 'end run', text, title])
+    // `--` ends osascript's options: a text that starts with a dash is still the text.
+    const run = await $.process.run(
+      ['osascript', '-e', 'on run argv', '-e', 'display notification (item 1 of argv) with title (item 2 of argv)', '-e', 'end run', '--', text, title],
+      { timeoutMs: 5000 },
+    )
     return run.exitCode === 0 ? null : run.stderr.trim() || `osascript saiu com ${run.exitCode}`
   } catch (error) {
     return error instanceof Error ? error.message : String(error)
   }
+}
+
+async function bannerInstead($: EngineInterface, text: string, title: string, reason: string): Promise<void> {
+  const failed = await systemBanner($, text, title)
+  wasBanner = failed === null
+  lastFailure = failed === null ? null : `${reason}; banner do macOS: ${failed}`
 }
 
 async function send($: EngineInterface, text: string, title: string, sound: string): Promise<void> {
@@ -63,11 +73,8 @@ async function send($: EngineInterface, text: string, title: string, sound: stri
   lastFailure = result.isSent ? null : result.reason
   // A terminal that gives Claude Code no channel (tmux, Terminal.app) still has the system's banner. A notice the
   // person turned off ('disabled') or a hook refused stays unsent.
-  if (!result.isSent && result.reason.startsWith('no-channel')) {
-    const failed = await systemBanner($, text, title)
-    wasBanner = failed === null
-    lastFailure = failed === null ? null : `${result.reason}; banner do macOS: ${failed}`
-  }
+  // Off the dispatch: a question's dialog never waits on osascript.
+  if (!result.isSent && result.reason.startsWith('no-channel')) $.clock.after(0, () => void bannerInstead($, text, title, result.reason))
   // afplay lasts as long as the sound: off the event's dispatch.
   if ((await getFlags($)).som) $.clock.after(0, () => void playSound($, sound))
 }
@@ -82,9 +89,14 @@ export async function notifyFinish($: EngineInterface, e: Args<'turn.complete'>)
 export function registerNotify(on: On): void {
   // The question is up while next(e) runs: the notice goes before it.
   on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
-    if (e.agentId === undefined && turnStartedAt !== null && (await getFlags($)).avisos && (await $.clock.now()) - turnStartedAt >= LONG_MS) {
-      const first = asRecord(Array.isArray(e.questions) ? e.questions[0] : undefined)
-      await send($, str(first.question) ?? 'O Claude tem uma pergunta.', 'Claude precisa de você', SOUNDS.question)
+    try {
+      if (e.agentId === undefined && turnStartedAt !== null && (await getFlags($)).avisos && (await $.clock.now()) - turnStartedAt >= LONG_MS) {
+        const first = asRecord(Array.isArray(e.questions) ? e.questions[0] : undefined)
+        await send($, str(first.question) ?? 'O Claude tem uma pergunta.', 'Claude precisa de você', SOUNDS.question)
+      }
+    } catch (error) {
+      // The question is the person's: a notice that failed is said, and the dialog opens all the same.
+      $.ui.log(`realce: aviso de pergunta falhou: ${error instanceof Error ? error.message : String(error)}`)
     }
     return next(e)
   })
