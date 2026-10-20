@@ -10,7 +10,7 @@ import { scrollRefusal } from '../hooks/orient/timeline'
 import { questionHeader } from '../hooks/orient/question'
 import { extractPending } from '../hooks/orient/pending'
 import { applyPlanCall, planRow, type PlanItem } from '../hooks/orient/plan'
-import { PT } from './lang'
+import { PT, PT_ALL } from './lang'
 
 const BAND: RenderPropsOf['AbovePrompt'] = {
   hasSurvey: false,
@@ -142,7 +142,7 @@ describe('plan', () => {
 
 describe('band', () => {
   test('the band shows what needs you when idle', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     engine(on)
     await finish($, ANSWER)
     const ui = await mountBand($)
@@ -175,7 +175,7 @@ describe('band', () => {
   })
 
   test('the person\'s next prompt clears what needed you', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     mock.clock(on)
     engine(on)
     await finish($, ANSWER)
@@ -213,7 +213,7 @@ describe('band', () => {
   })
 
   test('the band fits its width and rows', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     engine(on)
     await finish($, Array.from({ length: 6 }, (_, n) => `{!uma pendência bem comprida de número ${n}!}`).join(' '))
     const ui = await mountBand($, { bodyColumns: 50, maxRows: 2 })
@@ -244,7 +244,7 @@ describe('session pane', () => {
   const AGENT: AgentInfo = { id: 'a1', description: 'Revisar desenho', type: 'Explore', status: 'running' }
 
   test('the session pane lists the plan, what needs you, files, failures and agents', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on, { now: Date.UTC(2026, 9, 19, 18, 41) })
     engine(on)
     let agents: AgentInfo[] = []
@@ -549,7 +549,7 @@ describe('while you were away', () => {
   })
 
   test('what needs you comes first', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on, { now: Date.UTC(2026, 9, 19, 20, 0) })
     engine(on)
     on('prompt.edit', ($, e) => ({ text: e.text + e.inputText, cursor: e.cursor + e.inputText.length }))
@@ -934,7 +934,7 @@ describe('usage limit', () => {
 
 describe('pane links', () => {
   test("a failure's explanation shows under it in the pane, once it arrives", async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     on('tool.call', { tool: 'Bash' }, () => ({ isError: true as const, result: 'Exit code 1\ncat: x: No such file', text: 'Exit code 1\ncat: x: No such file' }))
     engine(on)
@@ -1041,7 +1041,7 @@ describe('session report', () => {
   })
 
   test("the report's why follows the erros flag, as the pane does", async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     // The specific tool answers before the engine's catch-all below it.
     on('tool.call', { tool: 'Bash' }, () => ({ isError: true as const, result: 'Exit code 1\ncat: x: No such file', text: 'Exit code 1\ncat: x: No such file' }))

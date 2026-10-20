@@ -16,6 +16,11 @@ python3 scripts/flags-table.py --check   # the README's flags table matches hook
 python3 scripts/footprint.py             # the validator reports every engine call, uncut
 ```
 
+On GitHub, `.github/workflows/test.yml` runs the same checks but `tsc` on every push and pull request, against the
+latest Claude Code (the types come from a session that loaded the mod, which a runner has none of: type-check before
+you push). A push whose `plugin.json` version has no release yet gets one, its notes taken from that version's
+CHANGELOG section (`python3 scripts/release-notes.py <version>`); a version without a section fails the release.
+
 Changed a flag? `python3 scripts/flags-table.py` rewrites the README's table. Changed the demo text?
 `bun --preload ./scripts/bun-stub.ts scripts/demo-images.ts` redraws the README's two pictures (it needs mermaid-cli,
 which brings the headless Chrome).

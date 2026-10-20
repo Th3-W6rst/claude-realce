@@ -2,6 +2,10 @@
 
 Versions from October 19 to 20, 2026. Those that only changed internals are left out.
 
+## 0.5.4
+- Explained errors (`errors`) and the "Needs you" band (`pending`) start off: they added lines to every turn. Turn
+  them on with `/realce errors on` and `/realce pending on`; a choice you already made stays.
+
 ## 0.5.3
 - The proof seal reads English claims: `[!DONE]`, "tests pass", "passing", "resolved". It knew only "all tests pass",
   so "All 4 tests pass" left the turn with no seal.

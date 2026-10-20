@@ -17,6 +17,7 @@ import { buildSection } from '../hooks/prompt'
 import { FLAGS, type Flags } from '../hooks/flags'
 import { DEMO_TEXTS } from '../hooks/system/demo'
 import { extractPending } from '../hooks/orient/pending'
+import { OPT_IN } from './lang'
 
 const ENGINE = { plugin: 'engine', tier: 'core' as const }
 const languageRow = (value: string) => ({ key: 'language', label: 'Language', kind: 'text' as const, value, provider: ENGINE, isLocked: false })
@@ -223,7 +224,7 @@ describe('interface language', () => {
   })
 
   test("the Haiku is asked in the interface's language", async ($, on) => {
-    mock.store(on, EN)
+    mock.store(on, { ...EN, flags: OPT_IN })
     const clock = mock.clock(on)
     const asked: { system?: unknown; prompt: unknown }[] = []
     on('model.complete', ($, e) => {
@@ -343,7 +344,7 @@ describe('interface language', () => {
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
     expect(toasts).toContain('realce installed: /realce demo shows what it does; /realce help lists the commands.')
     const status = await answer($, 'status')
-    expect(status).toMatch(/^Realce on\.\nLanguage: English \(picked; \/realce language auto follows Claude Code\)\.\nFeatures off: Focus mode, Notification sound\./)
+    expect(status).toMatch(/^Realce on\.\nLanguage: English \(picked; \/realce language auto follows Claude Code\)\.\nFeatures off: Explained errors, Focus mode, Needs you, Notification sound\./)
     expect(status).toContain('Colors: dark theme.')
     expect(await answer($, 'doctor')).toMatch(/^realce check-up:\n✔ Claude Code 2\.1\.304\n/)
     await answer($, 'demo')
@@ -435,7 +436,7 @@ describe('interface language', () => {
   })
 
   test('an explanation the reload cut short says so in the language in force', async ($, on) => {
-    mock.store(on, EN)
+    mock.store(on, { ...EN, flags: OPT_IN })
     mock.clock(on)
     on('tool.call', { tool: 'Bash' }, () => ({ isError: true as const, result: 'Exit code 1\ncat: x: No such file', text: 'Exit code 1\ncat: x: No such file' }))
     on('model.complete', () => ({ value: { isAnswered: true, text: 'x', usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }) as never)

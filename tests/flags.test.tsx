@@ -23,11 +23,11 @@ const allFlags = (value: boolean) => Object.fromEntries(FLAGS.map(f => [f.id, va
 const baseSections = (on: On) => on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'base', scope: 'shared' as const }] }))
 
 describe('commands', () => {
-  test('every flag starts on except foco and som', async ($, on) => {
+  test('every flag starts on except erros, foco, pendencias and som', async ($, on) => {
     mock.store(on, PT)
     mock.clock(on)
     baseSections(on)
-    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Modo foco, Som nos avisos\./)
+    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Erro explicado, Modo foco, Precisa de você, Som nos avisos\./)
   })
 
   test('/realce coluna off turns one flag off', async ($, on) => {
@@ -35,7 +35,7 @@ describe('commands', () => {
     mock.clock(on)
     baseSections(on)
     expect((await $.command.run({ ...RUN, args: 'coluna off' })).text).toBe('Desligado: Coluna de leitura.')
-    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Coluna de leitura, Modo foco, Som nos avisos\./)
+    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Coluna de leitura, Erro explicado, Modo foco, Precisa de você, Som nos avisos\./)
   })
 
   test('/realce off and on keep each flag as it was', async ($, on) => {
@@ -170,7 +170,7 @@ describe('flags pane', () => {
     on('prompt.compose', () => ({ sections: [] }))
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
     await ui.press({ key: 'flag-selo' })
-    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Selo de prova, Modo foco/)
+    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Selo de prova, Erro explicado, Modo foco/)
   })
 
   test('the pane switches the whole mod on and off', async ($, on) => {

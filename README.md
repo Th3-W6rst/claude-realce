@@ -1,12 +1,15 @@
 # realce
 
+[![test](https://github.com/Th3-W6rst/claude-realce/actions/workflows/test.yml/badge.svg)](https://github.com/Th3-W6rst/claude-realce/actions/workflows/test.yml)
+
 A Claude Code plugin (mod) that makes the screen easier to read. Every feature has its own flag and turns on or off
 at once:
 
 - colors by meaning in the replies, tables, decision and risk boxes, diagrams as pictures;
 - code with its own highlighter, and diffs with word highlights;
 - tools readable at a glance, and a **proof seal** that says whether what Claude claimed was tested;
-- a spinner that says what is running ("Running the tests (last: 25s)") and why each failed command failed;
+- a spinner that says what is running ("Running the tests (last: 25s)"), and, if you want it, why each failed command
+  failed;
 - notices when Claude is done or asks something, and a pane with the session's usage, timeline and files.
 
 The interface follows Claude Code's language: English, or Portuguese for whoever set Claude Code to Portuguese
@@ -17,7 +20,8 @@ The interface follows Claude Code's language: English, or Portuguese for whoever
 *Drawn by the mod itself, as `/realce print` draws a reply (`/realce demo` shows it in the terminal); the table's
 numbers are just an example. On a light theme: [demo-light.png](images/demo-light.png).*
 
-Current version: 0.5.3 · what's new in the [CHANGELOG](CHANGELOG.md) · repository:
+Current version: 0.5.4 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
+[releases](https://github.com/Th3-W6rst/claude-realce/releases) · repository:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (questions and problems in *Issues*).
 
 ## Requirements
@@ -45,10 +49,11 @@ but Claude only learns the colored marks in the next session.
 
 Good to know before using it:
 
-- Everything comes on, except focus mode and the sound.
+- Everything comes on, except focus mode, the sound, explained errors (`errors`) and the "Needs you" band
+  (`pending`): those four are a matter of taste, and the last two add lines to every turn.
 - The mod adds a short paragraph with the marks to the system prompt (only those of the features that are on).
 - Two features call Haiku on your account, about one to two thousand tokens each time: `errors` (explains a command
-  that failed, at most 20 per session) and `explain` (only when you ask). Turn them off with `/realce errors off`.
+  that failed, at most 20 per session; off until you run `/realce errors on`) and `explain` (only when you ask).
 - `/realce off` pauses everything; `claude plugin uninstall realce` removes it.
 
 To update: `claude plugin marketplace update claude-realce`, then `claude plugin update realce@claude-realce`, and
@@ -124,10 +129,10 @@ also answers to its Portuguese name (`/realce ajuda`, `/realce foco`, `/realce c
 | Tools | `agents` (`agentes`) | Agent cards | A background agent ends in a compact card | on |
 | Tools | `seal` (`selo`) | Proof seal | The turn's rule says whether what Claude claimed was tested | on |
 | Tools | `diff` | Readable diff | Edits with word highlights and line numbers | on |
-| Tools | `errors` (`erros`) | Explained errors | A failed command gets one sentence saying why (Haiku) | on |
+| Tools | `errors` (`erros`) | Explained errors | A failed command gets one sentence saying why (Haiku) | off |
 | Tools | `commits` | Commit cards | Commit, push and PR become a one-line card | on |
 | Tools | `focus` (`foco`) | Focus mode | Hides the tools that finished without error | off |
-| Guidance | `pending` (`pendencias`) | Needs you | A band above the prompt with what asks for your decision | on |
+| Guidance | `pending` (`pendencias`) | Needs you | A band above the prompt with what asks for your decision | off |
 | Guidance | `plan` (`plano`) | Plan progress | A bar with the tasks while Claude works | on |
 | Guidance | `pane` (`painel`) | Pane at start | Opens the session's side pane by itself | on |
 | Guidance | `spinner` | Spinner that says what runs | "Thinking", "Writing" and what runs now ("Running the tests", "Editing x.ts") | on |
@@ -154,7 +159,7 @@ also answers to its Portuguese name (`/realce ajuda`, `/realce foco`, `/realce c
 | `==fact==` | The most important fact of the reply | yellow highlighter |
 | `{+text+}` | Went well | green |
 | `{-text-}` | Went wrong | red on wine |
-| `{!text!}` | Needs your attention or decision; also goes up to the "Needs you" band above the prompt | yellow |
+| `{!text!}` | Needs your attention or decision; with `pending` on, it also goes up to the "Needs you" band above the prompt | yellow |
 | `> [!DECISION] …` | Decision box (also `RISK`, `DONE`, `SUMMARY`, `NOTE`, `TIP`; the Portuguese tags work too) | the kind's color |
 
 With the seal on, Claude also knows the rule shows whether it ran the tests before saying it was done. With the mod
@@ -185,7 +190,7 @@ same browser makes the PNG of `/realce print`.
   `~/.cache/realce/`; `/realce print` writes an HTML page and a PNG to the Desktop.
 - **Network:** one GET of its own `plugin.json` from raw.githubusercontent.com, at most once a day, to say when a new
   version is out (`/realce updates off` stops it).
-- **Model:** the Haiku, to explain a failed command (up to 20 per session; `/realce errors off` stops it) and a
+- **Model:** the Haiku, to explain a failed command (up to 20 per session, with `/realce errors on`) and a
   selection on `/realce explain`.
 - **Prompt:** one system prompt section that teaches Claude the marks; `/realce demo` submits one prompt, which the mod
   answers itself, without the model.

@@ -12,7 +12,7 @@ import { cardText, commitCards } from '../hooks/screen/commit'
 import { claimsDone, sealOf } from '../hooks/screen/seal'
 import { turnRule } from '../hooks/screen/turns'
 import type { AgentRow } from '../types'
-import { PT } from './lang'
+import { PT, PT_ALL } from './lang'
 
 // Stands for the engine's own drawing of a component beneath the plugin.
 function engineRow(on: On, component: 'ToolUse' | 'ToolGroup' | 'ToolResult' | 'TurnDuration' | 'UserMessage' | 'Spinner'): void {
@@ -503,7 +503,7 @@ describe('error explained', () => {
 
   test('the model is told who ran the command, and how short to be', async ($, on) => {
     // Seen live: "O comando falhou porque você tentou ler…", to a person who ran nothing, cut mid-sentence at 200 chars.
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
     await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
@@ -515,7 +515,7 @@ describe('error explained', () => {
   })
 
   test('a failed command gets one sentence', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
@@ -533,7 +533,7 @@ describe('error explained', () => {
   })
 
   test('a folded group shows the sentence of its failed command', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     engineRow(on, 'ToolGroup')
     explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
@@ -545,7 +545,7 @@ describe('error explained', () => {
   })
 
   test('a long answer is cut to two lines', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     explainWorld(on, () => ({ isAnswered: true, text: `O comando falhou ${'porque sim '.repeat(40)}`, usage: USAGE }))
@@ -557,7 +557,7 @@ describe('error explained', () => {
   })
 
   test('an explanation a reload cut short says so', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     mock.clock(on)
     engineRow(on, 'ToolUse')
     explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
@@ -571,7 +571,7 @@ describe('error explained', () => {
   })
 
   test('the same error is explained once', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
     await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
@@ -581,7 +581,7 @@ describe('error explained', () => {
   })
 
   test('status counts the explanations sent', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
     on('prompt.compose', () => ({ sections: [] }))
@@ -593,7 +593,7 @@ describe('error explained', () => {
   })
 
   test('the 21st error is not sent', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
     for (let i = 0; i < 21; i++) await $.tool.call({ tool: 'Bash', command: `cat f${i}`, tool_use_id: `b${i}` })
@@ -602,7 +602,7 @@ describe('error explained', () => {
   })
 
   test('a model failure says why, once', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     const asked = explainWorld(on, () => ({ isAnswered: false, reason: 'api-error', status: 529, error: { kind: 'overloaded' }, usage: USAGE }))
@@ -613,7 +613,7 @@ describe('error explained', () => {
   })
 
   test('a call that throws says why', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     explainWorld(on, () => ({ deny: 'sem rede' }))
@@ -642,7 +642,7 @@ describe('error explained', () => {
   })
 
   test('a grep that could not read its file is explained', async ($, on) => {
-    mock.store(on, PT)
+    mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
     await $.tool.call({ tool: 'Bash', command: 'grep x sumiu.txt', tool_use_id: 'g2' })
