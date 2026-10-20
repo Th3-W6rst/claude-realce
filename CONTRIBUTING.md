@@ -14,6 +14,8 @@ python3 scripts/flags-table.py --check   # a tabela de flags do README bate com 
 ```
 
 Mudou uma flag? `python3 scripts/flags-table.py` reescreve a tabela do README.
+Mudou o texto da demo? `bun --preload ./scripts/bun-stub.ts scripts/demo-images.ts` redesenha as duas imagens do
+README (precisa do mermaid-cli, que traz o Chrome headless).
 
 ## Regras da API que derrubam o módulo inteiro
 

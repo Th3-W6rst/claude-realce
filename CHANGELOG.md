@@ -2,6 +2,10 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.28
+- `/realce demo`: o exemplo em amarelo se lê como exemplo ("aprovar o deploy (exemplo)") e a resposta diz que ele
+  sobe para a faixa acima do prompt; imagens do README atualizadas.
+
 ## 0.4.27
 - Enquanto os testes rodam, o spinner diz quanto o mesmo comando levou da última vez: "Rodando os testes (última: 6,2s)".
 

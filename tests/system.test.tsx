@@ -4,6 +4,7 @@ import type { Engine } from 'claude-code/testing'
 
 import { PALETTES } from '../hooks/palettes'
 import { DEMO_TEXT } from '../hooks/system/demo'
+import { extractPending } from '../hooks/orient/pending'
 import { compareVersions } from '../hooks/system/update'
 import { estimateHeight, fileUrl, replyHtml } from '../hooks/system/printHtml'
 
@@ -188,6 +189,9 @@ describe('/realce demo', () => {
 
   test('the demo shows every aid', () => {
     for (const piece of ['{+', '{-', '{!', '==', '> [!FEITO]', '> [!DICA]', '```mermaid', '```ts', '| ', 'de 22 ms para 9 ms']) expect(DEMO_TEXT).toContain(piece)
+    // What the demo leaves in "Precisa de você" reads as an example, and the reply says where it went.
+    expect(extractPending(DEMO_TEXT)).toEqual(['aprovar o deploy (exemplo)'])
+    expect(DEMO_TEXT).toContain('faixa acima do prompt')
   })
 
   test('a submit that fails disarms the demo and says why', async ($, on) => {

@@ -7,7 +7,7 @@ export const DEMO_TEXT = [
   '> [!FEITO] Esta é a demonstração do realce',
   '> Cada recurso tem a sua flag: `/realce` abre o painel, `/realce status` diz o que está ligado.',
   '',
-  '**Marcas:** um **termo-chave** em magenta, ==o fato principal em marca-texto==, {+teste passou+} em verde, {-regressão-} em vermelho e {!precisa da sua decisão!} em amarelo.',
+  '**Marcas:** um **termo-chave** em magenta, ==o fato principal em marca-texto==, {+teste passou+} em verde, {-regressão-} em vermelho e o que pede você em amarelo, como {!aprovar o deploy (exemplo)!}, que também sobe para a faixa acima do prompt.',
   '',
   '**Como o realce trata uma resposta:**',
   '',
