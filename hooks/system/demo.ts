@@ -1,6 +1,7 @@
 import type { Args, EngineInterface, On } from 'claude-code'
 
 import { getFlags } from '../flags'
+import { openTurn } from '../screen/events'
 
 /** The showcase reply: every aid the mod draws, in one answer the model never writes. */
 export const DEMO_TEXT = [
@@ -52,6 +53,7 @@ let isArmed = false
 
 async function submitDemo($: EngineInterface): Promise<void> {
   try {
+    await openTurn($)
     const result = await $.prompt.submit({ text: DEMO_PROMPT })
     if ('drop' in result && result.drop !== undefined) throw new Error(result.drop)
   } catch (error) {

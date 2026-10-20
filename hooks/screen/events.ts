@@ -38,7 +38,11 @@ export async function screenSessionStart($: EngineInterface, e: Args<'session.st
 
 export async function screenPromptSubmit($: EngineInterface, e: Args<'prompt.submit'>): Promise<void> {
   // A prompt typed over a running turn joins it: that turn's stats go on.
-  if (e.turnId !== undefined) return
+  if (e.turnId === undefined) await openTurn($)
+}
+
+/** A main turn starts: its rule's stats count from here. Also for the mod's own prompt, which skips its own hook. */
+export async function openTurn($: EngineInterface): Promise<void> {
   const flags = await getFlags($)
   if (!flags.separador && !flags.selo) return
   const startedAt = await $.clock.now()

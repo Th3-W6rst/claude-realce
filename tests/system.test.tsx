@@ -180,6 +180,21 @@ describe('/realce demo', () => {
     expect(world.wasModelAsked()).toBe(false)
   })
 
+  test('the demo opens its turn, so its rule gets its stats', async ($, on) => {
+    // Seen live: the mod's own submit skips its own prompt.submit hook, and the demo's rule had no time of day.
+    mock.store(on)
+    const clock = mock.clock(on)
+    demoWorld(on)
+    const written: Record<string, unknown> = {}
+    on('state.set', ($, e, next) => {
+      written[e.key] = e.value
+      return next(e)
+    })
+    await $.command.run({ ...RUN, args: 'demo' })
+    await clock.settle()
+    expect(written.turn).toMatchObject({ tools: 0, files: [], tests: null, hasEdits: false })
+  })
+
   test('a step with no demo armed goes to the model', async ($, on) => {
     mock.store(on)
     const world = demoWorld(on)

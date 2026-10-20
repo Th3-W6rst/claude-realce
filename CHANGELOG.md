@@ -2,6 +2,10 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.32
+- `/realce resumo` mostra quanto durou cada turno.
+- A régua do turno da demo mostra a hora, como as outras.
+
 ## 0.4.31
 - Um `grep` no fim de uma cadeia (`npm run build && grep -q ok`) não esconde mais uma falha real do build: só conta
   como resposta quando nada mais no comando pode falhar.

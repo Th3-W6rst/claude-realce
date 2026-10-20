@@ -2,7 +2,7 @@ import { atom, read } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
 import type { Failure, FileTouch, TimelineRow } from '../../types'
-import { formatClock, plural, testCount } from '../format'
+import { formatClock, formatDuration, plural, testCount } from '../format'
 import { allCommits } from '../screen/notes'
 import { shortPath } from '../screen/toolInfo'
 import { sealLabel } from '../screen/turns'
@@ -49,7 +49,9 @@ export function reportText(r: ReportInput): string {
     // The last ten prompts, each with its verdict: what was asked, at a glance.
     for (const t of r.timeline.slice(-MAX_TURNS)) {
       const seal = sealLabel(t.seal)
-      lines.push(`  - ${formatClock(t.at, r.tzOffsetMinutes)} · ${t.prompt}${seal === null ? '' : ` · ${seal.text}`}`)
+      // The pane's own row: time, how long it took (none while it runs), what was asked, the verdict.
+      const took = t.durationMs === null ? '' : ` · ${formatDuration(t.durationMs)}`
+      lines.push(`  - ${formatClock(t.at, r.tzOffsetMinutes)}${took} · ${t.prompt}${seal === null ? '' : ` · ${seal.text}`}`)
     }
     const tests = [...r.timeline].reverse().find(t => t.tests !== null)?.tests
     if (tests !== undefined && tests !== null) {
