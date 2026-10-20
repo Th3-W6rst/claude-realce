@@ -2,7 +2,7 @@ import type { EngineInterface } from 'claude-code'
 
 import { getFlags } from '../flags'
 import { setExplanation } from './notes'
-import { asRecord, failureLine } from './toolInfo'
+import { asRecord, failureLine, shellCommands } from './toolInfo'
 
 // The model's time is the person's: at most this many per load, never the same failure twice.
 const MAX_PER_LOAD = 20
@@ -10,7 +10,9 @@ const OUTPUT_LINES = 40
 // About two lines under the command: the model does not always keep to one short sentence.
 const MAX_CHARS = 200
 
-const SYSTEM = 'Explique em UMA frase curta, em português simples, por que este comando falhou e o que fazer a seguir. Sem markdown, sem rodeios.'
+// Who reads it did not run it: the coding assistant did, so the sentence is about the command, never "you".
+const SYSTEM =
+  'Um assistente de código rodou este comando, e ele falhou. Explique a quem acompanha, em UMA frase de no máximo 25 palavras, em português simples, por que falhou e o que fazer a seguir. Fale do comando, nunca "você". Sem markdown, sem crases, sem rodeios.'
 
 // For these an exit code of 1 is an answer (no match, false, a difference), not a failure worth a sentence.
 const ANSWER_COMMANDS: ReadonlySet<string> = new Set(['grep', 'rg', 'test', '[', 'diff', 'cmp', 'which'])
@@ -25,10 +27,7 @@ export const errorKey = (command: string, line: string) => `${command}\n${line}`
 
 /** Whether any part of the command is one whose failure is an answer (`grep x f`, `test -f a && …`, `command -v`). */
 export function isAnswerStyle(command: string): boolean {
-  return command
-    .split(/&&|\|\||;|\|/)
-    .map(part => part.trim().split(/\s+/))
-    .some(([first = '', second]) => ANSWER_COMMANDS.has(first) || (first === 'command' && second === '-v'))
+  return shellCommands(command).some(([first = '', second]) => ANSWER_COMMANDS.has(first) || (first === 'command' && second === '-v'))
 }
 
 /** What the model reads: the command and the end of its output. */

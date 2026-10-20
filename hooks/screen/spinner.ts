@@ -4,7 +4,7 @@ import type { Args, EngineInterface, On, RenderPropsOf } from 'claude-code'
 import type { Activity, RunningCall } from '../../types'
 import { getFlags, isMasterOn } from '../flags'
 import { timed } from '../perf'
-import { asRecord, EDIT_TOOLS, editedPath, str } from './toolInfo'
+import { asRecord, EDIT_TOOLS, editedPath, shellCommands, str } from './toolInfo'
 
 // The main loop's calls still running, by tool_use_id: the one row that reads it is the spinner.
 const RUNNING = atom({ plugin: 'realce', key: 'running' } as const, {})
@@ -31,53 +31,76 @@ export function translateSpinnerMessage(message: string): string {
   return message
 }
 
-// Wrappers that run the command after them: `npx jest`, `uv run pytest`, `timeout 60 go test`.
-const WRAPPERS: ReadonlySet<string> = new Set(['npx', 'bunx', 'time', 'env', 'nice', 'command', 'exec'])
-const WRAPPER_PAIRS: ReadonlySet<string> = new Set(['bundle exec', 'uv run', 'poetry run', 'pipenv run', 'pdm run', 'hatch run', 'pnpm exec', 'yarn exec'])
+// Wrappers that run the command after them: `npx jest`, `uv run pytest`, `timeout 60 go test`, `sudo pytest`.
+const WRAPPERS: ReadonlySet<string> = new Set(['npx', 'bunx', 'time', 'env', 'nice', 'command', 'exec', 'sudo'])
+const WRAPPER_PAIRS: ReadonlySet<string> = new Set(['bundle exec', 'uv run', 'poetry run', 'pipenv run', 'pdm run', 'hatch run'])
 // Runners whose very name is a test run.
 const RUNNERS: ReadonlySet<string> = new Set(['pytest', 'jest', 'vitest', 'mocha', 'rspec', 'phpunit', 'tox', 'nox', 'ctest', 'ava', 'unittest'])
-// Tools whose test run is a subcommand: `cargo test`, `make check`.
+const ASKS_ONLY: ReadonlySet<string> = new Set(['--version', '-V', '--help', '-h'])
+// Package managers: `npm test`, `yarn test:unit`, `pnpm --filter web test`, `npm exec jest`, `bun run vitest`.
+const PACKAGE_MANAGERS: ReadonlySet<string> = new Set(['npm', 'yarn', 'pnpm', 'bun'])
+// Tools whose test run is a subcommand: `cargo test`, `make -C app check`.
 const SUBCOMMANDS: Readonly<Record<string, readonly string[]>> = {
-  npm: ['test', 't'], yarn: ['test'], pnpm: ['test', 't'], bun: ['test'], cargo: ['test', 'nextest'], go: ['test'], deno: ['test'],
-  mix: ['test'], swift: ['test'], dotnet: ['test'], rake: ['test', 'spec'], rails: ['test'], gradle: ['test'], gradlew: ['test'],
-  mvn: ['test', 'verify'], mvnw: ['test', 'verify'], make: ['test', 'check'], playwright: ['test'],
+  cargo: ['test', 'nextest'], go: ['test'], deno: ['test'], mix: ['test'], swift: ['test'], dotnet: ['test'], rake: ['test', 'spec'],
+  rails: ['test'], gradle: ['test'], gradlew: ['test'], mvn: ['test', 'verify'], mvnw: ['test', 'verify'], make: ['test', 'check'],
+  playwright: ['test'],
 }
+// Options that take the next word as their value: `npm --prefix app test`, `make -C app test`.
+const VALUE_OPTIONS: ReadonlySet<string> = new Set(['--prefix', '-w', '--workspace', '--filter', '-F', '-C', '--dir', '--cwd'])
+
+const baseName = (path: string): string => path.split('/').pop() ?? path
 
 /** A command's words past its env assignments and wrappers, the program by its file name (`./gradlew` → `gradlew`). */
-function programWords(segment: string): string[] {
-  const words = segment.trim().split(/\s+/).filter(w => w !== '')
+function programWords(command: readonly string[]): string[] {
+  const words = [...command]
+  let isAfterWrapper = false
   while (words.length > 0) {
-    const [first = '', second = ''] = words
-    if (/^\w+=/.test(first) || WRAPPERS.has(first)) words.shift()
-    else if (first === 'timeout') words.splice(0, /^\d/.test(second) ? 2 : 1)
+    const first = baseName(words[0]!)
+    const second = words[1] ?? ''
+    if (/^\w+=/.test(first) || (isAfterWrapper && first.startsWith('-'))) words.shift()
+    else if (WRAPPERS.has(first)) {
+      words.shift()
+      isAfterWrapper = true
+    } else if (first === 'timeout') words.splice(0, /^\d/.test(second) ? 2 : 1)
     else if (WRAPPER_PAIRS.has(`${first} ${second}`)) words.splice(0, 2)
     else if (/^python[\d.]*$/.test(first) && second === '-m') words.splice(0, 2)
     else break
   }
-  if (words[0] !== undefined) words[0] = words[0].split('/').pop() ?? words[0]
+  if (words[0] !== undefined) words[0] = baseName(words[0])
   return words
 }
 
-const segments = (command: string): string[] => command.split(/&&|\|\||;|\|/)
-
-function isTestSegment(segment: string): boolean {
-  const [program = '', sub = '', third = ''] = programWords(segment)
-  if (RUNNERS.has(program)) return true
-  if (['npm', 'yarn', 'pnpm', 'bun'].includes(program) && sub === 'run' && third.startsWith('test')) return true
-  if (program === 'node') return segment.split(/\s+/).includes('--test')
-  if (program === 'xcodebuild') return segment.split(/\s+/).some(w => w === 'test' || w === 'test-without-building')
-  if (program === 'claude') return sub === 'plugin' && third === 'test'
-  return SUBCOMMANDS[program]?.includes(sub) ?? false
+/** The words that are not options nor option values: what a tool's subcommand is read from. */
+function bareWords(args: readonly string[]): string[] {
+  const out: string[] = []
+  for (let i = 0; i < args.length; i++) {
+    if (VALUE_OPTIONS.has(args[i]!)) i++
+    else if (!args[i]!.startsWith('-')) out.push(args[i]!)
+  }
+  return out
 }
 
-/** Whether a shell command runs a test suite, in any of its `&&`, `;` or `|` parts. */
+function isTestRun(command: readonly string[]): boolean {
+  const [program = '', ...rest] = programWords(command)
+  if (RUNNERS.has(program)) return !rest.some(w => ASKS_ONLY.has(w))
+  const [first = '', second = '', third = ''] = bareWords(rest)
+  if (PACKAGE_MANAGERS.has(program)) {
+    const script = ['run', 'exec', 'x'].includes(first) ? second : first === 'workspace' ? third : first
+    return /^test($|[:\-_.])/.test(script) || (script === 't' && program !== 'yarn') || RUNNERS.has(script)
+  }
+  if (program === 'node') return rest.includes('--test')
+  if (program === 'xcodebuild') return rest.some(w => w === 'test' || w === 'test-without-building')
+  if (program === 'claude') return first === 'plugin' && second === 'test'
+  return SUBCOMMANDS[program]?.includes(first) ?? false
+}
+
+/** Whether a shell command runs a test suite, in any of its `&&`, `;`, `|` or line parts. */
 export function isTestCommand(command: string): boolean {
-  return segments(command).some(isTestSegment)
+  return shellCommands(command).some(isTestRun)
 }
 
 const TARGET_CHARS = 32
 const cut = (text: string): string => (text.length > TARGET_CHARS ? `${text.slice(0, TARGET_CHARS - 1)}…` : text)
-const baseName = (path: string): string => path.split('/').pop() ?? path
 
 function hostOf(url: string): string {
   const m = /^\w+:\/\/([^/?#]+)/.exec(url)
@@ -85,9 +108,10 @@ function hostOf(url: string): string {
 }
 
 function bashActivity(command: string): Activity {
-  for (const segment of segments(command)) {
-    if (isTestSegment(segment)) return 'test'
-    const [program, sub] = programWords(segment)
+  for (const words of shellCommands(command)) {
+    if (isTestRun(words)) return 'test'
+    const [program, ...rest] = programWords(words)
+    const sub = bareWords(rest)[0]
     if (program === 'git' && sub === 'commit') return 'commit'
     if (program === 'git' && sub === 'push') return 'push'
   }
@@ -154,6 +178,15 @@ export async function spinnerToolEnd($: EngineInterface, e: Args<'tool.call'>): 
     const { [e.tool_use_id]: _, ...rest } = running
     return rest
   })
+}
+
+/**
+ * At a main turn's end, and at a (re)load, nothing of the main loop runs: a reload cancels the old module's pending
+ * work, whose finally never comes, and its entry would name a call long gone.
+ */
+export async function clearRunning($: EngineInterface, agentId?: string): Promise<void> {
+  if (agentId !== undefined || Object.keys(await read($, RUNNING)).length === 0) return
+  await update($, RUNNING, () => ({}))
 }
 
 export function registerSpinner(on: On): void {

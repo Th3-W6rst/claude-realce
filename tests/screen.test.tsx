@@ -6,6 +6,8 @@ import { parseTaskNotification } from '../hooks/screen/agents'
 import { formatScore, parseTestSummary } from '../hooks/screen/score'
 import { activityOf, isTestCommand, runningWord, SPINNER_WORDS, translateSpinnerMessage } from '../hooks/screen/spinner'
 import { summarizeGroup, summarizeTool } from '../hooks/screen/tools'
+import { isAnswerStyle } from '../hooks/screen/explainError'
+import { shellCommands } from '../hooks/screen/toolInfo'
 import { cardText, commitCards } from '../hooks/screen/commit'
 import { claimsDone, sealOf } from '../hooks/screen/seal'
 import { turnRule } from '../hooks/screen/turns'
@@ -329,6 +331,24 @@ describe('turn rule', () => {
     expect(await drawnText(main, 'realce-turn')).toContain('── 12s · ✔ provado · 1 ferramenta · ✔ testes ──')
   })
 
+  test('a count of nothing stays off the rule', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    engineEvents(on)
+    engineRow(on, 'TurnDuration')
+    await $.prompt.submit({ text: 'oi', origin: { kind: 'composer' }, wait: false })
+    await $.tool.call({ tool: 'Bash', command: 'ls' })
+    await $.turn.complete({ ...TURN, answer: 'aqui está', durationMs: 2_000 })
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'TurnDuration', props: { word: 'Baked', durationMs: 2_000 }, viewport: { columns: 120, rows: 40 } })
+    const rule = (await drawnText(ui, 'realce-turn')) ?? ''
+    expect(rule).toContain('1 ferramenta')
+    expect(rule).not.toContain('arquivos')
+    await $.prompt.submit({ text: 'e aí?', origin: { kind: 'composer' }, wait: false })
+    await $.turn.complete({ ...TURN, answer: 'nada a fazer', turnId: 't2', durationMs: 1_000 })
+    const bare = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'TurnDuration', props: { word: 'Baked', durationMs: 1_000 }, viewport: { columns: 120, rows: 40 } })
+    expect(await drawnText(bare, 'realce-turn')).not.toContain('ferramentas')
+  })
+
   test("the person's prompt stays the engine's own row", async ($, on) => {
     mock.store(on)
     engineRow(on, 'UserMessage')
@@ -459,6 +479,19 @@ describe('error explained', () => {
   })
   const why = async (ui: { findAll: (q: { type: string }) => Promise<{ text: string }[]> }) => (await ui.findAll({ type: 'Text' })).map(t => t.text).find(t => t.startsWith('↳'))
 
+  test('the model is told who ran the command, and how short to be', async ($, on) => {
+    // Seen live: "O comando falhou porque você tentou ler…", to a person who ran nothing, cut mid-sentence at 200 chars.
+    mock.store(on)
+    const clock = mock.clock(on)
+    const asked = explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
+    await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
+    await clock.settle()
+    const system = String(asked[0]?.system)
+    expect(system).toContain('assistente')
+    expect(system).toContain('nunca "você"')
+    expect(system).toContain('25 palavras')
+  })
+
   test('a failed command gets one sentence', async ($, on) => {
     mock.store(on)
     const clock = mock.clock(on)
@@ -473,7 +506,7 @@ describe('error explained', () => {
     expect(await ui.find({ key: 'realce-why' })).toMatchObject({ props: { paddingLeft: 2 } })
     expect(asked).toHaveLength(1)
     expect(asked[0]).toMatchObject({ model: 'haiku', maxTokens: 200, timeoutMs: 20000 })
-    expect(String(asked[0]!.system)).toContain('Explique em UMA frase curta, em português simples')
+    expect(String(asked[0]!.system)).toContain('em UMA frase de no máximo 25 palavras, em português simples')
     expect(String(asked[0]!.prompt)).toContain('cat sumiu.txt')
   })
 
@@ -869,6 +902,17 @@ describe('spinner', () => {
     expect((await spinner($, on, { mode: 'thinking', message: null })).word).toBe('Sauteing')
   })
 
+  test('a command splits into what runs, quotes kept whole', () => {
+    expect(shellCommands('cd app && npm test')).toEqual([['cd', 'app'], ['npm', 'test']])
+    expect(shellCommands('git commit -m "fix; a && b" | cat\nls -la')).toEqual([['git', 'commit', '-m', 'fix; a && b'], ['cat'], ['ls', '-la']])
+    expect(shellCommands("(cd x; echo 'it''s') & wait")).toEqual([['cd', 'x'], ['echo', 'its'], ['wait']])
+    expect(shellCommands('echo a\\;b ""')).toEqual([['echo', 'a;b', '']])
+    expect(isAnswerStyle('grep -q x f && echo ok')).toBe(true)
+    expect(isAnswerStyle('command -v mmdc')).toBe(true)
+    expect(isAnswerStyle('echo "a; grep x"')).toBe(false)
+    expect(isAnswerStyle('cat x')).toBe(false)
+  })
+
   test('a test command is told apart from any other', () => {
     for (const command of [
       'npm test', 'npm run test:unit', 'yarn test', 'pnpm t', 'bun test', 'pytest -q tests/', 'python3 -m pytest', 'python -m unittest',
@@ -876,10 +920,15 @@ describe('spinner', () => {
       'bundle exec rspec', 'uv run pytest', 'timeout 60 pytest', './gradlew test', 'mvn verify', 'make check', 'swift test',
       'xcodebuild -scheme App test', 'claude plugin test .', 'cd app && npm test', 'tsc -p . && claude plugin test .',
       './node_modules/.bin/jest', 'dotnet test', 'mix test',
+      // From the review: interpreters by path, flags before the subcommand, runners through a package manager.
+      '.venv/bin/python -m pytest', 'npm --prefix app test', 'npm -w pkg test', 'pnpm --filter web test', 'pnpm -C app test',
+      'yarn workspace web test', 'yarn test:unit', 'make -C app test', 'npx --yes vitest run', 'npm exec jest', 'yarn jest',
+      'pnpm vitest run', 'bun run vitest', 'sudo pytest', '(cd app && npm test)', 'cd app\nnpm test',
     ]) expect([command, isTestCommand(command)]).toEqual([command, true])
     for (const command of [
       'npm install', 'npm run build', 'cat test.txt', 'ls tests', 'grep -rn test src', 'echo npm test', 'git commit -m "test"',
       'make', 'cargo build', 'go vet ./...', 'node index.js', 'claude plugin validate .', 'python3 script.py',
+      'pytest --version', 'jest --help', 'git commit -m "fix; pytest now passes"', 'echo "a && npm test"',
     ]) expect([command, isTestCommand(command)]).toEqual([command, false])
   })
 
@@ -889,6 +938,7 @@ describe('spinner', () => {
     expect(activityOf({ tool: 'Bash', command: 'pytest -q' })).toEqual({ activity: 'test', target: null })
     expect(activityOf({ tool: 'Bash', command: 'git add -A && git commit -m "x"' })).toEqual({ activity: 'commit', target: null })
     expect(activityOf({ tool: 'Bash', command: 'git push origin master' })).toEqual({ activity: 'push', target: null })
+    expect(activityOf({ tool: 'Bash', command: 'git add -A\ngit commit -m "fix; pytest now passes"' })).toEqual({ activity: 'commit', target: null })
     expect(activityOf({ tool: 'Bash', command: 'ls -la' })).toEqual({ activity: 'other', target: null })
     expect(activityOf({ tool: 'Grep', pattern: 'registerSpinner' })).toEqual({ activity: 'search', target: '“registerSpinner”' })
     expect(activityOf({ tool: 'WebFetch', url: 'https://docs.example.com/a/b', prompt: 'x' })).toEqual({ activity: 'web', target: 'docs.example.com' })
@@ -929,6 +979,27 @@ describe('spinner', () => {
     expect(word).toBe('Rodando os testes')
     release()
     await call
+    await ui.redraw(spinning)
+    expect(word).toBe('Executando')
+  })
+
+  test('a call whose end never came is dropped when the turn ends', async ($, on) => {
+    // A reload cancels the old module's pending work: its finally never runs, and the entry would outlive the turn.
+    mock.store(on)
+    on('tool.call', () => new Promise(() => {}))
+    on('turn.complete', () => ({ text: '' }))
+    let word = ''
+    on('ui.render', { component: 'Spinner' }, ($, e) => {
+      word = e.props.word
+      const { Text } = $.ui.resolve(e)
+      return <Text>engine</Text>
+    })
+    const spinning = { word: 'Sauteing', suffix: '…', mode: 'tool-use' as const, message: null }
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Spinner', props: spinning })
+    void $.tool.call({ tool: 'Read', file_path: '/a/b/x.ts' })
+    await ui.redraw(spinning)
+    expect(word).toBe('Lendo x.ts')
+    await $.turn.complete({ answer: 'ok', isAborted: false, turnId: 't1', reason: 'answer', durationMs: 1_000 })
     await ui.redraw(spinning)
     expect(word).toBe('Executando')
   })

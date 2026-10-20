@@ -72,8 +72,9 @@ function ruleSpans(stats: TurnStats | null, durationMs: number, width: number, t
   if (stats !== null) {
     const seal = sealLabel(stats.seal)
     if (seal !== null) labels.push({ ...seal, ...(stats.seal === 'failing' ? { short: '✖ falhando' } : {}) })
-    labels.push({ text: plural(stats.tools, 'ferramenta', 'ferramentas'), color: SCREEN.dim, drop: 2 })
-    labels.push({ text: plural(stats.files, 'arquivo', 'arquivos'), color: SCREEN.dim, drop: 1 })
+    // A count of nothing says nothing: a turn that only answered draws its time alone.
+    if (stats.tools > 0) labels.push({ text: plural(stats.tools, 'ferramenta', 'ferramentas'), color: SCREEN.dim, drop: 2 })
+    if (stats.files > 0) labels.push({ text: plural(stats.files, 'arquivo', 'arquivos'), color: SCREEN.dim, drop: 1 })
     const tests = testsLabel(stats)
     if (tests !== null) labels.push({ ...tests, drop: 4 })
   }

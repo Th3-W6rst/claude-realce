@@ -2,6 +2,12 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.25
+- A régua do turno não mostra "0 arquivos" nem "0 ferramentas".
+- A explicação de um erro fala do comando, não de "você", em uma frase curta.
+- O spinner reconhece mais comandos de teste (`npm --prefix app test`, `yarn test:unit`, `.venv/bin/python -m pytest`,
+  `pnpm vitest run`) e não confunde um commit cuja mensagem cita testes.
+
 ## 0.4.24
 - "Precisa de você" mantém o código citado no pedido (`@pytest.mark.slow` sumia).
 - A explicação de um erro longo quebra recuada, sob ela mesma.

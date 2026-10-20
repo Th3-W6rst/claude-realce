@@ -73,3 +73,40 @@ export function shortPath(path: string, cwd: string | null): string {
   if (cwd !== null && cwd !== '' && path.startsWith(`${cwd.replace(/\/$/, '')}/`)) return path.slice(cwd.replace(/\/$/, '').length + 1)
   return path
 }
+
+/**
+ * A shell command's simple commands, each as its words: split at `&&`, `||`, `;`, `|`, `&`, newlines and parentheses
+ * outside quotes, the quotes dropped from the words. Enough to read what runs, not a shell.
+ */
+export function shellCommands(command: string): string[][] {
+  const commands: string[][] = []
+  let words: string[] = []
+  let word: string | null = null
+  let quote: '"' | "'" | null = null
+  const endWord = () => {
+    if (word !== null) words.push(word)
+    word = null
+  }
+  const endCommand = () => {
+    endWord()
+    if (words.length > 0) commands.push(words)
+    words = []
+  }
+  for (let i = 0; i < command.length; i++) {
+    const c = command[i]!
+    if (quote !== null) {
+      if (c === quote) quote = null
+      else if (c === '\\' && quote === '"' && i + 1 < command.length) word += command[++i]!
+      else word += c
+    } else if (c === '"' || c === "'") {
+      quote = c
+      word ??= ''
+    } else if (c === '\\' && i + 1 < command.length) word = (word ?? '') + command[++i]!
+    else if (/\s/.test(c) && c !== '\n') endWord()
+    else if ('&|;()\n'.includes(c)) endCommand()
+    else word = (word ?? '') + c
+  }
+  endCommand()
+  return commands
+}
+

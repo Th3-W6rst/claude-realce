@@ -27,6 +27,8 @@ Mudou uma flag? `python3 scripts/flags-table.py` reescreve a tabela do README.
    `key` (use `Box`).
 5. Uma variável local chamada `h` quebra o JSX (o factory é `h`).
 6. O system prompt de uma sessão em que o mod entrou por hot reload não é recomposto.
+7. `ToolUse.isRunning` pode ficar `true` numa chamada já resolvida (um Bash que mexeu em arquivos): o que está
+   rodando é `isStillRunning` (`hooks/screen/tools.tsx`), sem `output` ainda.
 
 ## Desempenho
 

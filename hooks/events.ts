@@ -7,7 +7,7 @@ import { startPerfLog } from './perf'
 import { refreshPromptSection } from './prompt'
 import { orientAppend, orientPromptSubmit, orientSessionStart, orientToolCall, orientTurnComplete } from './orient/events'
 import { screenAppend, screenPromptSubmit, screenSessionStart, screenToolCall, screenTurnComplete } from './screen/events'
-import { spinnerToolEnd, spinnerToolStart } from './screen/spinner'
+import { clearRunning, spinnerToolEnd, spinnerToolStart } from './screen/spinner'
 import { welcomeHint } from './system/demo'
 import { checkUpdate } from './system/update'
 import { refreshTheme } from './theme'
@@ -34,6 +34,7 @@ export function registerEvents(on: On): void {
     await guard($, 'session.start (medição)', () => startPerfLog($))
     await guard($, 'session.start (código)', () => codeSessionStart($, e))
     await guard($, 'session.start (tela)', () => screenSessionStart($, e))
+    await guard($, 'session.start (spinner)', () => clearRunning($))
     await guard($, 'session.start (orientação)', () => orientSessionStart($, e))
     await guard($, 'session.start (boas-vindas)', () => welcomeHint($, e))
     await guard($, 'session.start (atualização)', () => checkUpdate($, e))
@@ -76,6 +77,7 @@ export function registerEvents(on: On): void {
     const result = await next(e)
     await guard($, 'turn.complete (código)', () => codeTurnComplete($, e))
     await guard($, 'turn.complete (tela)', () => screenTurnComplete($, e))
+    await guard($, 'turn.complete (spinner)', () => clearRunning($, e.agentId))
     await guard($, 'turn.complete (orientação)', () => orientTurnComplete($, e))
     return result
   })
