@@ -3,6 +3,7 @@ import type { Args, EngineInterface } from 'claude-code'
 import { getFlags } from '../flags'
 import { tr } from '../i18n'
 import { detach, fetchUrl, readFile, storeGet, storeSet, toast } from '../io'
+import { asRecord, errorText, str } from '../safe'
 
 const REMOTE = 'https://raw.githubusercontent.com/Th3-W6rst/claude-realce/main/.claude-plugin/plugin.json'
 const CHANGELOG = 'https://github.com/Th3-W6rst/claude-realce/blob/main/CHANGELOG.md'
@@ -30,9 +31,7 @@ export function compareVersions(a: string, b: string): number {
 }
 
 const versionOf = (json: string): string | null => {
-  const parsed: unknown = JSON.parse(json)
-  const version = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>).version : undefined
-  return typeof version === 'string' ? version : null
+  return str(asRecord(JSON.parse(json)).version)
 }
 
 /** The installed copy's version: plugin.json under the plugin's directory, where this mod keeps it. */
@@ -65,7 +64,7 @@ async function runCheck($: EngineInterface): Promise<void> {
     }
     remote = versionOf(response.text)
   } catch (error) {
-    const why = error instanceof Error ? error.message : String(error)
+    const why = errorText(error)
     lastStatus = tr(`Update: not checked (${why}).`, `Atualização: não verificada (${why}).`)
     return
   }

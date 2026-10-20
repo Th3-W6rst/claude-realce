@@ -1,17 +1,10 @@
-import { atom, read } from 'claude-code'
 import type { EngineInterface, On, PromptComposeSection } from 'claude-code'
 
 import { findMermaid } from './env'
-import { FLAGS, getFlags, getStoredFlags, isMasterOn, type Flags } from './flags'
-import { ensureLanguage, isPicked, lang, pick, tr, type Text } from './i18n'
-import { lastNotifyFailure, lastNotifyWasBanner } from './orient/notify'
-import { localVersion, updateStatus } from './system/update'
-import { explanationsSent } from './screen/explainError'
-import { currentTheme, type ThemeKind } from './theme'
-import { perfLines } from './perf'
-import { composePrompt, logLine, redraw } from './io'
-
-const ENV = atom({ plugin: 'realce', key: 'env' } as const, null)
+import { getFlags, type Flags } from './flags'
+import { ensureLanguage, pick, type Text } from './i18n'
+import { logLine, redraw } from './io'
+import { errorText } from './safe'
 
 export const SECTION_ID = 'realce:reading-aids'
 
@@ -19,6 +12,8 @@ export const SECTION_ID = 'realce:reading-aids'
 // write on every request would redraw every drawing that reads the store.
 type LastCompose = { at: string; surfaces: readonly string[]; traits: readonly string[]; isAdded: boolean }
 let lastCompose: LastCompose | undefined
+
+export const lastComposed = (): LastCompose | undefined => lastCompose
 
 // The section is English for the model; the words it is taught to write (callout tags, the change phrase) are the
 // interface's, so they read right in the person's language.
@@ -95,72 +90,9 @@ export function registerPrompt(on: On): void {
     const hasMermaid = isTaught && (await findMermaid($).then(m => m !== null, () => false))
     // The same goes for the language: the tags and phrases taught are the person's. A setting that cannot be read
     // is said, and the section goes out in the language in force.
-    if (isTaught) await ensureLanguage($).catch(error => logLine($, `realce: language not read (${error instanceof Error ? error.message : String(error)})`))
+    if (isTaught) await ensureLanguage($).catch(error => logLine($, `realce: language not read (${errorText(error)})`))
     const section = isTaught ? buildSection(await getFlags($), hasMermaid) : null
     lastCompose = { at: new Date(await $.clock.now()).toISOString(), surfaces: e.surfaces, traits: e.traits, isAdded: section !== null }
     return section === null ? composed : { sections: [...composed.sections, section] }
   })
-}
-
-const THEME_NAMES: Record<ThemeKind, Text> = {
-  dark: { en: 'dark', pt: 'escuro' },
-  light: { en: 'light', pt: 'claro' },
-  'dark-cb': { en: 'dark for color blindness', pt: 'escuro para daltônicos' },
-  'light-cb': { en: 'light for color blindness', pt: 'claro para daltônicos' },
-  'dark-ansi': { en: 'dark ANSI', pt: 'ANSI escuro' },
-  'light-ansi': { en: 'light ANSI', pt: 'ANSI claro' },
-}
-
-export async function status($: EngineInterface, isFullscreen?: boolean): Promise<string> {
-  const last = lastCompose
-  const stored = await getStoredFlags($)
-  const off = FLAGS.filter(f => !stored[f.id]).map(f => pick(f.label))
-  const env = await read($, ENV)
-  const { sections } = await composePrompt($)
-  // Always said, for whoever reports a problem: the update line comes only on the day the check runs.
-  const version = await localVersion($)
-  const isTaught = sections.some(s => s.id === SECTION_ID)
-  const sent = explanationsSent()
-  const failure = lastNotifyFailure()
-  const theme = pick(THEME_NAMES[currentTheme()])
-  return [
-    (await isMasterOn($)) ? tr('Realce on.', 'Realce ligado.') : tr('Realce off.', 'Realce desligado.'),
-    ...(version === null ? [] : [tr(`Installed version: ${version}.`, `Versão instalada: ${version}.`)]),
-    isPicked()
-      ? tr(`Language: ${lang() === 'pt' ? 'Portuguese' : 'English'} (picked; /realce language auto follows Claude Code).`, `Idioma: ${lang() === 'pt' ? 'português' : 'inglês'} (escolhido; /realce idioma auto volta a seguir o Claude Code).`)
-      : tr(`Language: ${lang() === 'pt' ? 'Portuguese' : 'English'} (Claude Code's).`, `Idioma: ${lang() === 'pt' ? 'português' : 'inglês'} (o do Claude Code).`),
-    tr(`Features off: ${off.length === 0 ? 'none' : off.join(', ')}.`, `Recursos desligados: ${off.length === 0 ? 'nenhum' : off.join(', ')}.`),
-    tr(
-      `System prompt built now: ${isTaught ? 'carries' : 'leaves out'} the reading section.`,
-      `System prompt montado agora: ${isTaught ? 'leva' : 'não leva'} a seção de leitura.`,
-    ),
-    last === undefined
-      ? tr('No request has built the system prompt since the mod loaded.', 'Nenhum request montou o system prompt desde que o mod carregou.')
-      : tr(
-          `Last request (${last.at}): section ${last.isAdded ? 'added' : 'left out'}; surfaces [${last.surfaces.join(', ')}], traits [${last.traits.join(', ')}].`,
-          `Último request (${last.at}): seção ${last.isAdded ? 'incluída' : 'omitida'}; superfícies [${last.surfaces.join(', ')}], traits [${last.traits.join(', ')}].`,
-        ),
-    env === null
-      ? tr("Session environment: not read yet.", 'Ambiente da sessão: ainda não lido.')
-      : tr(
-          `Links open in: ${env.editor}. Diagrams: ${env.mmdc === null ? 'mmdc not found' : `mmdc at ${env.mmdc}`}.`,
-          `Editor dos links: ${env.editor}. Diagramas: ${env.mmdc === null ? 'mmdc não encontrado' : `mmdc em ${env.mmdc}`}.`,
-        ),
-    tr(`Colors: ${theme} theme.`, `Cores: tema ${theme}.`),
-    ...(sent.sent === 0 ? [] : [tr(`Errors the Haiku explained this session: ${sent.sent} of ${sent.max}.`, `Erros explicados pelo Haiku nesta sessão: ${sent.sent} de ${sent.max}.`)]),
-    ...(isFullscreen === undefined
-      ? []
-      : [
-          isFullscreen
-            ? tr('Fullscreen: yes.', 'Tela cheia: sim.')
-            : tr(
-                'Fullscreen: no. Scrolling from the timeline and the pinned replies, and selecting for /realce explain, need "tui": "fullscreen" in settings.json.',
-                'Tela cheia: não. Rolar pela linha do tempo e pelas fixadas, e selecionar para o /realce explica, pedem "tui": "fullscreen" no settings.json.',
-              ),
-        ]),
-    ...(failure === null ? [] : [tr(`Last notice not sent: ${failure}.`, `Último aviso não enviado: ${failure}.`)]),
-    ...(lastNotifyWasBanner() ? [tr("Last notice: handed to macOS (the terminal gives Claude Code no channel).", 'Último aviso: entregue ao macOS (o terminal não dá canal ao Claude Code).')] : []),
-    ...(updateStatus() === null ? [] : [updateStatus()!]),
-    ...perfLines(),
-  ].join('\n')
 }

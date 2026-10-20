@@ -5,8 +5,8 @@ import { isMermaid } from '../code/diagram'
 import { pathHref } from '../code/links'
 import { cachedEnv } from '../env'
 import { getFlags, type FlagId } from '../flags'
-import { memo } from '../memo'
-import { FOLD_AT } from '../palette'
+import { memoLatest } from '../memo'
+import { FOLD_AT } from '../layout'
 import { parseBlocks } from './blocks'
 import type { RenderCtx } from './ctx'
 import { toPlainMarkdown } from './inline'
@@ -29,15 +29,16 @@ export function registerText(on: On): void {
     if (e.surface !== 'terminal' || e.props.isSummary === true || !REPLY_FLAGS.some(id => flags[id])) {
       return next({ ...e, props: { ...e.props, text: toPlainMarkdown(e.props.text) } })
     }
-    // Same text, same blocks: a scroll redraws a reply many times over.
-    const blocks = memo('blocks', e.props.text, () => parseBlocks(e.props.text), 1000)
+    // Same text, same blocks: a scroll redraws a reply many times over, and a streaming reply keeps one parse.
+    const blocks = memoLatest('blocks', e.requestId, e.props.text, () => parseBlocks(e.props.text))
     const code = blocks.flatMap(b => (b.type === 'code' ? [b] : []))
-    const openFolds = new Set<number>()
-    // Only a block long enough to fold has a fold to read; only a mermaid block has a diagram.
-    for (const [i, b] of code.entries()) {
-      if (b.source.split('\n').length > FOLD_AT && (await read($, { ...FOLDS, id: `${e.requestId}:${i}` })) === true) openFolds.add(i)
-    }
-    const diagrams = code.some(b => isMermaid(b.language)) ? await read($, DIAGRAMS) : {}
+    // Only a block long enough to fold has a fold to read; only a mermaid block has a diagram. One round trip.
+    const folded = code.flatMap((b, i) => (b.source.split('\n').length > FOLD_AT ? [i] : []))
+    const [folds, diagrams] = await Promise.all([
+      Promise.all(folded.map(i => read($, { ...FOLDS, id: `${e.requestId}:${i}` }))),
+      code.some(b => isMermaid(b.language)) ? read($, DIAGRAMS) : Promise.resolve({}),
+    ])
+    const openFolds = new Set(folded.filter((_, n) => folds[n] === true))
     const env = cachedEnv()
     const ctx: RenderCtx = {
       t: $.ui.resolve(e),

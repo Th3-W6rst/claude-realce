@@ -2,13 +2,17 @@ import { describe, expect, mock, test, type Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import { calloutKind, parseBlocks } from '../hooks/text/blocks'
-import { findDeltas, parseNumber } from '../hooks/text/deltas'
+import { parseNumber, scanDeltas } from '../hooks/text/deltas'
 import { humanizeAmount } from '../hooks/format'
 import { parseInline, toPlainMarkdown } from '../hooks/text/inline'
-import { cellWidth, fitColumns, isNumericColumn, parseTable } from '../hooks/text/table'
+import { cellWidth } from '../hooks/fit'
+import { fitColumns, isNumericColumn, parseTable } from '../hooks/text/table'
 import { PT } from './lang'
 
 const kindsOf = (line: string) => parseInline(line).map(s => [s.text, s.kinds.join('+')])
+
+/** The deltas a text holds, without where each starts. */
+const findDeltas = (text: string) => scanDeltas(text).map(({ start: _, ...d }) => d)
 
 describe('inline', () => {
   test('a leading bold is a label and takes its colon', () => {

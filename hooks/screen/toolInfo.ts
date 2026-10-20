@@ -1,14 +1,21 @@
+import { asRecord, str } from '../safe'
+
 // What a tool call's input and stored result say, read loosely: rows and tracking see `unknown` from the engine.
 
 export const EDIT_TOOLS: ReadonlySet<string> = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit'])
 
-export const asRecord = (value: unknown): Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+/** A stored message's text blocks, in order. */
+export const textsOf = (content: readonly { type: string; text?: unknown }[]): string[] =>
+  content.flatMap(b => (b.type === 'text' && typeof b.text === 'string' ? [b.text] : []))
 
-export const str = (value: unknown): string | null => (typeof value === 'string' ? value : null)
+/** An MCP tool's server and tool name (`mcp__rea__open_binary` → rea, open_binary); null for any other tool. */
+export function mcpName(tool: string): { server: string; name: string } | null {
+  const m = /^mcp__(.+?)__(.+)$/.exec(tool)
+  return m === null ? null : { server: m[1]!, name: m[2]! }
+}
 
 /** Lines a text holds; a final newline ends the last line rather than opening another. */
-export function lineCount(text: string): number {
+function lineCount(text: string): number {
   if (text === '') return 0
   return text.replace(/\n$/, '').split('\n').length
 }
@@ -16,7 +23,7 @@ export function lineCount(text: string): number {
 /** The file an editing tool wrote, or null. */
 export const editedPath = (input: unknown): string | null => str(asRecord(input).file_path) ?? str(asRecord(input).notebook_path)
 
-export type EditCounts = { added: number; removed: number; isNew: boolean }
+type EditCounts = { added: number; removed: number; isNew: boolean }
 
 /** Lines an edit added and removed: from the stored diff once the call settled, else from what the model sent. */
 export function editCounts(tool: string, input: unknown, output?: unknown): EditCounts {

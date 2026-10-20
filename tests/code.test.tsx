@@ -66,6 +66,11 @@ describe('links', () => {
     const ui = await mountReply($, 'Mudei hooks/x.ts:12 hoje.')
     expect(await ui.find({ type: 'Link' })).toBeUndefined()
   })
+
+  test('a # or ? in a path stays part of it, in an editor link as in a file one', () => {
+    expect(pathHref('C# notas/a?.ts:3', { ...env, editor: 'cursor' })).toBe('cursor://file/a/b/C%23%20notas/a%3F.ts:3')
+    expect(pathHref('C# notas/a?.ts', { ...env, editor: 'file' })).toBe('file:///a/b/C%23%20notas/a%3F.ts')
+  })
 })
 
 const numbered = (count: number) => Array.from({ length: count }, (_, n) => `const line${n + 1} = ${n + 1}`).join('\n')

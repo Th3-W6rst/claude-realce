@@ -1,20 +1,19 @@
 import type { EngineInterface, On } from 'claude-code'
 
-import { featureOff, flagName, flagOf, FLAGS, flagSpec, getFlags, getStoredFlags, isFlagId, pickLanguage, setFlag, setMaster } from './flags'
+import { featureOff, flagName, flagOf, FLAGS, flagSpec, getFlags, getStoredFlags, isFlagId, pickLanguage, setFlag, setMaster, type FlagId } from './flags'
 import { isPicked, pick, tr, type Lang } from './i18n'
 import { explainCommand } from './orient/explain'
 import { pinCommand } from './orient/pins'
 import { demoCommand } from './system/demo'
-import { printCommand } from './system/print'
-import { openFlagsPane } from './orient/flagsPane'
+import { lastReply, printCommand } from './system/print'
+import { applyFlag, openFlagsPane } from './orient/flagsPane'
 import { retitleSessionPane, toggleSessionPane } from './orient/paneToggle'
-import { status } from './prompt'
-import { refreshTheme } from './theme'
+import { statusCommand } from './system/status'
 import { toPlainMarkdown } from './text/inline'
 import { cachedEnv, sessionOffset } from './env'
-import { reportCommand } from './orient/report'
+import { summaryCommand } from './system/summary'
 import { doctorCommand } from './system/doctor'
-import { copyText, registerCommand, transcript } from './io'
+import { copyText, registerCommand } from './io'
 
 const usage = () =>
   tr(
@@ -23,10 +22,8 @@ const usage = () =>
   )
 
 // Every command answers to its English and its Portuguese name; the help shows the one of the language in force.
-const COMMAND_WORDS: Readonly<Record<string, string>> = {
-  help: 'ajuda', doctor: 'diagnostico', copy: 'copiar', summary: 'resumo', pane: 'painel', focus: 'foco', explain: 'explica',
-  pin: 'fixar', language: 'idioma',
-}
+// The commands named after a flag (copy, summary, pane, focus, explain, pin) take the flag table's names.
+const COMMAND_WORDS: Readonly<Record<string, string>> = { help: 'ajuda', doctor: 'diagnostico', language: 'idioma' }
 
 /** A command word or a flag name as the dispatcher knows it: Portuguese, the store's ids. */
 const canonical = (word: string): string => (Object.hasOwn(COMMAND_WORDS, word) ? COMMAND_WORDS[word]! : (flagOf(word)?.id ?? word))
@@ -71,7 +68,7 @@ const help = () =>
 
 /** `/realce copiar`: the last reply on the clipboard, its typed marks as plain markdown. */
 async function copyLastReply($: EngineInterface): Promise<string> {
-  const reply = [...(await transcript($))].reverse().find(m => m.role === 'assistant' && m.text.trim() !== '')
+  const reply = await lastReply($)
   if (reply === undefined) return tr('No reply to copy yet.', 'Nenhuma resposta para copiar ainda.')
   const copied = await copyText($, { text: toPlainMarkdown(reply.text) })
   return copied.isCopied ? tr('Last reply copied.', 'Última resposta copiada.') : tr(`Could not copy: ${copied.reason}.`, `Não deu para copiar: ${copied.reason}.`)
@@ -109,6 +106,11 @@ async function languageCommand($: EngineInterface, word: string): Promise<string
   return tr("Interface language: Claude Code's (English).", 'Idioma da interface: o do Claude Code (português).')
 }
 
+/** A feature's command, or what it answers while the feature's flag is off. */
+async function gated($: EngineInterface, id: FlagId, run: () => Promise<string>): Promise<string> {
+  return (await getFlags($))[id] ? run() : featureOff(id)
+}
+
 export function registerCommands(on: On): void {
   on('command.run', { command: 'realce' }, async ($, e) => {
     // The flags' read also brings the language the person picked: every answer below speaks it.
@@ -130,9 +132,9 @@ export function registerCommands(on: On): void {
     if (words.length === 1 && first === 'diagnostico') return { text: await doctorCommand($, e.presentation.isFullscreen) }
     if (words.length === 1 && first === 'copiar') return { text: await copyLastReply($) }
     if (words.length === 1 && first === 'resumo') {
-      return { text: (await getFlags($)).resumo ? await reportCommand($, cachedEnv()?.cwd ?? (await $.session.cwd()), await sessionOffset($)) : featureOff('resumo') }
+      return { text: await gated($, 'resumo', async () => summaryCommand($, cachedEnv()?.cwd ?? null, await sessionOffset($))) }
     }
-    if (words.length === 1 && first === 'status') return { text: await status($, e.presentation.isFullscreen) }
+    if (words.length === 1 && first === 'status') return { text: await statusCommand($, e.presentation.isFullscreen) }
     if (words.length === 1 && first === 'painel') {
       return { text: (await toggleSessionPane($)) ? tr('Session pane open.', 'Painel da sessão aberto.') : tr('Session pane closed.', 'Painel da sessão fechado.') }
     }
@@ -144,18 +146,17 @@ export function registerCommands(on: On): void {
     if (first === 'explica' && (words.length === 1 || !(words.length === 2 && (second === 'on' || second === 'off')))) {
       // What follows the word keeps its case: it is the text to explain.
       const given = e.args.trim().slice(typed.length)
-      return { text: (await getFlags($)).explica ? await explainCommand($, given) : featureOff('explica') }
+      return { text: await gated($, 'explica', () => explainCommand($, given)) }
     }
     if (words.length === 1 && first === 'demo') {
       if (!(await getFlags($)).demo) return { text: featureOff('demo') }
       await demoCommand($)
       return {}
     }
-    if (words.length === 1 && first === 'print') return { text: (await getFlags($)).print ? await printCommand($) : featureOff('print') }
-    if (words.length === 1 && first === 'fixar') return { text: (await getFlags($)).fixar ? await pinCommand($) : featureOff('fixar') }
+    if (words.length === 1 && first === 'print') return { text: await gated($, 'print', () => printCommand($)) }
+    if (words.length === 1 && first === 'fixar') return { text: await gated($, 'fixar', () => pinCommand($)) }
     if (words.length === 2 && isFlagId(first) && (second === 'on' || second === 'off')) {
-      await setFlag($, first, second === 'on')
-      if (first === 'tema') await refreshTheme($)
+      await applyFlag($, first, second === 'on')
       const label = pick(flagSpec(first).label)
       return { text: second === 'on' ? tr(`On: ${label}.`, `Ligado: ${label}.`) : tr(`Off: ${label}.`, `Desligado: ${label}.`) }
     }

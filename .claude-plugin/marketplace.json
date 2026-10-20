@@ -3,12 +3,12 @@
   "owner": {
     "name": "Th3-W6rst"
   },
-  "description": "Mods do Claude Code de Th3-W6rst",
+  "description": "Th3-W6rst's Claude Code mods",
   "plugins": [
     {
       "name": "realce",
       "source": "./",
-      "description": "Cores por sentido nas respostas do Claude, código, ferramentas e turnos legíveis num relance"
+      "description": "Colors Claude's replies by meaning and makes the session easier to follow, every aid behind its own flag"
     }
   ]
 }

@@ -1,9 +1,9 @@
-import type { Args, EngineInterface, On } from 'claude-code'
+import type { Args, EngineInterface } from 'claude-code'
 
 import { getFlags } from '../flags'
 import { pick, tr, type Text } from '../i18n'
-import { screenTurnStart } from '../screen/events'
 import { detach, logLine, storeGet, storeSet, submitPrompt, toast } from '../io'
+import { errorText } from '../safe'
 
 /** The showcase reply in each language: every aid the mod draws, in one answer the model never writes. */
 export const DEMO_TEXTS: Text = {
@@ -103,7 +103,7 @@ async function submitDemo($: EngineInterface): Promise<void> {
   } catch (error) {
     // Armed with no prompt on its way, the demo would answer the person's next real prompt.
     isArmed = false
-    logLine($, `realce: demo not sent (${error instanceof Error ? error.message : String(error)})`)
+    logLine($, `realce: demo not sent (${errorText(error)})`)
   }
 }
 
@@ -122,20 +122,9 @@ export async function welcomeHint($: EngineInterface, e: Args<'session.start'>):
   toast($, tr('realce installed: /realce demo shows what it does; /realce help lists the commands.', 'realce instalado: /realce demo mostra o que ele faz; /realce ajuda lista os comandos.'))
 }
 
-// The module's one turn.step hook: a main turn's first step opens its stats if no prompt.submit did, then the demo.
-export function registerDemo(on: On): void {
-  on('turn.step', async function* ($, e, next) {
-    try {
-      await screenTurnStart($, e)
-    } catch (error) {
-      logLine($, `realce: turn.step (screen) failed: ${error instanceof Error ? error.message : String(error)}`)
-    }
-    // Only a turn's first step: a prompt that joined a running turn must not cut that turn's work short.
-    if (!isArmed || e.agentId !== undefined || e.index !== 0) return yield* next(e)
-    isArmed = false
-    const text = pick(DEMO_TEXTS)
-    yield { kind: 'text' as const, index: 0, text }
-    yield { kind: 'stop' as const, stopReason: 'end_turn' as const, usage: null }
-    return { turnId: e.turnId, index: e.index, answer: text, toolUses: [], stopReason: 'end_turn' as const, usage: null }
-  })
+/** The showcase, once, when the command armed it: the turn's first step (hooks/events.ts) answers with it. */
+export function takeDemo(): string | null {
+  if (!isArmed) return null
+  isArmed = false
+  return pick(DEMO_TEXTS)
 }

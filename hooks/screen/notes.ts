@@ -4,6 +4,7 @@ import type { EngineInterface } from 'claude-code'
 import type { CommitCard, Explanation } from '../../types'
 import { shortCardText } from './commit'
 import { redraw } from '../io'
+import { keepNewest, trimOldest } from '../memo'
 
 // What the mod learned about single calls (a commit's card, a failure's sentence), by tool_use_id. The state keeps
 // them past a reload; the drawings read the module's copy, so a scroll costs no trip to the engine, and a new note
@@ -17,17 +18,12 @@ const MAX_KEPT = 200
 const explanations = new Map<string, Explanation>()
 const commits = new Map<string, CommitCard[]>()
 
-/** The newest `MAX_KEPT` entries, in the order they came. */
-function keepNewest<V>(record: Record<string, V>): Record<string, V> {
-  const entries = Object.entries(record)
-  return entries.length <= MAX_KEPT ? record : Object.fromEntries(entries.slice(-MAX_KEPT))
-}
-
 export const explanationFor = (toolUseId: string): Explanation | null => explanations.get(toolUseId) ?? null
-/** Every commit card the session saw, oldest first. */
+
 // Kept as data, worded when read: a card speaks the language in force, not the one of the moment it was made.
 const cardsText = (cards: readonly CommitCard[]) => cards.map(shortCardText).join(' · ')
 
+/** Every commit card the session saw, oldest first. */
 export const allCommits = (): string[] => [...commits.values()].map(cardsText)
 
 export function commitFor(toolUseId: string): string | null {
@@ -52,13 +48,16 @@ export async function loadNotes($: EngineInterface): Promise<void> {
 }
 
 export async function setExplanation($: EngineInterface, toolUseId: string, explanation: Explanation): Promise<void> {
+  explanations.delete(toolUseId)
   explanations.set(toolUseId, explanation)
-  await update($, EXPLANATIONS, all => keepNewest({ ...all, [toolUseId]: explanation }))
+  trimOldest(explanations, MAX_KEPT)
+  await update($, EXPLANATIONS, all => keepNewest({ ...all, [toolUseId]: explanation }, MAX_KEPT))
   redraw($, 'ui.render')
 }
 
 export async function setCommit($: EngineInterface, toolUseId: string, cards: CommitCard[]): Promise<void> {
   commits.set(toolUseId, cards)
-  await update($, COMMITS, all => keepNewest({ ...all, [toolUseId]: cards }))
+  trimOldest(commits, MAX_KEPT)
+  await update($, COMMITS, all => keepNewest({ ...all, [toolUseId]: cards }, MAX_KEPT))
   redraw($, 'ui.render')
 }

@@ -1,23 +1,23 @@
 import type { RenderElement } from 'claude-code'
 
 import { renderCodeBlock } from '../code/codeBlock'
-import { BLOCK, CALLOUT, PROSE, READING_WIDTH, type Paint, type ProseKind } from '../palette'
-import type { Block } from './blocks'
+import { READING_WIDTH } from '../layout'
+import { BLOCK, CALLOUT, PROSE, type Paint, type ProseKind } from '../palette'
+import { headingKind, itemMark, type Block } from './blocks'
 import type { RenderCtx } from './ctx'
-import { parseInline, plainText, toPlainMarkdown, type InlineOpts, type Span } from './inline'
-import { parseTable, renderTable } from './table'
+import { inlineOptsOf, plainText, spansOf, toPlainMarkdown, type Span } from './inline'
+import { renderTable } from './table'
 import { tr } from '../i18n'
 
 // With enfase off these draw as the engine draws `**x**`: the one place this mod uses bold.
 const MARKS: ReadonlySet<ProseKind> = new Set(['label', 'strong', 'highlight', 'good', 'bad', 'warn'])
 
-function paintOf(ctx: RenderCtx, span: Span): Paint & { bold?: boolean } {
-  if (ctx.flags.enfase) return Object.assign({}, ...span.kinds.map(k => PROSE[k]))
+/** A span's paint in `prose`, the screen's and the print's alike. */
+export function spanPaint(kinds: readonly ProseKind[], prose: Readonly<Record<ProseKind, Paint>>, isEnfase: boolean): Paint & { bold?: boolean } {
+  if (isEnfase) return Object.assign({}, ...kinds.map(k => prose[k]))
   // A path keeps its link (caminhos) but not its color.
-  return Object.assign({}, ...span.kinds.filter(k => k !== 'path').map(k => (MARKS.has(k) ? { bold: true } : PROSE[k])))
+  return Object.assign({}, ...kinds.filter(k => k !== 'path').map(k => (MARKS.has(k) ? { bold: true } : prose[k])))
 }
-
-export const inlineOpts = (ctx: RenderCtx): InlineOpts => ({ enfase: ctx.flags.enfase, deltas: ctx.flags.deltas, numeros: ctx.flags.numeros })
 
 // From this many lines a reply gets its own copy button: shorter ones are easy to select.
 const COPY_REPLY_LINES = 15
@@ -62,7 +62,7 @@ function breathes(previous: Block | undefined, block: Block, width: number): boo
 
 function wraps(item: Extract<Block, { type: 'item' }>, width: number): boolean {
   const room = width - item.depth * 2 - item.marker.length - 1
-  return item.lines.length > 1 || plainText(parseInline(item.lines[0] ?? '', [], true, { deltas: false })).length > room
+  return item.lines.length > 1 || plainText(spansOf(item.lines[0] ?? '', true, { deltas: false })).length > room
 }
 
 function renderBlock(ctx: RenderCtx, block: Block, codeIndex: number, tableIndex: number): RenderElement {
@@ -74,13 +74,11 @@ function renderBlock(ctx: RenderCtx, block: Block, codeIndex: number, tableIndex
           <Text>{lines(ctx, block.lines)}</Text>
         </Box>
       )
-    case 'heading': {
-      const paint = block.level === 1 ? BLOCK.heading1 : block.level === 2 ? BLOCK.heading2 : BLOCK.heading3
-      return <Text {...paint}>{drawSpans(ctx, parseInline(block.text, [], false, inlineOpts(ctx)))}</Text>
-    }
+    case 'heading':
+      return <Text {...BLOCK[headingKind(block.level)]}>{drawSpans(ctx, spansOf(block.text, false, inlineOptsOf(ctx.flags)))}</Text>
     case 'item': {
-      const mark = block.check !== null ? (block.check ? '☑' : '☐') : block.isOrdered ? block.marker : depthBullet(block.depth)
-      const paint = block.check !== null ? (block.check ? BLOCK.checkDone : BLOCK.checkOpen) : block.isOrdered ? BLOCK.ordinal : BLOCK.bullet
+      const { mark, kind } = itemMark(block)
+      const paint = BLOCK[kind]
       return (
         <Box flexDirection="row" marginLeft={block.depth * 2}>
           <Box width={mark.length + 1} flexShrink={0}>
@@ -97,7 +95,7 @@ function renderBlock(ctx: RenderCtx, block: Block, codeIndex: number, tableIndex
     case 'callout': {
       if (!ctx.flags.callouts) return quote(ctx, block.raw)
       const { color, title } = CALLOUT[block.kind]
-      const own = plainText(parseInline(block.title, [], false, { deltas: false }))
+      const own = plainText(spansOf(block.title, false, { deltas: false }))
       return (
         <Box flexDirection="column" borderStyle="round" borderColor={color} paddingX={1}>
           <Text color={color}>{own === '' ? title : `${title} · ${own}`}</Text>
@@ -109,7 +107,7 @@ function renderBlock(ctx: RenderCtx, block: Block, codeIndex: number, tableIndex
       return renderCodeBlock(ctx, block, codeIndex)
     case 'table':
       // With tabelas off the engine lays the table out; the typed emphasis becomes bold there.
-      return ctx.flags.tabelas ? renderTable(ctx, parseTable(block.text), `table-${tableIndex}`) : <Markdown text={toPlainMarkdown(block.text)} />
+      return ctx.flags.tabelas ? renderTable(ctx, block.text, `table-${tableIndex}`) : <Markdown text={toPlainMarkdown(block.text)} />
     case 'rule':
       return <Text {...BLOCK.rule}>{'─'.repeat(Math.max(3, Math.min(ctx.columns - 4, 72)))}</Text>
   }
@@ -129,18 +127,16 @@ function quote(ctx: RenderCtx, source: string[]): RenderElement {
   )
 }
 
-const depthBullet = (depth: number) => ['•', '◦', '▪'][depth % 3]!
-
 function lines(ctx: RenderCtx, source: string[]) {
-  const opts = inlineOpts(ctx)
-  return source.flatMap((line, n) => [...(n > 0 ? ['\n'] : []), ...drawSpans(ctx, parseInline(line, [], true, opts))])
+  const opts = inlineOptsOf(ctx.flags)
+  return source.flatMap((line, n) => [...(n > 0 ? ['\n'] : []), ...drawSpans(ctx, spansOf(line, true, opts))])
 }
 
 /** Painted runs of one line, a path or URL wrapped in its link. */
 export function drawSpans(ctx: RenderCtx, list: readonly Span[]) {
   const { Text, Link } = ctx.t
   return list.map(span => {
-    const paint = paintOf(ctx, span)
+    const paint = spanPaint(span.kinds, PROSE, ctx.flags.enfase)
     const href = span.href ?? (span.kinds.includes('path') ? ctx.hrefForPath(span.text) : null)
     const isPlain = Object.keys(paint).length === 0
     if (isPlain && (href === null || href === undefined)) return span.text

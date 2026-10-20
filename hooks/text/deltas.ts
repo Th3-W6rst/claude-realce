@@ -4,7 +4,7 @@ import { decimalMark } from '../format'
 import { tr } from '../i18n'
 
 /** `end`: just past the second number (and its unit); `arrow`: where the arrow is, for the arrow form. */
-export type Delta = { end: number; label: string; arrow?: { start: number; end: number } }
+type Delta = { end: number; label: string; arrow?: { start: number; end: number } }
 
 const UNIT = '%|p\\.p\\.|ms|min|GB|MB|KB|TB|kB|px|s|h|B|k|K|M'
 const UNIT_RE = new RegExp(`^(?:${UNIT})$`, 'u')
@@ -32,10 +32,6 @@ export function parseNumber(s: string): { value: number; decimals: number; unit:
   if (frac.length === 3 && int !== '0') return null
   const value = Number(frac === '' ? int : `${int}.${frac}`) * (sign === '' || sign === '+' ? 1 : -1)
   return { value, decimals: frac.length, unit }
-}
-
-export function findDeltas(text: string): Delta[] {
-  return scanDeltas(text).map(({ start: _, ...d }) => d)
 }
 
 /** The deltas with where each match starts, for callers that must keep other spans whole. */

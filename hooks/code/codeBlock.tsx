@@ -1,13 +1,15 @@
 import type { RenderElement } from 'claude-code'
 
-import { BG, BLOCK, CODE, FOLD_AT, FOLD_SHOW, PROSE } from '../palette'
+import { FOLD_AT, FOLD_SHOW, foldLabel } from '../layout'
+import { BG, BLOCK, CODE, PROSE } from '../palette'
 import type { Block } from '../text/blocks'
 import type { RenderCtx } from '../text/ctx'
 import { diagramHash, imageCells, isMermaid } from './diagram'
 import { highlight, isKnownLanguage } from './highlight'
 import { tr } from '../i18n'
+import { memo } from '../memo'
 
-export type CodeBlock = Extract<Block, { type: 'code' }>
+type CodeBlock = Extract<Block, { type: 'code' }>
 
 /** A fenced block of a reply; `index` is its place among the reply's code blocks. */
 export function renderCodeBlock(ctx: RenderCtx, block: CodeBlock, index: number): RenderElement {
@@ -51,7 +53,7 @@ function renderCode(ctx: RenderCtx, block: CodeBlock, index: number): RenderElem
   ) : null
   const fold = isLong ? (
     <Button plain key={`fold-${index}`} dimColor onPress={() => ctx.onFold(index, !isOpen)}>
-      {isOpen ? tr('▾ Fold', '▾ Recolher') : tr(`▸ Show ${lines.length - FOLD_SHOW} more lines`, `▸ Mostrar mais ${lines.length - FOLD_SHOW} linhas`)}
+      {foldLabel(isOpen, lines.length - FOLD_SHOW)}
     </Button>
   ) : null
   const header =
@@ -78,7 +80,7 @@ function renderCode(ctx: RenderCtx, block: CodeBlock, index: number): RenderElem
   return (
     <Box flexDirection="column" {...(BG.code === undefined ? {} : { backgroundColor: BG.code })} paddingX={1}>
       {header}
-      {highlight(shown, block.language).map(line => (
+      {memo('highlight', `${block.language}\n${shown}`, () => highlight(shown, block.language), 500).map(line => (
         <Text>
           {line.length === 0 ? ' ' : line.map(tok => (tok.kind === undefined ? tok.text : <Text {...CODE[tok.kind]}>{tok.text}</Text>))}
         </Text>

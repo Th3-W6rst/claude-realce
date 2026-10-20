@@ -3,7 +3,7 @@ import type { Args, EngineInterface, On } from 'claude-code'
 
 import type { AwaySummary, TurnStats } from '../../types'
 import { getFlags } from '../flags'
-import { plural, testCount } from '../format'
+import { plural, scoreText } from '../format'
 import { sealLabel, turnStatsFor } from '../screen/turns'
 import { tr } from '../i18n'
 
@@ -36,13 +36,7 @@ export function awaySummary(now: number, lastInput: number, ended: readonly Turn
 export function awayText(s: AwaySummary): string {
   const parts = [plural(s.turns, tr('turn', 'turno'), tr('turns', 'turnos'))]
   if (s.files > 0) parts.push(plural(s.files, tr('file', 'arquivo'), tr('files', 'arquivos')))
-  if (s.tests !== null) {
-    parts.push(
-      s.tests.failed === 0
-        ? `✔ ${testCount(s.tests.passed, s.tests.unit)}`
-        : `✖ ${plural(s.tests.failed, tr('test failed', 'teste falhou'), tr('tests failed', 'testes falharam'))}`,
-    )
-  }
+  if (s.tests !== null) parts.push(scoreText(s.tests))
   const seal = sealLabel(s.seal)
   if (seal !== null) parts.push(seal.text)
   if (s.pending > 0) parts.push(plural(s.pending, tr('decision waiting', 'decisão esperando'), tr('decisions waiting', 'decisões esperando')))

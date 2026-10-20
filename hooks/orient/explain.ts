@@ -1,9 +1,10 @@
 import { atom, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
-import { pick, tr, type Text } from '../i18n'
+import { tr, type Text } from '../i18n'
 import { openSessionPane } from './paneToggle'
-import { complete, detach, readSelection } from '../io'
+import { detach, readSelection } from '../io'
+import { askHaiku } from '../screen/explainError'
 
 const EXPLAIN = atom({ plugin: 'realce', key: 'explain' } as const, null)
 
@@ -15,13 +16,8 @@ const SYSTEM: Text = {
 }
 
 async function runExplain($: EngineInterface, excerpt: string): Promise<void> {
-  let next: { status: 'ready' | 'failed'; text: string }
-  try {
-    const reply = await complete($, { model: 'haiku', system: pick(SYSTEM), prompt: excerpt, maxTokens: 400, timeoutMs: 30_000 })
-    next = reply.isAnswered ? { status: 'ready', text: reply.text.trim() } : { status: 'failed', text: reply.reason }
-  } catch (error) {
-    next = { status: 'failed', text: error instanceof Error ? error.message : String(error) }
-  }
+  const answer = await askHaiku($, SYSTEM, excerpt, 400, 30_000)
+  const next = 'text' in answer ? { status: 'ready' as const, text: answer.text } : { status: 'failed' as const, text: answer.reason }
   // A newer request owns the panel: an older answer arriving late is dropped.
   await update($, EXPLAIN, panel => (panel === null || panel.excerpt !== excerpt ? panel : { ...panel, ...next }))
 }
@@ -34,7 +30,7 @@ export async function closeExplanation($: EngineInterface): Promise<void> {
  * `/realce explica [texto]`: the text given, or else the selection, explained in the session pane by a fast model,
  * off the command. The text works where nothing can be selected (outside fullscreen).
  */
-export async function explainCommand($: EngineInterface, given = ''): Promise<string> {
+export async function explainCommand($: EngineInterface, given: string): Promise<string> {
   const text = given.trim() !== '' ? given.trim() : ((await readSelection($))?.text.trim() ?? '')
   if (text === '') {
     return tr(

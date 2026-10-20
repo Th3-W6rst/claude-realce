@@ -2,11 +2,13 @@ import { atom, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
 import type { Diagram } from '../../types'
-import { CELL_ASPECT, CELL_PX, DIAGRAM_SCALE, MERMAID } from '../palette'
+import { CELL_ASPECT, CELL_PX, DIAGRAM_SCALE } from '../layout'
+import { MERMAID } from '../palette'
 import { parseBlocks } from '../text/blocks'
 import { currentTheme } from '../theme'
 import { tr } from '../i18n'
 import { exists, readFile, runProcess, writeFile } from '../io'
+import { errorText } from '../safe'
 
 const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
 
@@ -68,8 +70,12 @@ export function imageCells(px: { width: number; height: number }, maxColumns: nu
 
 export const diagramDir = (home: string) => `${home}/.cache/realce/diagrams`
 
+/** mmdc's arguments for one picture: natural size at scale 2, on the theme's background. The README's pictures too. */
+export const mmdcArgs = (mmdc: string, input: string, png: string, config: string, background: string): string[] =>
+  [mmdc, '-i', input, '-o', png, '-c', config, '-b', background, '-s', String(DIAGRAM_SCALE), '-q']
+
 /** Renders one diagram to `<dir>/<hash>.png` with mmdc (a cached picture is reused) and reads its size. */
-export async function generateDiagram($: EngineInterface, source: string, hash: string, mmdc: string, dir: string): Promise<Diagram> {
+async function generateDiagram($: EngineInterface, source: string, hash: string, mmdc: string, dir: string): Promise<Diagram> {
   const png = `${dir}/${hash}.png`
   if (!(await exists($, png))) {
     const input = `${dir}/${hash}.mmd`
@@ -78,7 +84,7 @@ export async function generateDiagram($: EngineInterface, source: string, hash: 
     await writeFile($, config, JSON.stringify(MERMAID.config))
     await writeFile($, input, source)
     // Natural size at scale 2: mmdc 12 has no width option, and --size would blow small diagrams up to the screen.
-    const run = await runProcess($, [mmdc, '-i', input, '-o', png, '-c', config, '-b', String(MERMAID.config.themeVariables.background), '-s', String(DIAGRAM_SCALE), '-q'])
+    const run = await runProcess($, mmdcArgs(mmdc, input, png, config, String(MERMAID.config.themeVariables.background)))
     if (run.exitCode !== 0) {
       const line = run.stderr.split('\n').map(l => l.trim()).find(l => l !== '')
       // mmdc leads with `Error: `, which the block's own "Invalid diagram:" already says.
@@ -95,7 +101,7 @@ export async function storeDiagram($: EngineInterface, source: string, hash: str
   try {
     diagram = await generateDiagram($, source, hash, mmdc, dir)
   } catch (error) {
-    diagram = { status: 'failed', error: error instanceof Error ? error.message : String(error) }
+    diagram = { status: 'failed', error: errorText(error) }
   }
   await update($, DIAGRAMS, all => ({ ...all, [hash]: diagram }))
 }

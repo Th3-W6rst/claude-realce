@@ -3,8 +3,11 @@ import type { EngineInterface } from 'claude-code'
 import { getFlags } from '../flags'
 import { pick, tr, type Text } from '../i18n'
 import { setExplanation } from './notes'
-import { asRecord, failureLine, shellCommands } from './toolInfo'
+import { failureLine, shellCommands } from './toolInfo'
+import { asRecord, errorText } from '../safe'
 import { complete, detach } from '../io'
+import { fitEnd } from '../fit'
+import { trimOldest } from '../memo'
 
 // The model's time is the person's: at most this many per load, never the same failure twice.
 const MAX_PER_LOAD = 20
@@ -28,7 +31,7 @@ let sent = 0
 /** For /realce status: how many failures went to the model in this load, of how many it may send. */
 export const explanationsSent = () => ({ sent, max: MAX_PER_LOAD })
 
-export const errorKey = (command: string, line: string) => `${command}\n${line}`
+const errorKey = (command: string, line: string) => `${command}\n${line}`
 
 // Commands that do not fail on their own: beside an answer they leave the exit status the answer's.
 const QUIET_COMMANDS: ReadonlySet<string> = new Set(['echo', 'printf', 'true', ':', 'head', 'tail', 'wc', 'sort', 'uniq', 'cut', 'tr'])
@@ -59,26 +62,30 @@ const MAX_ANSWERED = 500
 
 export function rememberAnswer(toolUseId: string): void {
   answered.add(toolUseId)
-  if (answered.size > MAX_ANSWERED) answered.delete(answered.values().next().value!)
+  trimOldest(answered, MAX_ANSWERED)
 }
 
 export const wasAnswer = (toolUseId: string): boolean => answered.has(toolUseId)
 
 /** What the model reads: the command and the end of its output. */
-export function explainPrompt(command: string, output: string): string {
+function explainPrompt(command: string, output: string): string {
   const tail = output.trimEnd().split('\n').slice(-OUTPUT_LINES).join('\n')
   return tr(`Command:\n${command}\n\nOutput (end):\n${tail}`, `Comando:\n${command}\n\nSaída (fim):\n${tail}`)
 }
 
-const cut = (text: string) => ([...text].length <= MAX_CHARS ? text : `${[...text].slice(0, MAX_CHARS - 1).join('').trimEnd()}…`)
+/** One short answer from the fast model, in the interface's language, or why there is none. */
+export async function askHaiku($: EngineInterface, system: Text, prompt: string, maxTokens: number, timeoutMs: number): Promise<{ text: string } | { reason: string }> {
+  try {
+    const reply = await complete($, { model: 'haiku', system: pick(system), prompt, maxTokens, timeoutMs })
+    return reply.isAnswered ? { text: reply.text.trim() } : { reason: reply.reason }
+  } catch (error) {
+    return { reason: errorText(error) }
+  }
+}
 
 async function runExplain($: EngineInterface, toolUseId: string, command: string, output: string): Promise<void> {
-  try {
-    const reply = await complete($, { model: 'haiku', system: pick(SYSTEM), prompt: explainPrompt(command, output), maxTokens: 200, timeoutMs: 20_000 })
-    await setExplanation($, toolUseId, reply.isAnswered ? { status: 'ready', text: cut(reply.text.trim().replace(/\s+/g, ' ')) } : { status: 'failed', reason: reply.reason })
-  } catch (error) {
-    await setExplanation($, toolUseId, { status: 'failed', reason: error instanceof Error ? error.message : String(error) })
-  }
+  const answer = await askHaiku($, SYSTEM, explainPrompt(command, output), 200, 20_000)
+  await setExplanation($, toolUseId, 'text' in answer ? { status: 'ready', text: fitEnd(answer.text.replace(/\s+/g, ' '), MAX_CHARS) } : { status: 'failed', reason: answer.reason })
 }
 
 /**

@@ -7,7 +7,7 @@ export type Editor = 'cursor' | 'vscode' | 'zed' | 'file'
 
 export type SessionEnv = { cwd: string; home: string; editor: Editor; tzOffsetMinutes: number; mmdc: string | null }
 
-export type TestScore = { runner: string; passed: number; failed: number; skipped: number; seconds?: number; unit: 'testes' | 'pacotes' }
+export type TestScore = { runner: string; passed: number; failed: number; skipped: number; seconds?: number; unit: 'tests' | 'packages' }
 
 export type Seal = 'proved' | 'failing' | 'unproved'
 
@@ -56,14 +56,14 @@ export type AgentRow = { id: string; type: string; description: string; status: 
 
 // The engine's scan lists what each file reads and writes, so every file declares the atoms it uses itself:
 // `const X = atom({ plugin: 'realce', key: '<key>' } as const, <initial>)`, with these initial values:
-// diagrams {}, env null, turn null, turns {}, files [], failures [], pending null, plan [], agents [],
-// paneOpen false, explanations {}, commits {}, away null, timeline [], explain null, pins [], limit null, usage null; folds is a family, read as `{ plugin: 'realce', key: 'folds', id }`.
+// diagrams {}, turn null, turns {}, files [], failures [], pending null, plan [], agents [],
+// paneOpen false, explanations {}, commits {}, away null, timeline [], explain null, pins [], limit null, usage null,
+// running {}; folds is a family, read as `{ plugin: 'realce', key: 'folds', id }`.
 declare module 'claude-code' {
   interface PluginState {
     realce: {
       folds: StateFamily<boolean>
       diagrams: Record<string, Diagram>
-      env: SessionEnv | null
       turn: OpenTurn | null
       turns: Record<string, TurnStats>
       files: FileTouch[]

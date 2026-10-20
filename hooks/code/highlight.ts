@@ -1,6 +1,6 @@
 import type { CodeKind } from '../palette'
 
-export type Token = { text: string; kind?: CodeKind }
+type Token = { text: string; kind?: CodeKind }
 
 type Lang = {
   lineComments: string[]

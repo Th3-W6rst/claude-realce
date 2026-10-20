@@ -5,18 +5,18 @@ import { pick, tr } from '../i18n'
 import { refreshTheme } from '../theme'
 import { SCREEN } from '../palette'
 import { timed } from '../perf'
-import { fitEnd } from './fit'
+import { cellWidth, fitEnd } from '../fit'
 import { openPane } from '../io'
 
-export const FLAGS_PANE = 'realce-flags'
+const FLAGS_PANE = 'realce-flags'
 
 // One key per flag, in the table's order: a press of it toggles that flag while the pane holds the keys. The
 // engine takes one lowercase letter or one digit: 36 keys; a flag past them is reached with Tab and Enter.
 const HOTKEYS = 'abcdefghijklmnopqrstuvwxyz0123456789'
 
-async function toggleFlag($: EngineInterface, id: FlagId, value: boolean): Promise<void> {
+/** A flag set from the pane or a command: the theme is read once per change of it, so turning tema over repaints now. */
+export async function applyFlag($: EngineInterface, id: FlagId, value: boolean): Promise<void> {
   await setFlag($, id, value)
-  // The theme is read once per change of it: turning tema over repaints now.
   if (id === 'tema') await refreshTheme($)
 }
 
@@ -40,20 +40,22 @@ export function registerFlagsPane(on: On): void {
         {FLAG_GROUPS.map(group => (
           <Box flexDirection="column" marginTop={1}>
             <Text color={SCREEN.plan}>{pick(GROUP_LABELS[group])}</Text>
-            {FLAGS.filter(f => f.group === group).map(f => (
-              <Button
-                key={`flag-${f.id}`}
-                plain
-                {...(HOTKEYS[FLAGS.indexOf(f)] === undefined ? {} : { hotkey: HOTKEYS[FLAGS.indexOf(f)] })}
-                {...(FLAGS.indexOf(f) === 0 ? { autoFocus: true as const } : {})}
-                onPress={() => toggleFlag($, f.id, !flags[f.id])}
-              >
-                {fitEnd(`${flags[f.id] ? '[x] ' : '[ ] '}${pick(f.label)}`, cells)}
-                {[...`${flags[f.id] ? '[x] ' : '[ ] '}${pick(f.label)}`].length + 3 < cells && (
-                  <Text dimColor>{fitEnd(` · ${pick(f.description)}`, cells - [...`${flags[f.id] ? '[x] ' : '[ ] '}${pick(f.label)}`].length)}</Text>
-                )}
-              </Button>
-            ))}
+            {FLAGS.filter(f => f.group === group).map(f => {
+              const at = FLAGS.indexOf(f)
+              const label = `${flags[f.id] ? '[x] ' : '[ ] '}${pick(f.label)}`
+              return (
+                <Button
+                  key={`flag-${f.id}`}
+                  plain
+                  {...(HOTKEYS[at] === undefined ? {} : { hotkey: HOTKEYS[at] })}
+                  {...(at === 0 ? { autoFocus: true as const } : {})}
+                  onPress={() => applyFlag($, f.id, !flags[f.id])}
+                >
+                  {fitEnd(label, cells)}
+                  {cellWidth(label) + 3 < cells && <Text dimColor>{fitEnd(` · ${pick(f.description)}`, cells - cellWidth(label))}</Text>}
+                </Button>
+              )
+            })}
           </Box>
         ))}
         <Box marginTop={1}>

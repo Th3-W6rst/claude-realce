@@ -2,8 +2,10 @@ import { atom, update } from 'claude-code'
 import type { Args, EngineInterface, ResultOf } from 'claude-code'
 
 import type { Pin } from '../../types'
+import { fitEnd } from '../fit'
 import { tr } from '../i18n'
 import { readSelection } from '../io'
+import { textsOf } from '../screen/toolInfo'
 
 const PINS = atom({ plugin: 'realce', key: 'pins' } as const, [])
 
@@ -14,10 +16,7 @@ const PREVIEW_CHARS = 60
 // answer; the ones before it are the steps on the way.
 let lastReply: { requestId: string; preview: string } | null = null
 
-const preview = (text: string) => {
-  const line = text.trim().split('\n')[0]!.trim()
-  return [...line].length <= PREVIEW_CHARS ? line : `${[...line].slice(0, PREVIEW_CHARS - 1).join('')}…`
-}
+const preview = (text: string) => fitEnd(text.trim().split('\n')[0]!.trim(), PREVIEW_CHARS)
 
 /** Pins `pin`, or unpins it when it is pinned; past twenty, the oldest goes. */
 export function togglePin(pins: readonly Pin[], pin: Pin): Pin[] {
@@ -28,7 +27,7 @@ export function togglePin(pins: readonly Pin[], pin: Pin): Pin[] {
 /** Each stored text row the model wrote in the main conversation. */
 export async function notePinnable($: EngineInterface, e: Args<'session.append'>, stored: ResultOf['session.append']): Promise<void> {
   if (stored.deny !== undefined || e.agentId !== undefined || stored.message.type !== 'assistant') return
-  const text = stored.message.content.flatMap(b => (b.type === 'text' && typeof b.text === 'string' ? [b.text] : [])).join('\n')
+  const text = textsOf(stored.message.content).join('\n')
   if (text.trim() !== '') lastReply = { requestId: stored.uuid, preview: preview(text) }
 }
 

@@ -20,7 +20,7 @@ The interface follows Claude Code's language: English, or Portuguese for whoever
 *Drawn by the mod itself, as `/realce print` draws a reply (`/realce demo` shows it in the terminal); the table's
 numbers are just an example. On a light theme: [demo-light.png](images/demo-light.png).*
 
-Current version: 0.5.5 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
+Current version: 0.5.6 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
 [releases](https://github.com/Th3-W6rst/claude-realce/releases) · repository:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (questions and problems in *Issues*).
 
@@ -53,7 +53,8 @@ Good to know before using it:
   (`pending`): those four are a matter of taste, and the last two add lines to every turn.
 - The mod adds a short paragraph with the marks to the system prompt (only those of the features that are on).
 - Two features call Haiku on your account, about one to two thousand tokens each time: `errors` (explains a command
-  that failed, at most 20 per session; off until you run `/realce errors on`) and `explain` (only when you ask).
+  that failed, at most 20 each time the mod loads; off until you run `/realce errors on`) and `explain` (only when you
+  ask).
 - `/realce off` pauses everything; `claude plugin uninstall realce` removes it.
 
 To update: `claude plugin marketplace update claude-realce`, then `claude plugin update realce@claude-realce`, and
@@ -98,7 +99,7 @@ its word diff and the test run's score.*
 | `/realce doctor` | Checks what your machine gives realce (version, colors, macOS, fullscreen, editor, mermaid, Chrome) and what is missing |
 | `/realce on` · `/realce off` | Turns the whole mod on or off, keeping each flag's choice |
 | `/realce <flag> on` · `off` | Turns one feature on or off, for example `/realce column off` |
-| `/realce pane` | Opens or closes the session pane (usage, plan, timeline, pinned replies, files, failures with their why, agents) |
+| `/realce pane` | Opens or closes the session pane (usage, the explanation you asked for, plan, what needs you, pinned replies, timeline, files, failures with their why, agents) |
 | `/realce copy` | Copies Claude's last reply (the marks become plain markdown) |
 | `/realce summary` | Shows and copies a summary of the session in markdown: turns (time, duration, seal), tests, files, git, failures |
 | `/realce focus` | Toggles focus mode, which hides the tools that finished without error |
@@ -109,8 +110,10 @@ its word diff and the test run's score.*
 | `/realce status` | What is off, language, theme, fullscreen, notices, updates and the cost of each drawing |
 | `/realce language en` · `pt` · `auto` | The interface's language; `auto` follows Claude Code's |
 
-`focus`, `pin`, `explain`, `print` and `demo` are flags too: `/realce focus` toggles the mode, and
-`/realce explain off` turns the feature off (the command then says how to turn it back on). Every command and flag
+`copy`, `summary`, `pane`, `focus`, `pin`, `explain`, `print` and `demo` are flags too: `/realce focus` toggles the
+mode, and `/realce explain off` turns the feature off (the command then says how to turn it back on). Two of them name
+a part of the feature: `/realce copy off` takes the copy buttons away, while `/realce copy` still copies the last reply;
+`/realce pane off` stops the pane from opening by itself, while `/realce pane` still opens it. Every command and flag
 also answers to its Portuguese name (`/realce ajuda`, `/realce foco`, `/realce coluna off`).
 
 ## Features and flags
@@ -191,13 +194,19 @@ same browser makes the PNG of `/realce print`.
   `which mmdc` and `mmdc` (mermaid-cli) to render diagrams into `~/.cache/realce/diagrams`; `osascript` for a macOS
   notification when the terminal has no notification channel; `afplay` for a sound (off by default); `find` to locate
   a headless Chrome for `/realce print` and to remove its own week-old perf files in `~/.cache/realce`; that headless
-  Chrome, to save `/realce print`'s PNG.
-- **Files:** reads its own `plugin.json` and, for a `custom:` theme, `~/.claude/themes/<name>.json`. Writes under
-  `~/.cache/realce/`; `/realce print` writes an HTML page and a PNG to the Desktop.
+  Chrome, or Google Chrome run headless when there is none, to save `/realce print`'s PNG.
+- **Files:** reads its own `plugin.json` and, for a `custom:` theme, `~/.claude/themes/<name>.json`; checks whether
+  Cursor, Visual Studio Code or Zed is in `/Applications` (where paths open) and whether there is a Desktop. Writes
+  under `~/.cache/realce/`; `/realce print` writes an HTML page and a PNG to the Desktop.
+- **Settings:** reads Claude Code's `language` and `theme`.
+- **Store:** its flags, the on/off switch, the language you picked, whether the welcome hint was shown and when it
+  last looked for an update.
+- **Session and clipboard:** reads the transcript and the selection (for copy, print, summary, explain and pin), and
+  copies to the clipboard.
 - **Network:** one GET of its own `plugin.json` from raw.githubusercontent.com, at most once a day, to say when a new
   version is out (`/realce updates off` stops it).
-- **Model:** the Haiku, to explain a failed command (up to 20 per session, with `/realce errors on`) and a
-  selection on `/realce explain`.
+- **Model:** the Haiku, to explain a failed command (up to 20 each time the mod loads, with `/realce errors on`) and
+  a selection on `/realce explain`.
 - **Prompt:** one system prompt section that teaches Claude the marks; `/realce demo` submits one prompt, which the mod
   answers itself, without the model.
 - **Environment:** reads `HOME` and `COLORTERM`.

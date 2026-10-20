@@ -7,16 +7,17 @@ import { cardText } from '../hooks/screen/commit'
 import { runningWord } from '../hooks/screen/spinner'
 import { summarizeGroup } from '../hooks/screen/tools'
 import { formatDayMonth, humanizeAmount } from '../hooks/format'
-import { findDeltas } from '../hooks/text/deltas'
+import { scanDeltas } from '../hooks/text/deltas'
 import { awayText } from '../hooks/orient/away'
 import { limitText, usageLine } from '../hooks/orient/limits'
 import { questionHeader } from '../hooks/orient/question'
-import { reportText } from '../hooks/orient/report'
-import { planRow } from '../hooks/orient/plan'
+import { summaryText } from '../hooks/system/summary'
+import { planProgress, planSegments } from '../hooks/orient/plan'
 import { buildSection } from '../hooks/prompt'
 import { FLAGS, type Flags } from '../hooks/flags'
 import { DEMO_TEXTS } from '../hooks/system/demo'
 import { extractPending } from '../hooks/orient/pending'
+import { engineRow, RUN } from './world'
 import { OPT_IN } from './lang'
 
 const ENGINE = { plugin: 'engine', tier: 'core' as const }
@@ -52,15 +53,11 @@ function world(on: On, language: string | null) {
   return { invalidated, toasts, titles }
 }
 
-/** What the plugin writes to and deletes from its store under `language`; before mock.store, whose hooks answer. */
+/** What the plugin writes to its store under `language`; before mock.store, whose hooks answer. */
 function watchLanguage(on: On) {
   const writes: unknown[] = []
   on('store.set', { key: 'language' }, ($, e, next) => {
     writes.push(e.value)
-    return next(e)
-  })
-  on('store.delete', { key: 'language' }, ($, e, next) => {
-    writes.push('deleted')
     return next(e)
   })
   return writes
@@ -70,8 +67,6 @@ function watchLanguage(on: On) {
 const answer = async ($: { command: { run: (e: typeof RUN & { args: string }) => Promise<{ text?: string }> } }, args: string) =>
   (await $.command.run({ ...RUN, args })).text ?? ''
 
-const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
-
 /** Runs `check` with this file's copy of the module in English, and leaves it in Portuguese, as the other files expect. */
 function english(check: () => void): void {
   setLanguage('en')
@@ -80,13 +75,6 @@ function english(check: () => void): void {
   } finally {
     setLanguage('pt')
   }
-}
-
-function engineRow(on: On, component: 'ToolUse' | 'ToolGroup' | 'TurnDuration' | 'Spinner' | 'UserMessage' | 'AbovePrompt'): void {
-  on('ui.render', { component: component as 'ToolUse' }, ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
 }
 
 const EN = { language: 'en' } as const
@@ -128,7 +116,19 @@ describe('interface language', () => {
     expect(await answer($, 'language en')).toBe('Interface language: English. /realce language auto follows Claude Code again.')
     expect(await answer($, 'language xx')).toBe('Usage: /realce language en|pt|auto (got "xx").')
     expect(await answer($, 'idioma auto')).toBe('Idioma da interface: o do Claude Code (português).')
-    expect(writes).toEqual(['en', 'deleted'])
+    // Auto is kept as null: the plugin reads anything but en or pt as following Claude Code.
+    expect(writes).toEqual(['en', null])
+  })
+
+  test('a language may be named in full, in either language, accents or not', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    world(on, null)
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    expect(await answer($, 'language português')).toBe('Idioma da interface: português. /realce idioma auto volta a seguir o Claude Code.')
+    expect(await answer($, 'idioma english')).toBe('Interface language: English. /realce language auto follows Claude Code again.')
+    expect(await answer($, 'language portugues')).toMatch(/^Idioma da interface: português/)
+    expect(await answer($, 'language ingles')).toMatch(/^Interface language: English/)
   })
 
   test('a language picked before is read back with the flags', async ($, on) => {
@@ -178,8 +178,8 @@ describe('interface language', () => {
 
   test('scores, counts, dates and numbers read in English', () => {
     english(() => {
-      expect(formatScore({ runner: 'pytest', passed: 426, failed: 2, skipped: 3, seconds: 12.3, unit: 'testes' })).toBe('✔ 426 passed · ✖ 2 failed · ⏭ 3 skipped · ⏱ 12.3s')
-      expect(formatScore({ runner: 'go', passed: 1, failed: 0, skipped: 0, seconds: 2.5, unit: 'pacotes' })).toBe('✔ 1 package passed · ✖ 0 packages failed · ⏱ 2.5s')
+      expect(formatScore({ runner: 'pytest', passed: 426, failed: 2, skipped: 3, seconds: 12.3, unit: 'tests' })).toBe('✔ 426 passed · ✖ 2 failed · ⏭ 3 skipped · ⏱ 12.3s')
+      expect(formatScore({ runner: 'go', passed: 1, failed: 0, skipped: 0, seconds: 2.5, unit: 'packages' })).toBe('✔ 1 package passed · ✖ 0 packages failed · ⏱ 2.5s')
       expect(humanizeAmount(73_201, 'tokens')).toBe('73.2k')
       expect(humanizeAmount(5_242_880, 'bytes')).toBe('5.0 MB')
       expect(formatDayMonth(Date.UTC(2026, 9, 21, 15), -180)).toBe('Oct 21')
@@ -243,12 +243,12 @@ describe('interface language', () => {
 
   test('"from X to Y" gains its difference in both languages, written in the language in force', () => {
     english(() => {
-      expect(findDeltas('the build went from 22 ms to 9 ms')[0]?.label).toBe('(−13 ms)')
-      expect(findDeltas('from 1.5 to 2.25')[0]?.label).toBe('(+0.75)')
-      expect(findDeltas('de 10% para 12,5%')[0]?.label).toBe('(+2.5 pp)')
+      expect(scanDeltas('the build went from 22 ms to 9 ms')[0]?.label).toBe('(−13 ms)')
+      expect(scanDeltas('from 1.5 to 2.25')[0]?.label).toBe('(+0.75)')
+      expect(scanDeltas('de 10% para 12,5%')[0]?.label).toBe('(+2.5 pp)')
     })
-    expect(findDeltas('de 1,5 para 2,25')[0]?.label).toBe('(+0,75)')
-    expect(findDeltas('from 87 to 106')[0]?.label).toBe('(+19)')
+    expect(scanDeltas('de 1,5 para 2,25')[0]?.label).toBe('(+0,75)')
+    expect(scanDeltas('from 87 to 106')[0]?.label).toBe('(+19)')
   })
 
   test('a reply draws its callouts, copy and fold in English', async ($, on) => {
@@ -271,7 +271,7 @@ describe('interface language', () => {
 
   test('the guidance speaks English: away, limits, usage, question, plan and the summary', () => {
     english(() => {
-      expect(awayText({ minutes: 32, turns: 2, files: 5, tests: { runner: 'pytest', passed: 159, failed: 0, skipped: 0, unit: 'testes' }, seal: 'proved', pending: 1 })).toBe(
+      expect(awayText({ minutes: 32, turns: 2, files: 5, tests: { runner: 'pytest', passed: 159, failed: 0, skipped: 0, unit: 'tests' }, seal: 'proved', pending: 1 })).toBe(
         '↺ While you were away (32 min): 2 turns · 5 files · ✔ 159 tests · ✔ proved · 1 decision waiting',
       )
       const now = Date.UTC(2026, 9, 20, 12)
@@ -280,9 +280,9 @@ describe('interface language', () => {
       expect(limitText({ kind: 'context', window: 'context', percent: 92, resetsAt: null }, -180, now)).toBe('⚠ Context at 92%: a /compact before anything big')
       expect(usageLine({ context: 30, windows: [{ window: 'five_hour', percent: 46 }, { window: 'seven_day', percent: 12 }] }).map(s => s.text).join('')).toBe('Context 30% · 5 h 46% · 7 days 12%')
       expect(questionHeader([{ question: 'q', options: [{ label: 'MIT (Recommended)' }, { label: 'Apache' }] }])).toBe('◆ Claude needs you · 1 question · recommended: MIT')
-      expect(planRow([{ text: 'Write tests', status: 'in_progress', activeForm: 'Writing tests' }, { text: 'Ship', status: 'pending' }])).toBe('Plan ▱▱▱▱▱▱▱▱▱▱ 0/2 · Now: Writing tests')
-      const report = reportText({
-        timeline: [{ requestId: 'u1', at: Date.UTC(2026, 9, 19, 23, 41), prompt: 'Rename b', durationMs: 12_000, seal: 'proved', tests: { runner: 'pytest', passed: 12, failed: 0, skipped: 0, unit: 'testes' } }],
+      expect(planSegments(planProgress([{ text: 'Write tests', status: 'in_progress', activeForm: 'Writing tests' }, { text: 'Ship', status: 'pending' }])!).map(s => s.text).join('')).toBe('Plan ▱▱▱▱▱▱▱▱▱▱ 0/2 · Now: Writing tests')
+      const report = summaryText({
+        timeline: [{ requestId: 'u1', at: Date.UTC(2026, 9, 19, 23, 41), prompt: 'Rename b', durationMs: 12_000, seal: 'proved', tests: { runner: 'pytest', passed: 12, failed: 0, skipped: 0, unit: 'tests' } }],
         files: [{ path: '/a/b/calc.py', added: 3, removed: 1, edits: 2, at: 1 }],
         commits: [],
         failures: [{ command: 'npm test', line: '2 failing', at: 3 }],

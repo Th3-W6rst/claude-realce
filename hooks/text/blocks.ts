@@ -1,9 +1,7 @@
 // The block structure of a reply: just enough markdown to lay prose out the way
 // the engine does (paragraphs, headings, lists, quotes, callouts, fences, tables, rules).
 
-import type { CalloutKind } from '../palette'
-
-export type { CalloutKind }
+import type { BlockKind, CalloutKind } from '../palette'
 
 export type Block = { hasGapBefore: boolean } & (
   // `indent`: the columns of the list item an indented paragraph continues (absent at the top level).
@@ -18,7 +16,7 @@ export type Block = { hasGapBefore: boolean } & (
   | { type: 'rule' }
 )
 
-const FENCE = /^(\s*)(`{3,}|~{3,})\s*([^\s`]*)/
+const FENCE = /^\s*(`{3,}|~{3,})\s*([^\s`]*)/
 const HEADING = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/
 const RULE = /^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/
 const ITEM = /^(\s*)([-*+]|\d{1,9}[.)])\s+(.*)$/
@@ -34,6 +32,29 @@ const CALLOUT_TAGS: Record<string, CalloutKind> = {
   RESUMO: 'summary', SUMMARY: 'summary', TLDR: 'summary',
   NOTA: 'note', NOTE: 'note', INFO: 'note',
   DICA: 'tip', TIP: 'tip',
+}
+
+export type Fence = { char: '`' | '~'; length: number; language: string }
+
+/** A line that opens a code fence: its mark, how long the mark runs and the language after it; null for any other. */
+export function openFence(line: string): Fence | null {
+  const m = FENCE.exec(line)
+  return m === null ? null : { char: m[1]![0] === '~' ? '~' : '`', length: m[1]!.length, language: m[2] ?? '' }
+}
+
+/** Whether `line` closes `fence`: the same mark, at least as long, alone on the line (CommonMark's rule). */
+export function closesFence(line: string, fence: Fence): boolean {
+  const mark = line.trim()
+  return mark.length >= fence.length && [...mark].every(c => c === fence.char)
+}
+
+/** A heading's paint: the first three levels have their own, deeper ones take the third's. */
+export const headingKind = (level: number): BlockKind => (level === 1 ? 'heading1' : level === 2 ? 'heading2' : 'heading3')
+
+/** A list item's mark and the paint it takes: its box, its number, or the bullet of its depth. */
+export function itemMark(item: Extract<Block, { type: 'item' }>): { mark: string; kind: BlockKind } {
+  if (item.check !== null) return item.check ? { mark: '☑', kind: 'checkDone' } : { mark: '☐', kind: 'checkOpen' }
+  return item.isOrdered ? { mark: item.marker, kind: 'ordinal' } : { mark: ['•', '◦', '▪'][item.depth % 3]!, kind: 'bullet' }
 }
 
 /** The kind a `[!TIPO]` tag names, in Portuguese or English, any case, accents optional; null for any other. */
@@ -66,18 +87,17 @@ export function parseBlocks(text: string): Block[] {
       continue
     }
 
-    const fence = FENCE.exec(line)
-    if (fence) {
-      const [, , ticks = '```', language = ''] = fence
+    const fence = openFence(line)
+    if (fence !== null) {
       const body: string[] = []
       i++
       // An unclosed fence (a reply still streaming) runs to the end.
-      while (i < lines.length && !new RegExp(`^\\s*${ticks[0] === '`' ? '`' : '~'}{${ticks.length},}\\s*$`).test(lines[i]!)) {
+      while (i < lines.length && !closesFence(lines[i]!, fence)) {
         body.push(lines[i]!)
         i++
       }
       i++
-      add({ type: 'code', language, source: body.join('\n'), hasGapBefore: gap })
+      add({ type: 'code', language: fence.language, source: body.join('\n'), hasGapBefore: gap })
       listIndents = []
       continue
     }

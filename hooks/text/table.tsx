@@ -1,12 +1,15 @@
 import type { RenderElement } from 'claude-code'
 
+import { cellWidth } from '../fit'
+import { flagsVersion } from '../flags'
+import { memo } from '../memo'
 import { BG, TABLE } from '../palette'
 import type { RenderCtx } from './ctx'
-import { parseInline, plainText, type Span } from './inline'
-import { drawSpans, inlineOpts } from './render'
+import { inlineOptsOf, plainText, spansOf, type InlineOpts, type Span } from './inline'
+import { drawSpans } from './render'
 
-export type Align = 'left' | 'right' | 'center' | null
-export type ParsedTable = { header: string[]; rows: string[][]; align: Align[] }
+type Align = 'left' | 'right' | 'center' | null
+type ParsedTable = { header: string[]; rows: string[][]; align: Align[] }
 
 const GAP = 2
 const MIN_WIDTH = 4
@@ -79,42 +82,6 @@ function alignOf(rule: string): Align {
   return isLeft && isRight ? 'center' : isRight ? 'right' : isLeft ? 'left' : null
 }
 
-const WIDE =
-  /[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦\u{20000}-\u{3FFFD}]|\p{Emoji_Presentation}/u
-const PICTOGRAPH = /\p{Extended_Pictographic}/u
-const ZERO = /[\p{Mn}\p{Me}\p{Cf}]/u
-const REGIONAL = /[\u{1F1E6}-\u{1F1FF}]/u
-
-/** Cells a text takes on the terminal: emoji, CJK and wide signs 2, combining marks and joiners 0. */
-export function cellWidth(s: string): number {
-  let width = 0
-  let prev = ''
-  let isJoined = false
-  let isFlagOpen = false
-  for (const ch of s) {
-    if (ch === '️') {
-      // The emoji selector widens a sign drawn narrow by default ("⚠️").
-      if (PICTOGRAPH.test(prev) && !WIDE.test(prev)) width += 1
-    } else if (ch === '‍') {
-      isJoined = true
-    } else if (ZERO.test(ch)) {
-      // Combining marks sit on the letter before them.
-    } else if (isJoined && PICTOGRAPH.test(ch)) {
-      isJoined = false
-    } else if (REGIONAL.test(ch)) {
-      // Two regional letters are one flag.
-      if (!isFlagOpen) width += 2
-      isFlagOpen = !isFlagOpen
-    } else {
-      isJoined = false
-      isFlagOpen = false
-      width += WIDE.test(ch) ? 2 : 1
-    }
-    prev = ch
-  }
-  return width
-}
-
 /**
  * Column widths that fit `available` with `gap` between columns: the widest shrink
  * first, down to a common cap, never below `min`; whatever the cap leaves goes back to them.
@@ -150,23 +117,32 @@ export function isNumericColumn(cells: readonly string[]): boolean {
   return filled.filter(c => NUMERIC.test(c)).length >= 0.8 * filled.length
 }
 
-/** A table drawn by the mod: cyan underlined header, zebra rows, no vertical rules, numbers to the right. */
-export function renderTable(ctx: RenderCtx, table: ParsedTable, key = 'table'): RenderElement {
-  const { Box, Text } = ctx.t
-  const opts = inlineOpts(ctx)
-  const head = table.header.map(label => plainText(parseInline(label, [], false, { deltas: false })))
-  const body = table.rows.map(row => row.map(cell => parseInline(cell, [], false, opts)))
+type Justify = { justifyContent?: 'flex-end' | 'center' }
+type TableLayout = { head: string[]; body: Span[][][]; widths: number[]; total: number; justify: Justify[] }
+
+/** Where each cell sits: its spans, the columns' widths in `columns` cells, and which side each column keeps to. */
+function layoutOf(table: ParsedTable, columns: number, opts: InlineOpts): TableLayout {
+  const head = table.header.map(label => plainText(spansOf(label, false, { deltas: false })))
+  const body = table.rows.map(row => row.map(cell => spansOf(cell, false, opts)))
   // Numbers decide alignment as written, before a delta adds its note.
   const written = (spans: Span[]) => plainText(spans.filter(s => !s.kinds.includes('delta')))
-  const columns = table.header.map((_, j) => body.map(row => row[j] ?? []))
-  const natural = columns.map((cells, j) => Math.max(1, cellWidth(head[j] ?? ''), ...cells.map(c => cellWidth(plainText(c)))))
-  const widths = fitColumns(natural, Math.max(1, ctx.columns - 2), GAP, MIN_WIDTH)
+  const cells = table.header.map((_, j) => body.map(row => row[j] ?? []))
+  const natural = cells.map((column, j) => Math.max(1, cellWidth(head[j] ?? ''), ...column.map(c => cellWidth(plainText(c)))))
+  const widths = fitColumns(natural, Math.max(1, columns - 2), GAP, MIN_WIDTH)
   const total = widths.reduce((a, w) => a + w, 0) + GAP * Math.max(0, widths.length - 1)
-  const justify = columns.map((cells, j) => {
+  const justify = cells.map((column, j): Justify => {
     const align = table.align[j] ?? null
-    if (align === 'right' || (align === null && isNumericColumn(cells.map(written)))) return { justifyContent: 'flex-end' as const }
-    return align === 'center' ? { justifyContent: 'center' as const } : {}
+    if (align === 'right' || (align === null && isNumericColumn(column.map(written)))) return { justifyContent: 'flex-end' }
+    return align === 'center' ? { justifyContent: 'center' } : {}
   })
+  return { head, body, widths, total, justify }
+}
+
+/** A table drawn by the mod: cyan underlined header, zebra rows, no vertical rules, numbers to the right. */
+export function renderTable(ctx: RenderCtx, text: string, key: string): RenderElement {
+  const { Box, Text } = ctx.t
+  // The layout is plain data, kept per text, width and flags: a scroll draws the table again, not its parse.
+  const { head, body, widths, total, justify } = memo('table', `${flagsVersion()}|${ctx.columns}|${text}`, () => layoutOf(parseTable(text), ctx.columns, inlineOptsOf(ctx.flags)), 500)
   const cell = (j: number, content: RenderElement) => (
     <Box width={widths[j]!} flexShrink={0} {...(j < widths.length - 1 ? { marginRight: GAP } : {})} {...justify[j]}>
       {content}

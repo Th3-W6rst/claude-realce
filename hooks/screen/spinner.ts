@@ -4,9 +4,12 @@ import type { Args, EngineInterface, On, RenderPropsOf } from 'claude-code'
 import type { Activity, RunningCall } from '../../types'
 import { getFlags, isMasterOn } from '../flags'
 import { lang, pick, tr, type Text } from '../i18n'
+import { fitEnd } from '../fit'
+import { trimOldest } from '../memo'
 import { timed } from '../perf'
 import { formatSeconds } from './score'
-import { asRecord, EDIT_TOOLS, editedPath, shellCommands, str } from './toolInfo'
+import { EDIT_TOOLS, editedPath, mcpName, shellCommands } from './toolInfo'
+import { asRecord, str } from '../safe'
 
 // The main loop's calls still running, by tool_use_id: the one row that reads it is the spinner.
 const RUNNING = atom({ plugin: 'realce', key: 'running' } as const, {})
@@ -100,11 +103,6 @@ function isTestRun(command: readonly string[]): boolean {
   return SUBCOMMANDS[program]?.includes(first) ?? false
 }
 
-/** Whether a shell command runs a test suite, in any of its `&&`, `;`, `|` or line parts. */
-export function isTestCommand(command: string): boolean {
-  return shellCommands(command).some(isTestRun)
-}
-
 // How long each test command took when it last printed its time, for the next run of the same command.
 const lastTestSeconds = new Map<string, number>()
 const MAX_REMEMBERED = 50
@@ -133,14 +131,11 @@ export function rememberTestTime(command: string, seconds: number): void {
   if (key === null) return
   lastTestSeconds.delete(key)
   lastTestSeconds.set(key, seconds)
-  if (lastTestSeconds.size > MAX_REMEMBERED) lastTestSeconds.delete(lastTestSeconds.keys().next().value!)
+  trimOldest(lastTestSeconds, MAX_REMEMBERED)
 }
 
-const TARGET_CHARS = 32
-function cut(text: string): string {
-  const chars = [...text]
-  return chars.length > TARGET_CHARS ? `${chars.slice(0, TARGET_CHARS - 1).join('')}…` : text
-}
+const TARGET_CELLS = 32
+const cut = (text: string) => fitEnd(text, TARGET_CELLS)
 
 function hostOf(url: string): string {
   const m = /^\w+:\/\/([^/?#]+)/.exec(url)
@@ -187,8 +182,8 @@ export function activityOf(call: { tool: string } & Record<string, unknown>): Om
   }
   if (PLAN_TOOLS.has(call.tool)) return { activity: 'plan', target: null }
   // An MCP tool by its server and name: `mcp__rea__open_binary` → `rea: open_binary`.
-  const mcp = /^mcp__(.+?)__(.+)$/.exec(call.tool)
-  return { activity: 'other', target: mcp === null ? null : cut(`${mcp[1]}: ${mcp[2]}`) }
+  const mcp = mcpName(call.tool)
+  return { activity: 'other', target: mcp === null ? null : cut(`${mcp.server}: ${mcp.name}`) }
 }
 
 const PLAN_TOOLS: ReadonlySet<string> = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate'])

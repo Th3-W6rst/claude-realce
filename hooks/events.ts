@@ -1,31 +1,22 @@
-import type { EngineInterface, On } from 'claude-code'
+import type { On } from 'claude-code'
 
-import { codeAppend, codePromptSubmit, codeSessionStart, codeToolCall, codeTurnComplete, queueTranscriptDiagrams } from './code/events'
+import { codeAppend, codeSessionStart, queueTranscriptDiagrams } from './code/events'
 import { registerRealceCommand } from './commands'
 import { recordEnv } from './env'
 import { startPerfLog } from './perf'
 import { refreshPromptSection } from './prompt'
 import { orientAppend, orientPromptSubmit, orientSessionStart, orientToolCall, orientTurnComplete } from './orient/events'
-import { screenAppend, screenPromptSubmit, screenSessionStart, screenToolCall, screenTurnComplete } from './screen/events'
+import { screenPromptSubmit, screenSessionStart, screenToolCall, screenTurnComplete, screenTurnStart } from './screen/events'
 import { clearRunning, spinnerToolEnd, spinnerToolStart } from './screen/spinner'
-import { welcomeHint } from './system/demo'
+import { takeDemo, welcomeHint } from './system/demo'
 import { checkUpdate } from './system/update'
 import { refreshLanguage } from './i18n'
 import { retitleSessionPane } from './orient/paneToggle'
 import { refreshTheme } from './theme'
-import { logLine } from './io'
+import { guard } from './safe'
 
 // The engine takes one hook per event without a matcher in a module, and follows $ only into declared
-// functions: each shared event is hooked once here and calls every area's handler by name.
-
-/** One area failing must not cost the others, nor the event itself: the failure is reported, never swallowed. */
-async function guard($: EngineInterface, event: string, run: () => Promise<void>): Promise<void> {
-  try {
-    await run()
-  } catch (error) {
-    logLine($, `realce: ${event} failed: ${error instanceof Error ? error.message : String(error)}`)
-  }
-}
+// functions: each shared event is hooked once here and calls, by name, the handler of every area that listens.
 
 export function registerEvents(on: On): void {
   on('session.start', async ($, e, next) => {
@@ -71,7 +62,6 @@ export function registerEvents(on: On): void {
   })
 
   on('prompt.submit', async ($, e, next) => {
-    await guard($, 'prompt.submit (code)', () => codePromptSubmit($, e))
     await guard($, 'prompt.submit (screen)', () => screenPromptSubmit($, e))
     await guard($, 'prompt.submit (guide)', () => orientPromptSubmit($, e))
     return next(e)
@@ -85,7 +75,6 @@ export function registerEvents(on: On): void {
     } finally {
       await guard($, 'tool.call (spinner)', () => spinnerToolEnd($, e))
     }
-    await guard($, 'tool.call (code)', () => codeToolCall($, e, result))
     await guard($, 'tool.call (screen)', () => screenToolCall($, e, result))
     await guard($, 'tool.call (guide)', () => orientToolCall($, e, result))
     return result
@@ -93,7 +82,6 @@ export function registerEvents(on: On): void {
 
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
-    await guard($, 'turn.complete (code)', () => codeTurnComplete($, e))
     await guard($, 'turn.complete (screen)', () => screenTurnComplete($, e))
     await guard($, 'turn.complete (spinner)', () => clearRunning($, e.agentId))
     await guard($, 'turn.complete (guide)', () => orientTurnComplete($, e))
@@ -103,8 +91,18 @@ export function registerEvents(on: On): void {
   on('session.append', async ($, e, next) => {
     const stored = await next(e)
     await guard($, 'session.append (code)', () => codeAppend($, e, stored))
-    await guard($, 'session.append (screen)', () => screenAppend($, e, stored))
     await guard($, 'session.append (guide)', () => orientAppend($, e, stored))
     return stored
+  })
+
+  // A main turn's first step: its stats open if no prompt.submit did, then the demo, when armed, answers it.
+  on('turn.step', async function* ($, e, next) {
+    await guard($, 'turn.step (screen)', () => screenTurnStart($, e))
+    // Only a turn's first step: a prompt that joined a running turn must not cut that turn's work short.
+    const text = e.agentId === undefined && e.index === 0 ? takeDemo() : null
+    if (text === null) return yield* next(e)
+    yield { kind: 'text' as const, index: 0, text }
+    yield { kind: 'stop' as const, stopReason: 'end_turn' as const, usage: null }
+    return { turnId: e.turnId, index: e.index, answer: text, toolUses: [], stopReason: 'end_turn' as const, usage: null }
   })
 }

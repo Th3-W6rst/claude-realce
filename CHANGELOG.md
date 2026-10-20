@@ -2,6 +2,25 @@
 
 Versions from October 19 to 20, 2026. Those that only changed internals are left out.
 
+## 0.5.6
+- A `{!…!}` quoted inside a code block no longer reaches the "Needs you" band when the block holds another fence
+  mark (a `~~~` inside a ``` block), and what is asked after the block is still found. Copy and print follow the same
+  rule for where a code block ends.
+- A failing `go test` reads "packages failed" in the away summary and in `/realce summary`, as it does on the rule.
+- The band and the panes measure text as the terminal draws it: Chinese, Japanese or Korean text and emoji take two
+  cells, so their rows no longer wrap or spill.
+- In English, an agent's row in the session pane says "since" (it said "desde").
+- A path with `#` or `?` in it opens the right file, from a reply and from the session pane.
+- `/realce print` draws nested bullets and checkboxes as the screen does, prints the marks bold with `emphasis` off,
+  and names the diagram in the interface's language.
+- The dark theme for color blindness draws code blocks on the dark theme's background.
+- Code blocks and diffs fold with the same words: "▸ Show 32 more lines".
+- `/realce status` counts the errors the Haiku explained since the mod loaded, which is what its limit of 20 counts.
+- Lighter: each line of a reply, each table and each highlighted block is worked out once and kept while the screen
+  redraws; a reply that streams keeps one parse; the band reads what it shows while what lies beneath it draws; the
+  agents' poll rests while the agent cards are off and the session pane is closed. The mod reaches two engine calls
+  fewer (`claude plugin validate`).
+
 ## 0.5.5
 - The band above the prompt is shared: what Claude Code or another mod draws there stays, under realce's notice,
   which takes only the rows left free.

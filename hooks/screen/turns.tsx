@@ -1,10 +1,10 @@
 import { atom, read } from 'claude-code'
-import type { Elements, On, RenderElement } from 'claude-code'
+import type { On } from 'claude-code'
 
 import type { Seal, TurnStats } from '../../types'
 import { flagsVersion, getFlags } from '../flags'
-import { memo } from '../memo'
-import { formatClock, formatDuration, plural } from '../format'
+import { memo, trimOldest } from '../memo'
+import { failedCount, formatClock, formatDuration, plural } from '../format'
 import { tr } from '../i18n'
 import { SCREEN } from '../palette'
 import { timed } from '../perf'
@@ -12,22 +12,16 @@ import { cachedEnv } from '../env'
 
 const TURNS = atom({ plugin: 'realce', key: 'turns' } as const, {})
 
-type T = Pick<Elements['terminal'], 'Box' | 'Text'>
-
 type Span = { text: string; color: string }
 
 // The transcript leaves a cell on each side of a row; a rule that fills the viewport would wrap.
-export const ruleWidth = (columns: number | undefined) => Math.max(10, (columns ?? 80) - 2)
+const ruleWidth = (columns: number | undefined) => Math.max(10, (columns ?? 80) - 2)
 
 export function testsLabel(stats: TurnStats): Span | null {
   const tests = stats.tests
   if (tests === null) return null
   if (tests.failed === 0) return { text: tr('✔ tests', '✔ testes'), color: SCREEN.ok }
-  const noun =
-    tests.unit === 'pacotes'
-      ? [tr('package failed', 'pacote falhou'), tr('packages failed', 'pacotes falharam')]
-      : [tr('test failed', 'teste falhou'), tr('tests failed', 'testes falharam')]
-  return { text: `✖ ${plural(tests.failed, noun[0]!, noun[1]!)}`, color: SCREEN.bad }
+  return { text: `✖ ${failedCount(tests.failed, tests.unit)}`, color: SCREEN.bad }
 }
 
 export function sealLabel(seal: Seal | null | undefined): Span | null {
@@ -68,8 +62,11 @@ function fillRule(labels: readonly Label[], width: number): Span[] | null {
   return spans
 }
 
-/** The turn's closing rule as colored runs: what does not fit the width drops, the duration and the seal stay. */
-function ruleSpans(stats: TurnStats | null, durationMs: number, width: number, tzOffsetMinutes: number | null): Span[] {
+/**
+ * The turn's closing rule as colored runs, '── 15:41 · 6m 25s · 14 ferramentas · 3 arquivos · ✔ testes ──' filled with
+ * '─' to the width: what does not fit drops, the duration and the seal stay.
+ */
+export function ruleSpans(stats: TurnStats | null, durationMs: number, width: number, tzOffsetMinutes: number | null): Span[] {
   const labels: Label[] = []
   if (stats !== null && tzOffsetMinutes !== null) labels.push({ text: formatClock(stats.endedAt, tzOffsetMinutes), color: SCREEN.dim, drop: 3 })
   labels.push({ text: formatDuration(durationMs), color: SCREEN.dim })
@@ -90,16 +87,11 @@ function sealOnlySpans(seal: Span, width: number): Span[] {
   return fillRule([seal], width) ?? [{ text: '─'.repeat(width), color: SCREEN.rule }]
 }
 
-/** '── 15:41 · 6m 25s · 14 ferramentas · 3 arquivos · ✔ testes ──', filled with '─' to the width. */
-export function turnRule(stats: TurnStats | null, durationMs: number, width: number, tzOffsetMinutes: number | null): string {
-  return ruleSpans(stats, durationMs, width, tzOffsetMinutes).map(s => s.text).join('')
-}
-
-/** The thin rule above the person's prompt, with the time it was sent ('HH:MM') when known. */
-
 // Stats by durationMs, read from the state once per load and kept here after: every closing rule drawn again (a scroll
 // passes many) needs no trip to the engine. A turn that ends adds its own and redraws the screen (rememberTurn).
 const known = new Map<string, TurnStats>()
+// As many as the state keeps (screen/events.ts).
+const MAX_KNOWN = 300
 let isLoaded = false
 
 /** A finished turn's stats by its duration, the key TurnDuration and turn.complete share. */
@@ -107,6 +99,7 @@ export const turnStatsFor = (durationMs: number): TurnStats | null => known.get(
 
 export function rememberTurn(key: string, stats: TurnStats): void {
   known.set(key, stats)
+  trimOldest(known, MAX_KNOWN)
 }
 
 export function registerTurns(on: On): void {

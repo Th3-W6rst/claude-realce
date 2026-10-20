@@ -1,5 +1,9 @@
+import type { Flags } from '../flags'
 import { humanizeAmount } from '../format'
+import { languageVersion } from '../i18n'
+import { memo } from '../memo'
 import type { ProseKind } from '../palette'
+import { closesFence, openFence, type Fence } from './blocks'
 import { parseNumber, scanDeltas } from './deltas'
 
 // One run of text and the kinds painting it, outermost first: the renderer
@@ -8,6 +12,9 @@ export type Span = { text: string; kinds: ProseKind[]; href?: string }
 
 /** `enfase` off: no guesses but paths and links, no labels; `deltas` off: no delta spans; `numeros` on: human readings. */
 export type InlineOpts = { enfase?: boolean; deltas?: boolean; numeros?: boolean }
+
+/** The options a reply's prose is parsed with, from the flags in force: the screen's and the print's alike. */
+export const inlineOptsOf = (flags: Flags): InlineOpts => ({ enfase: flags.enfase, deltas: flags.deltas, numeros: flags.numeros })
 
 /** What a run of spans shows, its marks gone. */
 export const plainText = (spans: readonly Span[]): string => spans.map(s => s.text).join('')
@@ -35,7 +42,7 @@ const MARKUP = new RegExp(
 )
 
 const PATH_EXT =
-  'tsx?|jsx?|mjs|cjs|mts|cts|py|ipynb|rb|go|rs|swift|kt|java|c|h|cc|cpp|hpp|cs|m|mm|sh|zsh|bash|fish|md|mdx|json|jsonl|ya?ml|toml|ini|cfg|conf|sql|html?|css|scss|lock|txt|log|env|xml|plist|csv|pdf|png|jpe?g|svg|ler|d\\.ts'
+  'tsx?|jsx?|mjs|cjs|mts|cts|py|ipynb|rb|go|rs|swift|kt|java|c|h|cc|cpp|hpp|cs|m|mm|sh|zsh|bash|fish|md|mdx|json|jsonl|ya?ml|toml|ini|cfg|conf|sql|html?|css|scss|lock|txt|log|env|xml|plist|csv|pdf|png|jpe?g|svg'
 const PATH =
   // a path that is obviously one (rooted, or with an extension), so "e/ou" stays prose
   `(?:~|\\.{1,2})?\\/?(?:[\\w@.+-]+\\/)*[\\w@+-][\\w@.+-]*\\.(?:${PATH_EXT})(?::\\d+(?::\\d+)?)?${E}` +
@@ -61,25 +68,29 @@ const WARN_WORDS = [
   'waiting', 'caution', '⚠️', '⚠',
 ]
 // Case-sensitive: "GO" is the person's go-ahead, "go" is a language.
-const WARN_EXACT = ['GO', 'TODO', 'FIXME', 'WIP']
+const WARN_EXACT: ReadonlySet<string> = new Set(['GO', 'TODO', 'FIXME', 'WIP'])
 
-const words = (list: string[]) => list.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+// A status word is one word token looked up here: three lists of a hundred words tried at every character cost
+// a reply twice the parse.
+const STATUS_WORDS: ReadonlyMap<string, ProseKind> = new Map([
+  ...GOOD_WORDS.map(w => [w, 'statusGood'] as const),
+  ...BAD_WORDS.map(w => [w, 'statusBad'] as const),
+  ...WARN_WORDS.map(w => [w, 'statusWarn'] as const),
+])
 
+const wordKind = (word: string): ProseKind | undefined => (WARN_EXACT.has(word) ? 'statusWarn' : STATUS_WORDS.get(word.toLowerCase()))
+
+// Status words ignore case (`i`, which also reads "6M" and "1H" as numbers); GO and TODO keep it, in wordKind.
 const HEURISTICS = new RegExp(
   [
     `(?<url>https?:\\/\\/[^\\s<>()]+[^\\s<>().,;:!?'"])`,
     '(?<quote>"[^"\\n]{1,160}"|“[^”\\n]{1,160}”)',
     `(?<path>(?<![\\p{L}\\p{N}_\\/.@-])(?:${PATH}))`,
     `(?<number>(?<![\\p{L}\\p{N}_.,:\\/-])(?:\\d{1,2}[-\\/]\\d{4}|\\d{1,2}[-\\/]\\d{1,2}(?:[-\\/]\\d{2,4})?|\\d+(?:[.,:]\\d+)*(?:%|k|K|M|B|ms|s|min|h|x|GB|MB|KB|px)?)${E})`,
-    `(?<good>${B}(?:${words(GOOD_WORDS)})${E})`,
-    `(?<bad>${B}(?:${words(BAD_WORDS)})${E})`,
-    `(?<warn>${B}(?:${words(WARN_WORDS)})${E}|${B}(?:${WARN_EXACT.join('|')})${E})`,
+    `(?<word>${B}(?:\\p{L}[\\p{L}\\p{N}_]*|[✅✓✔❌✗✘]|⚠️?)${E})`,
   ].join('|'),
-  'gu',
+  'giu',
 )
-// Status words ignore case; GO/TODO keep it, so the group is checked again below.
-const HEURISTICS_I = new RegExp(HEURISTICS.source, 'giu')
-const WARN_EXACT_RE = new RegExp(`^(?:${WARN_EXACT.join('|')})$`, 'u')
 
 const QUOTED = /"[^"\n]{1,160}"|“[^”\n]{1,160}”/gu
 
@@ -132,29 +143,12 @@ function heuristics(text: string, outer: ProseKind[], opts: InlineOpts): Span[] 
   if (outer.length > 0) return [{ text, kinds: outer }]
   const spans: Span[] = []
   let at = 0
-  HEURISTICS_I.lastIndex = 0
-  for (const m of text.matchAll(HEURISTICS_I)) {
+  for (const m of text.matchAll(HEURISTICS)) {
     const g = m.groups ?? {}
-    const kind: ProseKind | undefined = g.url
-      ? 'link'
-      : g.quote
-        ? 'quote'
-        : g.path
-          ? 'path'
-          : g.number
-            ? 'number'
-            : g.good
-              ? 'statusGood'
-              : g.bad
-                ? 'statusBad'
-                : g.warn
-                  ? 'statusWarn'
-                  : undefined
+    const kind: ProseKind | undefined = g.url ? 'link' : g.quote ? 'quote' : g.path ? 'path' : g.number ? 'number' : g.word ? wordKind(g.word) : undefined
     if (kind === undefined) continue
     // With enfase off only what a link needs is found; the rest is the engine's plain text.
     if (opts.enfase === false && kind !== 'link' && kind !== 'path') continue
-    // `i` lets "go" match the case-sensitive list; only the exact spelling counts.
-    if (kind === 'statusWarn' && !WARN_WORDS.some(w => w.toLowerCase() === m[0].toLowerCase()) && !WARN_EXACT_RE.test(m[0])) continue
     const start = m.index ?? 0
     // A human reading already took the text up to `at` (a unit after its number).
     if (start < at) continue
@@ -212,6 +206,15 @@ export function parseInline(text: string, outer: ProseKind[] = [], isLineStart =
   return merge(spans)
 }
 
+/**
+ * A line's spans, parsed once per text, options and language: a reply draws every line again on each scroll and each
+ * streamed delta. The spans are plain data, shared: callers read them, never change them.
+ */
+export function spansOf(line: string, isLineStart: boolean, opts: InlineOpts): Span[] {
+  const key = `${languageVersion()}|${+isLineStart}${+(opts.enfase !== false)}${+(opts.deltas !== false)}${+(opts.numeros === true)}|${line}`
+  return memo('spans', key, () => parseInline(line, [], isLineStart, opts), 20_000)
+}
+
 function pick(g: Record<string, string | undefined>): [ProseKind, string] {
   if (g.strong !== undefined) return ['strong', g.strongBody ?? '']
   if (g.strongU !== undefined) return ['strong', g.strongUBody ?? '']
@@ -242,16 +245,15 @@ function merge(spans: Span[]): Span[] {
  */
 export function toPlainMarkdown(text: string): string {
   const out: string[] = []
-  let inFence: string | null = null
+  let fence: Fence | null = null
   for (const line of text.split('\n')) {
-    const fence = /^\s*(`{3,}|~{3,})/.exec(line)?.[1]
-    if (inFence !== null) {
-      if (fence !== undefined && fence[0] === inFence[0] && fence.length >= inFence.length) inFence = null
+    if (fence !== null) {
+      if (closesFence(line, fence)) fence = null
       out.push(line)
       continue
     }
-    if (fence !== undefined) {
-      inFence = fence
+    fence = openFence(line)
+    if (fence !== null) {
       out.push(line)
       continue
     }

@@ -111,10 +111,6 @@ export function sessionVersion($: E) {
   return $.session.version()
 }
 
-export function storeDelete($: E, ...args: Parameters<E['store']['delete']>): ReturnType<E['store']['delete']> {
-  return $.store.delete(...args)
-}
-
 export function closePane($: E, ...args: Parameters<E['ui']['close']>): ReturnType<E['ui']['close']> {
   return $.ui.close(...args)
 }

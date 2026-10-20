@@ -2,11 +2,10 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On, PromptComposeInput, RenderPropsOf } from 'claude-code'
 
 import { featureOff, FLAGS, type Flags } from '../hooks/flags'
-import { formatClock, formatDuration, parseTzOffset, plural } from '../hooks/format'
 import { buildSection } from '../hooks/prompt'
+import { RUN } from './world'
 import { PT } from './lang'
 
-const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
 const COMPOSE: PromptComposeInput = { model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] }
 const PANE: RenderPropsOf['Pane'] = {
   title: 'Realce',
@@ -306,24 +305,5 @@ describe('session env', () => {
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
     const text = (await $.command.run({ ...RUN, args: 'status' })).text ?? ''
     expect(text).toMatch(/Editor dos links: cursor\. Diagramas: mmdc em \/opt\/homebrew\/bin\/mmdc\./)
-  })
-})
-
-describe('format', () => {
-  test('durations as the engine spells them', () => {
-    expect(formatDuration(12_000)).toBe('12s')
-    expect(formatDuration(385_600)).toBe('6m 25s')
-    expect(formatDuration(3_720_000)).toBe('1h 2m')
-  })
-
-  test('clocks at the session offset', () => {
-    expect(formatClock(Date.UTC(2026, 9, 19, 18, 41), -180)).toBe('15:41')
-    expect(parseTzOffset('-0300\n')).toBe(-180)
-    expect(parseTzOffset('+0530')).toBe(330)
-  })
-
-  test('plurals', () => {
-    expect(plural(1, 'arquivo', 'arquivos')).toBe('1 arquivo')
-    expect(plural(3, 'arquivo', 'arquivos')).toBe('3 arquivos')
   })
 })

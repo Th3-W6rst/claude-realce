@@ -4,11 +4,11 @@ The session runs in fullscreen (CLAUDE_CODE_NO_FLICKER=1) inside tmux session `r
 it to watch (`open -na Ghostty --args -e tmux attach -t rlc`). Latency is from sending a key to the first change of
 tmux's screen: the app's own reaction, Ghostty's paint aside.
 
-  drive.py screen                 print the visible screen
-  drive.py prompt "<text>"        type a prompt, press Enter, wait for the turn to end
-  drive.py keys <key> [<key>...]  send tmux key names (PageUp, C-o, Escape, Enter...)
-  drive.py measure <label> <out>  one latency run (typing, scroll, expand), appended to <out> as a JSON line
-  drive.py compare <label> <out>  a run with the mod on, then one with `/realce off`, and the mod back on whatever happens
+  latency-audit.py screen                 print the visible screen
+  latency-audit.py prompt "<text>"        type a prompt, press Enter, wait for the turn to end
+  latency-audit.py keys <key> [<key>...]  send tmux key names (PageUp, C-o, Escape, Enter...)
+  latency-audit.py measure <label> <out>  one latency run (typing, scroll, expand), appended to <out> as a JSON line
+  latency-audit.py compare <label> <out>  a run with the mod on, then one with `/realce off`, and the mod back on whatever happens
 """
 import json
 import statistics

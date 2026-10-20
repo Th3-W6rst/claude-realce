@@ -28,6 +28,9 @@ export const tr = (en: string, pt: string): string => (lang() === 'pt' ? pt : en
 
 export const pick = (text: Text): string => text[lang()]
 
+/** The text a table gives `key` in the language in force; a key the table does not know reads as it came. */
+export const pickOr = (table: Readonly<Record<string, Text>>, key: string): string => (Object.hasOwn(table, key) ? pick(table[key]!) : key)
+
 /** Claude Code's `language` value ("Brazilian Portuguese", "Portuguese", "pt-BR") as the interface's language. */
 export function languageOf(value: unknown): Lang {
   // `pt`, `pt-BR` and `pt_BR` too: `\b` would miss the underscore, a word character.
@@ -48,7 +51,7 @@ export function setLanguage(next: Lang | null): boolean {
 }
 
 /** Claude Code's setting changed or was read; true when the language moved. */
-export function setConfigLanguage(next: Lang): boolean {
+function setConfigLanguage(next: Lang): boolean {
   const before = lang()
   fromConfig = next
   isConfigRead = true
@@ -67,7 +70,12 @@ export async function ensureLanguage($: EngineInterface): Promise<void> {
 export async function refreshLanguage($: EngineInterface, value?: unknown): Promise<boolean> {
   const setting = value ?? (await listConfig($)).find(row => row.key === 'language')?.value
   if (!setConfigLanguage(languageOf(setting))) return false
+  redrawAll($)
+  return true
+}
+
+/** A change every drawing and the aids the model is taught may speak: both are drawn again. */
+export function redrawAll($: EngineInterface): void {
   redraw($, 'ui.render')
   redraw($, 'prompt.section')
-  return true
 }

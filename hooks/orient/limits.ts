@@ -3,10 +3,10 @@ import type { Args, EngineInterface, On } from 'claude-code'
 
 import type { LimitWarning, UsageReading } from '../../types'
 import { SCREEN } from '../palette'
-import type { Segment } from './fit'
+import type { Segment } from '../fit'
 import { getFlags } from '../flags'
 import { formatClock, formatDayMonth } from '../format'
-import { pick, tr, type Text } from '../i18n'
+import { pickOr, tr, type Text } from '../i18n'
 
 const LIMIT = atom({ plugin: 'realce', key: 'limit' } as const, null)
 const USAGE = atom({ plugin: 'realce', key: 'usage' } as const, null)
@@ -24,7 +24,7 @@ const WINDOW_NAMES: Record<string, Text> = {
   spend_limit: { en: 'spend', pt: 'gasto' },
 }
 
-const windowName = (kind: string): string => (WINDOW_NAMES[kind] === undefined ? kind : pick(WINDOW_NAMES[kind]!))
+const windowName = (kind: string): string => pickOr(WINDOW_NAMES, kind)
 
 // What the person hid, by source: hiding the context's warning leaves the 5-hour window's to say its own.
 let hidden: { window: string; step: number } | null = null

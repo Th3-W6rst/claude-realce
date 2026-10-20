@@ -1,13 +1,19 @@
-import type { Elements, RenderElement, RenderPropsOf } from 'claude-code'
+import { atom, read } from 'claude-code'
+import type { Elements, On, RenderElement, RenderPropsOf } from 'claude-code'
 
 import type { AgentRow } from '../../types'
-import { formatDuration, plural } from '../format'
+import { flagsVersion, getFlags } from '../flags'
+import { formatDuration, formatTokens, plural } from '../format'
 import { pick, tr, type Text } from '../i18n'
+import { memo } from '../memo'
 import { SCREEN, type ScreenTone } from '../palette'
+import { timed } from '../perf'
+
+const AGENTS = atom({ plugin: 'realce', key: 'agents' } as const, [])
 
 type T = Pick<Elements['terminal'], 'Box' | 'Text'>
 
-export type TaskNotice = { status: string; name: string | null; result: string | null; tokens?: number; toolUses?: number; durationMs?: number }
+type TaskNotice = { status: string; name: string | null; result: string | null; tokens?: number; toolUses?: number; durationMs?: number }
 
 const tag = (text: string, name: string) => new RegExp(`<${name}>([\\s\\S]*?)</${name}>`).exec(text)?.[1] ?? null
 
@@ -45,7 +51,7 @@ export function parseTaskNotification(text: string): TaskNotice | null {
 }
 
 /** The row's notice: the whole notification when the row carries it, else its summary line and the task's fields. */
-export function noticeOf(props: RenderPropsOf['UserMessage']): TaskNotice | null {
+function noticeOf(props: RenderPropsOf['UserMessage']): TaskNotice | null {
   const parsed = parseTaskNotification(props.text)
   if (parsed !== null) return parsed
   const status = props.task?.status
@@ -54,22 +60,30 @@ export function noticeOf(props: RenderPropsOf['UserMessage']): TaskNotice | null
   return { status, name, result: null, ...(props.task?.durationMs !== undefined ? { durationMs: props.task.durationMs } : {}) }
 }
 
-const STATUS: Record<string, { label: Text; tone: ScreenTone }> = {
+// An agent's status in words and tone, the card's and the session pane's: one table, so both say the same.
+const AGENT_STATUS: Record<string, { label: Text; tone: ScreenTone }> = {
+  running: { label: { en: 'Running', pt: 'Rodando' }, tone: 'run' },
+  pending: { label: { en: 'Queued', pt: 'Na fila' }, tone: 'dim' },
+  waiting: { label: { en: 'Waiting', pt: 'Aguardando' }, tone: 'warn' },
+  idle: { label: { en: 'Idle', pt: 'Ocioso' }, tone: 'dim' },
   completed: { label: { en: 'Done', pt: 'Concluído' }, tone: 'ok' },
   failed: { label: { en: 'Failed', pt: 'Falhou' }, tone: 'bad' },
   killed: { label: { en: 'Stopped', pt: 'Parado' }, tone: 'warn' },
   stopped: { label: { en: 'Stopped', pt: 'Parado' }, tone: 'warn' },
 }
 
-const formatTokens = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k tokens` : plural(n, 'token', 'tokens'))
+/** A status the table does not know reads as the engine named it, dimmed. */
+export function agentStatus(status: string): { label: string; tone: ScreenTone } {
+  const known = AGENT_STATUS[status]
+  return known === undefined ? { label: status, tone: 'dim' } : { label: pick(known.label), tone: known.tone }
+}
 
 /** The compact card of a finished background task; ctrl+o (isExpanded) shows the engine's whole row. */
-export function agentCard(t: T, notice: TaskNotice, agent: AgentRow | null, taskDurationMs: number | undefined): RenderElement {
+function agentCard(t: T, notice: TaskNotice, agent: AgentRow | null, taskDurationMs: number | undefined): RenderElement {
   const { Box, Text } = t
   const name = notice.name ?? agent?.description ?? ''
   const title = agent !== null && agent.type !== '' ? `${agent.type}: ${name}` : name
-  const known = STATUS[notice.status]
-  const status = known === undefined ? { label: notice.status, tone: 'dim' as const } : { label: pick(known.label), tone: known.tone }
+  const status = agentStatus(notice.status)
   const statusColor = SCREEN[status.tone]
   const durationMs = notice.durationMs ?? taskDurationMs
   const facts = [
@@ -95,4 +109,20 @@ export function agentCard(t: T, notice: TaskNotice, agent: AgentRow | null, task
       <Text color={SCREEN.dim}>{tr('ctrl+o to see it all', 'ctrl+o para ver tudo')}</Text>
     </Box>
   )
+}
+
+/** A background task's notification becomes a card; the person's own prompts never reach the mod. */
+export function registerAgentCard(on: On): void {
+  on('ui.render', { component: 'UserMessage', props: { origin: { kind: 'task-notification' } } }, async ($, e, next) => timed('UserMessage', async () => {
+    if (e.surface !== 'terminal' || e.props.isExpanded) return next(e)
+    const flags = await getFlags($)
+    if (!flags.agentes) return next(e)
+    // A notification carries the agent's whole report: parsed once per text, not on every scroll past it.
+    const notice = memo('notice', `${e.requestId}|${e.props.task?.status}|${e.props.task?.durationMs}|${e.props.text.length}`, () => noticeOf(e.props), 500)
+    if (notice === null) return next(e)
+    const taskId = e.props.task?.id
+    const agent = taskId === undefined ? null : ((await read($, AGENTS)).find(a => a.id === taskId) ?? null)
+    const key = `${e.requestId}|${flagsVersion()}|${JSON.stringify(agent)}|${e.props.task?.durationMs}|${e.props.text.length}|${notice.status}`
+    return memo('UserMessage', key, () => agentCard($.ui.resolve(e), notice, agent, e.props.task?.durationMs))
+  }))
 }

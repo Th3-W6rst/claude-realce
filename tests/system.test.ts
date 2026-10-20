@@ -2,26 +2,28 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 
-import { PALETTES } from '../hooks/palettes'
+import { setLanguage } from '../hooks/i18n'
+import { PALETTES } from '../hooks/paletteSets'
 import { DEMO_TEXTS } from '../hooks/system/demo'
 
 const DEMO_TEXT = DEMO_TEXTS.pt
 import { extractPending } from '../hooks/orient/pending'
 import { compareVersions } from '../hooks/system/update'
-import { estimateHeight, fileUrl, replyHtml } from '../hooks/system/printHtml'
+import { fileUrl } from '../hooks/code/links'
+import { estimateHeight, replyHtml } from '../hooks/system/printHtml'
+import { RUN } from './world'
 import { PT } from './lang'
 
-const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
 const CHROME = '/Users/u/.cache/puppeteer/chrome-headless-shell/mac_arm-154/chrome-headless-shell-mac-arm64/chrome-headless-shell'
 
 describe('print html', () => {
   test('a reply becomes a page in the palette, escaped', () => {
-    const html = replyHtml('Tudo {+ok+} aqui <script>x</script>', PALETTES.dark, () => null)
+    const html = replyHtml('Tudo {+ok+} aqui <script>x</script>', PALETTES.dark, () => null, {})
     expect(html).toContain('&lt;script&gt;')
     expect(html).not.toContain('<script>')
     expect(html).toMatch(/<span style="[^"]*color: #00FF41[^"]*">ok<\/span>/)
     expect(html).toContain('background: #111111')
-    expect(replyHtml('{+ok+}', PALETTES.light, () => null)).toMatch(/color: #0A7D32/)
+    expect(replyHtml('{+ok+}', PALETTES.light, () => null, {})).toMatch(/color: #0A7D32/)
   })
 
   test('the print reads as the screen does: human numbers included', () => {
@@ -30,7 +32,7 @@ describe('print html', () => {
   })
 
   test('a picture whose path has a space is still found', () => {
-    const html = replyHtml('```mermaid\ngraph TD\n  A-->B\n```', PALETTES.dark, () => ({ file: '/Users/Ana Paula/.cache/realce/diagrams/x.png', width: 720, height: 724 }))
+    const html = replyHtml('```mermaid\ngraph TD\n  A-->B\n```', PALETTES.dark, () => ({ file: '/Users/Ana Paula/.cache/realce/diagrams/x.png', width: 720, height: 724 }), {})
     expect(html).toContain('<img src="file:///Users/Ana%20Paula/.cache/realce/diagrams/x.png"')
   })
 
@@ -39,13 +41,13 @@ describe('print html', () => {
   })
 
   test('an ANSI theme prints in its dark or light colors, never as theme keys', () => {
-    const html = replyHtml('Tudo {+ok+}', PALETTES['dark-ansi'], () => null)
+    const html = replyHtml('Tudo {+ok+}', PALETTES['dark-ansi'], () => null, {})
     expect(html).not.toMatch(/color: success/)
     expect(html).toMatch(/color: #[0-9A-Fa-f]{6}/)
   })
 
   test('a ready diagram is its picture', () => {
-    const html = replyHtml('```mermaid\ngraph TD\n  A-->B\n```', PALETTES.dark, () => ({ file: '/Users/u/.cache/realce/diagrams/x.png', width: 720, height: 724 }))
+    const html = replyHtml('```mermaid\ngraph TD\n  A-->B\n```', PALETTES.dark, () => ({ file: '/Users/u/.cache/realce/diagrams/x.png', width: 720, height: 724 }), {})
     expect(html).toContain('<img src="file:///Users/u/.cache/realce/diagrams/x.png"')
   })
 
@@ -67,6 +69,29 @@ describe('print html', () => {
     expect(estimateHeight('uma linha', [])).toBeGreaterThanOrEqual(200)
     expect(estimateHeight(Array.from({ length: 80 }, () => 'linha').join('\n'), [])).toBeGreaterThan(estimateHeight('linha', []))
     expect(estimateHeight('x', [{ width: 1440, height: 1440 }])).toBeGreaterThan(estimateHeight('x', []) + 600)
+  })
+
+  test('the page marks what the screen marks: nested bullets, boxes in their paint, bold with enfase off', () => {
+    const html = replyHtml('- a\n  - b\n- [x] c', PALETTES.dark, () => null, {})
+    expect(html).toContain('>◦</span>')
+    expect(html).toContain(`<span style="color: ${PALETTES.dark.BLOCK.checkDone.color}">☑</span>`)
+    expect(replyHtml('**termo** e {+ok+}', PALETTES.dark, () => null, { enfase: false })).toContain('<span style="font-weight: bold">termo</span>')
+  })
+
+  test("a diagram's alt text speaks the interface's language", () => {
+    const picture = () => ({ file: '/x.png', width: 720, height: 724 })
+    expect(replyHtml('```mermaid\ngraph TD\n```', PALETTES.dark, picture, {})).toContain('alt="Diagrama"')
+    setLanguage('en')
+    try {
+      expect(replyHtml('```mermaid\ngraph TD\n```', PALETTES.dark, picture, {})).toContain('alt="Diagram"')
+    } finally {
+      setLanguage('pt')
+    }
+  })
+
+  test('every dark palette draws code blocks on the same background', () => {
+    expect(PALETTES['dark-cb'].BG.code).toBe(PALETTES.dark.BG.code)
+    expect(PALETTES.dark.PROSE.code.backgroundColor).not.toBe(PALETTES.dark.BG.code)
   })
 })
 

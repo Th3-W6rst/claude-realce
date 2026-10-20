@@ -1,13 +1,11 @@
-import { atom, update } from 'claude-code'
 import type { Args, EngineInterface } from 'claude-code'
 
 import type { Editor, SessionEnv } from '../types'
 import { parseTzOffset } from './format'
 import { envVar, exists, redraw, runProcess } from './io'
 
-const ENV = atom({ plugin: 'realce', key: 'env' } as const, null)
-
-// The hot drawings (every tool row, every reply) read the env here: a state read per row was a trip to the engine.
+// Read once per load (a reload runs session.start again) and kept here: every drawing reads it from the module, as a
+// state read per row was a trip to the engine.
 let current: SessionEnv | null = null
 
 export const cachedEnv = () => current
@@ -24,7 +22,7 @@ const EDITOR_APPS: readonly (readonly [Editor, string])[] = [
   ['zed', '/Applications/Zed.app'],
 ]
 
-export async function detectEditor($: EngineInterface): Promise<Editor> {
+async function detectEditor($: EngineInterface): Promise<Editor> {
   for (const [editor, app] of EDITOR_APPS) if (await exists($, app)) return editor
   return 'file'
 }
@@ -46,7 +44,6 @@ export async function recordEnv($: EngineInterface, e: Args<'session.start'>): P
     findMermaid($),
   ])
   current = { cwd: e.cwd, home: home ?? '', editor, tzOffsetMinutes: parseTzOffset(date.stdout), mmdc }
-  await update($, ENV, () => current)
-  // Rows drawn before the env was known read it from the module, not the state: draw them again.
+  // Rows drawn before the env was known: draw them again.
   redraw($, 'ui.render')
 }

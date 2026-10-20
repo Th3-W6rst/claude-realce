@@ -3,12 +3,13 @@ import type { Elements, EngineInterface, On, RenderElement } from 'claude-code'
 
 import { flagsVersion, getFlags } from '../flags'
 import { plural } from '../format'
-import { tr } from '../i18n'
+import { languageVersion, tr } from '../i18n'
 import { memo } from '../memo'
-import { CODE, FOLD_AT, FOLD_SHOW, SCREEN } from '../palette'
+import { FOLD_AT, FOLD_SHOW, foldLabel } from '../layout'
+import { CODE, SCREEN } from '../palette'
 import { timed } from '../perf'
 import { currentTheme } from '../theme'
-import { asRecord, str } from './toolInfo'
+import { asRecord, str } from '../safe'
 import { wordDiff, type DiffPiece } from './wordDiff'
 
 const FOLDS = { plugin: 'realce', key: 'folds' } as const
@@ -16,7 +17,7 @@ const FOLDS = { plugin: 'realce', key: 'folds' } as const
 type T = Pick<Elements['terminal'], 'Box' | 'Text' | 'Button'>
 
 /** One drawn row of a patch; `pair` is the text of the line it replaced or was replaced by, for the word diff. */
-export type DiffLine = { kind: 'add' | 'del' | 'ctx' | 'hunk'; text: string; lineNo: number | null; pair?: string }
+type DiffLine = { kind: 'add' | 'del' | 'ctx' | 'hunk'; text: string; lineNo: number | null; pair?: string }
 
 /** A stored `structuredPatch` as rows: a header per hunk, then its lines numbered in the new file. */
 export function diffLines(structuredPatch: unknown): DiffLine[] {
@@ -71,11 +72,12 @@ function pieceRuns(t: T, pieces: readonly DiffPiece[], color: string | undefined
   )
 }
 
-/** The line's changed words, once per row of a patch: a scroll redraws an open diff many times. */
-function linePieces(id: string, at: number, line: DiffLine): DiffPiece[] | null {
+/** The line's changed words: each edited pair is diffed once, for both its rows, and kept while a scroll redraws it. */
+function linePieces(line: DiffLine): DiffPiece[] | null {
   if (line.pair === undefined) return null
-  const pair = line.pair
-  return memo('wordDiff', `${id}|${at}`, () => (line.kind === 'add' ? wordDiff(pair, line.text)?.added : wordDiff(line.text, pair)?.removed) ?? null, 5000)
+  const [before, after] = line.kind === 'add' ? [line.pair, line.text] : [line.text, line.pair]
+  const diff = memo('wordDiff', `${before}\u0000${after}`, () => wordDiff(before, after), 5000)
+  return (line.kind === 'add' ? diff?.added : diff?.removed) ?? null
 }
 
 function lineRow(t: T, line: DiffLine, words: DiffPiece[] | null): RenderElement {
@@ -107,18 +109,18 @@ function firstRows(lines: readonly DiffLine[], count: number): DiffLine[] {
   return out
 }
 
-function patchTree(t: T, id: string, lines: readonly DiffLine[], isLong: boolean, isOpen: boolean, onFold: () => void): RenderElement {
+function patchTree(t: T, lines: readonly DiffLine[], isLong: boolean, isOpen: boolean, onFold: () => void): RenderElement {
   const { Box, Text, Button } = t
   const content = lines.filter(l => l.kind !== 'hunk').length
   const shown = isLong && !isOpen ? firstRows(lines, FOLD_SHOW) : firstRows(lines, MAX_OPEN)
   const hidden = content - shown.filter(l => l.kind !== 'hunk').length
   return (
     <Box key="realce-diff" flexDirection="column">
-      {shown.map((line, i) => lineRow(t, line, linePieces(id, i, line)))}
+      {shown.map(line => lineRow(t, line, linePieces(line)))}
       {(!isLong || isOpen) && hidden > 0 && <Text color={SCREEN.dim}>{tr(`… and ${hidden} more lines: open the file to see them all`, `… e mais ${hidden} linhas: abra o arquivo para ver tudo`)}</Text>}
       {isLong && (
         <Button plain key="diff-fold" dimColor onPress={onFold}>
-          {isOpen ? tr('▾ Fold', '▾ Recolher') : tr(`▸ Show more (${content - FOLD_SHOW} lines)`, `▸ Mostrar mais (${content - FOLD_SHOW} linhas)`)}
+          {foldLabel(isOpen, content - FOLD_SHOW)}
         </Button>
       )}
     </Box>
@@ -158,10 +160,11 @@ export function registerDiff(on: On): void {
       return memo('ToolResult:new', `${id}|${flagsVersion()}`, () => newFileTree($.ui.resolve(e), content))
     }
     if (!Array.isArray(out.structuredPatch) || out.structuredPatch.length === 0) return next(e)
-    const lines = memo('diffLines', id, () => diffLines(out.structuredPatch), 500)
+    // The hunk headers speak the language: a change of it parses the rows again.
+    const lines = memo('diffLines', `${id}|${languageVersion()}`, () => diffLines(out.structuredPatch), 500)
     const isLong = flags.dobrar && lines.filter(l => l.kind !== 'hunk').length > FOLD_AT
     const isOpen = isLong && (await read($, { ...FOLDS, id })) === true
     // The tree holds the fold's handler: rebuilt per draw, from rows that are memoized.
-    return patchTree($.ui.resolve(e), id, lines, isLong, isOpen, () => void setFold($, id, !isOpen))
+    return patchTree($.ui.resolve(e), lines, isLong, isOpen, () => void setFold($, id, !isOpen))
   }))
 }

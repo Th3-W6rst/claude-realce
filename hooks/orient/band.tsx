@@ -1,13 +1,14 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, RenderElement, RenderInputOf, RenderNode, RenderSurface } from 'claude-code'
 
-import { getFlags } from '../flags'
+import type { AwaySummary, LimitWarning, PlanItem } from '../../types'
+import { getFlags, type Flags } from '../flags'
 import { SCREEN } from '../palette'
-import { fitSegments, wrapLines, type Segment } from './fit'
+import { segmentRow, wrapLines } from '../fit'
 import { awayText, hideAway } from './away'
 import { hideLimit, limitText } from './limits'
 import { cachedEnv } from '../env'
-import { planBar, planProgress, type PlanProgress } from './plan'
+import { planProgress, planSegments } from './plan'
 import { timed } from '../perf'
 import { tr } from '../i18n'
 
@@ -21,22 +22,8 @@ const HIDE_CELLS = 12
 
 type BandInput = RenderInputOf<'AbovePrompt', RenderSurface>
 
-export async function hidePending($: EngineInterface): Promise<void> {
+async function hidePending($: EngineInterface): Promise<void> {
   await update($, PENDING, () => null)
-}
-
-/** The plan row in its colors: the word and the bar in the plan's, what runs now plain. */
-function planSegments(p: PlanProgress): Segment[] {
-  const bar = planBar(p.filled)
-  const segments: Segment[] = [
-    { text: tr('Plan', 'Plano'), color: SCREEN.plan },
-    { text: ' ' },
-    { text: bar.filled, color: SCREEN.plan },
-    { text: bar.empty, color: SCREEN.dim },
-    { text: ` ${p.done}/${p.total}` },
-  ]
-  if (p.now !== null) segments.push({ text: tr(' · Now:', ' · Agora:'), color: SCREEN.dim }, { text: ` ${p.now}` })
-  return segments
 }
 
 /** A tree's text, its strings in order. */
@@ -60,74 +47,56 @@ export function rowsOf(node: RenderNode): number {
   return 1
 }
 
-/** The band's most pressing notice in at most `rows` rows (what needs you, a limit, the away summary, the plan), or null. */
-async function noticeOf($: EngineInterface, e: BandInput, rows: number): Promise<RenderElement | null> {
-  const { isWorking, bodyColumns } = e.props
-  const flags = await getFlags($)
-  const { Box, Text, Button } = $.ui.resolve(e)
-  // The band's sources in one round trip: each read is a trip to the engine, and the band draws on every turn.
+type BandData = {
+  pending: { items: string[] } | null
+  limit: LimitWarning | null
+  away: AwaySummary | null
+  plan: readonly PlanItem[] | null
+  now: number
+}
+
+/** What the band may say, in one round trip: each read is a trip to the engine, and the band draws on every turn. */
+async function bandData($: EngineInterface, e: BandInput, flags: Flags): Promise<BandData> {
   const [pending, limit, away, plan] = await Promise.all([
-    flags.pendencias && !isWorking ? read($, PENDING) : Promise.resolve(null),
+    flags.pendencias && !e.props.isWorking ? read($, PENDING) : Promise.resolve(null),
     flags.limite ? read($, LIMIT) : Promise.resolve(null),
     flags.ausencia ? read($, AWAY) : Promise.resolve(null),
     flags.plano ? read($, PLAN) : Promise.resolve(null),
   ])
+  // Only a limit's reset time reads the clock, and a limit is rare.
+  return { pending, limit, away, plan, now: limit === null ? 0 : await $.clock.now() }
+}
+
+/** The band's most pressing notice in at most `rows` rows (what needs you, a limit, the away summary, the plan), or null. */
+function noticeOf($: EngineInterface, e: BandInput, data: BandData, rows: number): RenderElement | null {
+  const { bodyColumns, isWorking } = e.props
+  const { Box, Text, Button } = $.ui.resolve(e)
+  const { pending, limit, away, plan } = data
+  // A notice beside its Hide button.
+  const hideable = (body: RenderElement, key: string, onHide: () => void) => (
+    <Box flexDirection="row" width={bodyColumns}>
+      <Box width={bodyColumns - HIDE_CELLS}>{body}</Box>
+      <Box marginLeft={1}>
+        <Button key={key} onPress={onHide}>
+          {tr('Hide', 'Ocultar')}
+        </Button>
+      </Box>
+    </Box>
+  )
   if (pending !== null && pending.items.length > 0 && bodyColumns > HIDE_CELLS) {
     const lines = wrapLines(`⚠ ${tr('Needs you', 'Precisa de você')}: ${pending.items.join(' · ')}`, bodyColumns - HIDE_CELLS, rows)
-    return (
-      <Box flexDirection="row" width={bodyColumns}>
-        <Box width={bodyColumns - HIDE_CELLS}>
-          <Text color={SCREEN.warn}>{lines.join('\n')}</Text>
-        </Box>
-        <Box marginLeft={1}>
-          <Button key="hide-pending" onPress={() => void hidePending($)}>
-            {tr('Hide', 'Ocultar')}
-          </Button>
-        </Box>
-      </Box>
-    )
+    return hideable(<Text color={SCREEN.warn}>{lines.join('\n')}</Text>, 'hide-pending', () => void hidePending($))
   }
   const progress = plan === null ? null : planProgress(plan)
   // While Claude works, the plan is what moves: the limit waits for the turn to end.
   if (limit !== null && bodyColumns > HIDE_CELLS && !(isWorking && progress !== null)) {
-    const text = limitText(limit, cachedEnv()?.tzOffsetMinutes, await $.clock.now())
-    return (
-      <Box flexDirection="row" width={bodyColumns}>
-        <Box width={bodyColumns - HIDE_CELLS}>
-          <Text color={SCREEN.warn} wrap="truncate-end">
-            {text}
-          </Text>
-        </Box>
-        <Box marginLeft={1}>
-          <Button key="hide-limit" onPress={() => void hideLimit($, limit)}>
-            {tr('Hide', 'Ocultar')}
-          </Button>
-        </Box>
-      </Box>
-    )
+    const text = limitText(limit, cachedEnv()?.tzOffsetMinutes, data.now)
+    return hideable(<Text color={SCREEN.warn} wrap="truncate-end">{text}</Text>, 'hide-limit', () => void hideLimit($, limit))
   }
   if (away !== null && bodyColumns > HIDE_CELLS) {
-    return (
-      <Box flexDirection="row" width={bodyColumns}>
-        <Box width={bodyColumns - HIDE_CELLS}>
-          <Text color={SCREEN.plan} wrap="truncate-end">
-            {awayText(away)}
-          </Text>
-        </Box>
-        <Box marginLeft={1}>
-          <Button key="hide-away" onPress={() => void hideAway($)}>
-            {tr('Hide', 'Ocultar')}
-          </Button>
-        </Box>
-      </Box>
-    )
+    return hideable(<Text color={SCREEN.plan} wrap="truncate-end">{awayText(away)}</Text>, 'hide-away', () => void hideAway($))
   }
-  if (progress === null) return null
-  return (
-    <Text wrap="truncate-end">
-      {fitSegments(planSegments(progress), bodyColumns).map(s => (s.color === undefined ? s.text : <Text color={s.color}>{s.text}</Text>))}
-    </Text>
-  )
+  return progress === null ? null : segmentRow($.ui.resolve(e), planSegments(progress), bodyColumns)
 }
 
 export function registerBand(on: On): void {
@@ -137,9 +106,9 @@ export function registerBand(on: On): void {
     const flags = await getFlags($)
     if (!flags.pendencias && !flags.plano && !flags.ausencia && !flags.limite) return next(e)
     // The band is shared: what the engine or another mod draws beneath stays, under the notice, which takes the rows
-    // left free (one at least; past the budget the band scrolls).
-    const below = await next(e)
-    const notice = await noticeOf($, e, Math.max(1, maxRows - rowsOf(below)))
+    // left free (one at least; past the budget the band scrolls). Its own reads go while the rest draws.
+    const [below, data] = await Promise.all([next(e), bandData($, e, flags)])
+    const notice = noticeOf($, e, data, Math.max(1, maxRows - rowsOf(below)))
     if (notice === null) return below
     const { Box } = $.ui.resolve(e)
     // No width or height on this Box: the engine refuses its own node under a sized or placed one.

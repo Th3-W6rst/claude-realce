@@ -4,7 +4,7 @@ import { getFlags } from '../flags'
 import { plural } from '../format'
 import { SCREEN } from '../palette'
 import { timed } from '../perf'
-import { asRecord, str } from '../screen/toolInfo'
+import { asRecord, str } from '../safe'
 import { tr } from '../i18n'
 
 const RECOMMENDED = /\s*\((?:Recomendad[oa]|Recommended)\)\s*$/i

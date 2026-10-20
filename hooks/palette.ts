@@ -3,9 +3,9 @@
 // it names a tone and looks it up while drawing.
 
 import { pick, type Text } from './i18n'
-import { DARK, type CalloutKind, type PaletteSet } from './palettes'
+import { DARK, type CalloutKind, type PaletteSet } from './paletteSets'
 
-export type { BlockKind, CalloutKind, CodeKind, Paint, ProseKind, ScreenTone } from './palettes'
+export type { BlockKind, CalloutKind, CodeKind, Paint, ProseKind, ScreenTone } from './paletteSets'
 
 export const PROSE: PaletteSet['PROSE'] = { ...DARK.PROSE }
 export const BLOCK: PaletteSet['BLOCK'] = { ...DARK.BLOCK }
@@ -47,13 +47,3 @@ export function applyPalette(set: PaletteSet): void {
   MERMAID.config = set.MERMAID
   for (const k of Object.keys(CALLOUT) as CalloutKind[]) CALLOUT[k] = callout(k, set.CALLOUT[k])
 }
-
-export const READING_WIDTH = 100
-export const FOLD_AT = 25
-export const FOLD_SHOW = 8
-
-// A terminal cell's width over its height in the user's font (Monaspace Neon 17): images keep their shape with it.
-export const CELL_ASPECT = 0.47
-// Diagrams render at scale 2, and a column is about 10 logical pixels wide.
-export const DIAGRAM_SCALE = 2
-export const CELL_PX = 10

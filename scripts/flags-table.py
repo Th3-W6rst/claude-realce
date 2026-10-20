@@ -10,7 +10,6 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-GROUPS = {'text': 'Text', 'code': 'Code', 'tools': 'Tools', 'guide': 'Guidance', 'system': 'System'}
 QUOTED = r"'((?:[^'\\]|\\.)*)'|\"((?:[^\"\\]|\\.)*)\""
 FLAG = re.compile(
     r"\{ id: '(\w+)', alias: '(\w+)', group: '(\w+)', label: \{ en: (?:" + QUOTED + r"), pt: (?:" + QUOTED + r") \}, "
@@ -24,6 +23,9 @@ def unquote(text: str) -> str:
 
 def table() -> str:
     source = (ROOT / 'hooks' / 'flags.ts').read_text()
+    # The groups' English names, as the flags pane shows them.
+    labels = re.search(r'GROUP_LABELS[^=]*= \{([\s\S]*?)\n\}', source).group(1)
+    groups = dict(re.findall(r"^\s+(\w+): \{ en: '([^']+)'", labels, re.M))
     ids = re.findall(r"'(\w+)'", re.search(r'export type FlagId =([\s\S]*?)\n\n', source).group(1))
     rows = []
     for m in FLAG.finditer(source):
@@ -35,11 +37,11 @@ def table() -> str:
     missing = sorted(set(ids) - {r[2] for r in rows})
     if missing:
         raise SystemExit(f'scripts/flags-table.py: no table row for {", ".join(missing)}; is the FLAGS line written as the pattern expects?')
-    rows.sort(key=lambda r: list(GROUPS).index(r[0]))
+    rows.sort(key=lambda r: list(groups).index(r[0]))
     lines = ['| Group | Flag | Feature | What it does | Default |', '|---|---|---|---|---|']
     for group, alias, flag_id, label, description, is_on in rows:
         name = f'`{alias}`' if alias == flag_id else f'`{alias}` (`{flag_id}`)'
-        lines.append(f"| {GROUPS[group]} | {name} | {label} | {description.replace('|', chr(92) + '|')} | {'on' if is_on == 'true' else 'off'} |")
+        lines.append(f"| {groups[group]} | {name} | {label} | {description.replace('|', chr(92) + '|')} | {'on' if is_on == 'true' else 'off'} |")
     return '\n'.join(lines) + '\n'
 
 

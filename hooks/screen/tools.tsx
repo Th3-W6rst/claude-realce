@@ -3,22 +3,23 @@ import type { Elements, On, RenderElement } from 'claude-code'
 import { highlight } from '../code/highlight'
 import { cachedEnv } from '../env'
 import { flagsVersion, getFlags } from '../flags'
-import { lang, pick, tr, type Text } from '../i18n'
-import { memo } from '../memo'
+import { lang, pick, pickOr, tr, type Text } from '../i18n'
+import { memo, trimOldest } from '../memo'
 import { CODE, SCREEN, type ScreenTone } from '../palette'
 import type { Explanation, TestScore } from '../../types'
 import { CARD_TONE, cardText, commitCards, type CommitCard } from './commit'
 import { isAnswerExit, rememberAnswer, wasAnswer } from './explainError'
 import { commitFor, explanationFor } from './notes'
 import { formatScore, parseTestSummary } from './score'
-import { asRecord, bashText, EDIT_TOOLS, editCounts, editedPath, shortPath, str } from './toolInfo'
+import { bashText, EDIT_TOOLS, editCounts, editedPath, mcpName, shortPath } from './toolInfo'
+import { asRecord, str } from '../safe'
 import { timed } from '../perf'
 
 type T = Pick<Elements['terminal'], 'Box' | 'Text'>
 
-export type ToolKind = 'read' | 'edit' | 'run' | 'agent' | 'web' | 'plan' | 'mcp'
+type ToolKind = 'read' | 'edit' | 'run' | 'agent' | 'web' | 'plan' | 'mcp'
 
-export type ToolSummary = { kind: ToolKind; icon: string; verb: string; target: string; added?: number; removed?: number; isNew?: boolean }
+type ToolSummary = { kind: ToolKind; icon: string; verb: string; target: string; added?: number; removed?: number; isNew?: boolean }
 
 const READ_VERBS: Record<string, Text> = {
   Read: { en: 'Read', pt: 'Leu' },
@@ -63,12 +64,12 @@ export function summarizeTool(tool: string, input: unknown, cwd: string | null, 
   if (tool === 'TaskCreate') return { kind: 'plan', icon: '☰', verb: tr('Plan:', 'Plano:'), target: `+ ${str(inp.subject) ?? ''}` }
   if (tool === 'TaskUpdate') {
     const status = str(inp.status)
-    return { kind: 'plan', icon: '☰', verb: tr('Plan:', 'Plano:'), target: `#${str(inp.taskId) ?? '?'} ${status !== null ? (TASK_STATUS[status] === undefined ? status : pick(TASK_STATUS[status])) : tr('updated', 'atualizada')}` }
+    return { kind: 'plan', icon: '☰', verb: tr('Plan:', 'Plano:'), target: `#${str(inp.taskId) ?? '?'} ${status !== null ? pickOr(TASK_STATUS, status) : tr('updated', 'atualizada')}` }
   }
   if (tool === 'TaskList') return { kind: 'plan', icon: '☰', verb: tr('Plan:', 'Plano:'), target: tr('list', 'lista') }
   if (tool === 'TaskGet') return { kind: 'plan', icon: '☰', verb: tr('Plan:', 'Plano:'), target: `#${str(inp.taskId) ?? '?'}` }
-  const mcp = /^mcp__(.+?)__(.+)$/.exec(tool)
-  if (mcp !== null) return { kind: 'mcp', icon: '⬡', verb: '', target: `${mcp[1]} · ${mcp[2]}` }
+  const mcp = mcpName(tool)
+  if (mcp !== null) return { kind: 'mcp', icon: '⬡', verb: '', target: `${mcp.server} · ${mcp.name}` }
   return null
 }
 
@@ -114,17 +115,28 @@ export const isStillRunning = (call: { isRunning: boolean; output?: unknown }): 
 
 type CallState = { tool_use_id?: string; tool: string; input: unknown; isErrored: boolean; output?: unknown }
 
+const verdicts = new Map<string, boolean>()
+const MAX_VERDICTS = 500
+
 /**
  * An errored call whose exit is an answer (`grep` with no match, `test -f` false): it ran fine and said no. Told by
  * what tool.call saw; a call from before this load by the text it left, and one with no text (a folded group's) stays
  * the engine's error.
  */
-export function isAnswered(call: CallState): boolean {
+function isAnswered(call: CallState): boolean {
   if (!call.isErrored || call.tool !== 'Bash') return false
   if (call.tool_use_id !== undefined && wasAnswer(call.tool_use_id)) return true
-  const isAnswer = typeof call.output === 'string' && isAnswerExit(str(asRecord(call.input).command) ?? '', call.output)
-  // Told by its text: kept, so its result row (which carries no command) is told the same.
-  if (isAnswer && call.tool_use_id !== undefined) rememberAnswer(call.tool_use_id)
+  if (typeof call.output !== 'string') return false
+  // A settled call's verdict is read from its text once: every scroll past the row asks again.
+  const known = call.tool_use_id === undefined ? undefined : verdicts.get(call.tool_use_id)
+  if (known !== undefined) return known
+  const isAnswer = isAnswerExit(str(asRecord(call.input).command) ?? '', call.output)
+  if (call.tool_use_id !== undefined) {
+    verdicts.set(call.tool_use_id, isAnswer)
+    trimOldest(verdicts, MAX_VERDICTS)
+    // Told by its text: kept, so its result row (which carries no command) is told the same.
+    if (isAnswer) rememberAnswer(call.tool_use_id)
+  }
   return isAnswer
 }
 
@@ -168,7 +180,7 @@ function whyLine(t: T, why: Explanation): RenderElement {
   )
 }
 
-function toolRow(t: T, s: ToolSummary, state: RowState, score: TestScore | null = null, why: Explanation | null = null): RenderElement {
+function toolRow(t: T, s: ToolSummary, state: RowState, score: TestScore | null, why: Explanation | null): RenderElement {
   const { Box, Text } = t
   const icon = state.isRunning ? '◌' : state.isErrored ? '✖' : s.icon
   const head = s.verb === '' ? `${icon} ` : `${icon} ${s.verb} `
@@ -299,10 +311,10 @@ export function registerTools(on: On): void {
   }))
 
   // The result under a row focus mode hid goes with it; the edit tools' results are the diff's own hook.
-  on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
+  on('ui.render', { component: 'ToolResult' }, async ($, e, next) => timed('ToolResult', async () => {
     const flags = await getFlags($)
     // An answered call (a grep with no match) finished well: its result goes with its row.
     if (!flags.foco || e.surface !== 'terminal' || (e.props.isErrored && !wasAnswer(e.props.tool_use_id))) return next(e)
     return hiddenRow($.ui.resolve(e))
-  })
+  }))
 }

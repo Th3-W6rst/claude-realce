@@ -1,7 +1,8 @@
 import type { EngineInterface } from 'claude-code'
 
-import { languageVersion, setLanguage, tr, type Lang, type Text } from './i18n'
-import { redraw, storeDelete, storeGet, storeSet } from './io'
+import { languageVersion, redrawAll, setLanguage, tr, type Lang, type Text } from './i18n'
+import { storeGet, storeSet } from './io'
+import { asRecord } from './safe'
 
 export type FlagId =
   | 'enfase' | 'coluna' | 'callouts' | 'tabelas' | 'deltas' | 'respiro'
@@ -12,11 +13,11 @@ export type FlagId =
   | 'avisos' | 'som' | 'limite' | 'ausencia' | 'linha' | 'perguntas' | 'fixar' | 'explica'
   | 'tema' | 'print' | 'demo' | 'atualizacao' | 'resumo'
 
-export type FlagGroup = 'text' | 'code' | 'tools' | 'guide' | 'system'
+type FlagGroup = 'text' | 'code' | 'tools' | 'guide' | 'system'
 
 // `id` is the key the store keeps (the first words were Portuguese and stay, so nobody's choices are lost); `alias` is
 // its English name. Commands take either.
-export type FlagSpec = { id: FlagId; alias: string; group: FlagGroup; label: Text; description: Text; isDefaultOn: boolean }
+type FlagSpec = { id: FlagId; alias: string; group: FlagGroup; label: Text; description: Text; isDefaultOn: boolean }
 
 export type Flags = Readonly<Record<FlagId, boolean>>
 
@@ -102,9 +103,11 @@ export function bumpVersion(): void {
 }
 
 const parseStored = (stored: unknown): Flags => {
-  const set = typeof stored === 'object' && stored !== null ? (stored as Record<string, unknown>) : {}
+  const set = asRecord(stored)
   return Object.fromEntries(FLAGS.map(f => [f.id, typeof set[f.id] === 'boolean' ? set[f.id] : f.isDefaultOn])) as Record<FlagId, boolean>
 }
+
+const ALL_OFF = Object.fromEntries(FLAGS.map(f => [f.id, false])) as Flags
 
 async function load($: EngineInterface): Promise<{ stored: Flags; isMasterOn: boolean }> {
   if (snapshot === null) {
@@ -124,8 +127,7 @@ export async function getStoredFlags($: EngineInterface): Promise<Flags> {
 /** The flags in force: with the master switch off, every one is off. */
 export async function getFlags($: EngineInterface): Promise<Flags> {
   const { stored, isMasterOn } = await load($)
-  if (isMasterOn) return stored
-  return Object.fromEntries(FLAGS.map(f => [f.id, false])) as Record<FlagId, boolean>
+  return isMasterOn ? stored : ALL_OFF
 }
 
 export async function setFlag($: EngineInterface, id: FlagId, value: boolean): Promise<void> {
@@ -136,8 +138,7 @@ export async function setFlag($: EngineInterface, id: FlagId, value: boolean): P
   version += 1
   await storeSet($, 'flags', stored)
   // A flag changes drawings all over the transcript, not only the ones that read it, and the aids the model is taught.
-  redraw($, 'ui.render')
-  redraw($, 'prompt.section')
+  redrawAll($)
 }
 
 export async function isMasterOn($: EngineInterface): Promise<boolean> {
@@ -148,16 +149,14 @@ export async function setMaster($: EngineInterface, value: boolean): Promise<voi
   snapshot = { ...(await load($)), isMasterOn: value }
   version += 1
   await storeSet($, 'master', value)
-  redraw($, 'ui.render')
-  redraw($, 'prompt.section')
+  redrawAll($)
 }
 
 /** `/realce language`: the person's pick kept in the store, or none to follow Claude Code's language again. */
 export async function pickLanguage($: EngineInterface, next: Lang | null): Promise<void> {
   await load($)
-  if (next === null) await storeDelete($, 'language')
-  else await storeSet($, 'language', next)
+  // None is kept as null rather than deleted: load() reads anything but en or pt as following Claude Code.
+  await storeSet($, 'language', next)
   if (!setLanguage(next)) return
-  redraw($, 'ui.render')
-  redraw($, 'prompt.section')
+  redrawAll($)
 }

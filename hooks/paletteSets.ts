@@ -1,5 +1,5 @@
-// Every palette the mod paints with, one per class of the person's Claude Code theme. The dark one is the neon the
-// mod was made in; the others are built from a short list of roles, so each kind keeps its meaning in every theme.
+// Every palette the mod paints with, one per class of the person's Claude Code theme, each built from a short list of
+// roles so every kind keeps its meaning in every theme. The dark one is the neon the mod was made in.
 // Colors only, never bold: Ghostty's `bold-color` repaints bold runs in one fixed red.
 
 export type Paint = { color?: string; backgroundColor?: string; italic?: boolean; underline?: boolean; strikethrough?: boolean; dimColor?: boolean }
@@ -8,84 +8,19 @@ export type ThemeKind = 'dark' | 'light' | 'dark-cb' | 'light-cb' | 'dark-ansi' 
 
 export type CalloutKind = 'decision' | 'risk' | 'done' | 'summary' | 'note' | 'tip'
 
-const DARK_PROSE = {
-  label: { color: '#FF3D45' },
-  strong: { color: '#E06AA0' },
-  highlight: { color: '#111111', backgroundColor: '#E3BC46' },
-  good: { color: '#00FF41' },
-  bad: { color: '#FF5C63', backgroundColor: '#3D0A12' },
-  warn: { color: '#E3BC46' },
-  code: { color: '#24D3E0', backgroundColor: '#1B1B26' },
-  path: { color: '#5AA6DE', underline: true },
-  number: { color: '#FF9E3D' },
-  quote: { color: '#C3A6FF' },
-  link: { color: '#5AA6DE', underline: true },
-  italic: { italic: true, color: '#D8C0BA' },
-  strike: { strikethrough: true, dimColor: true },
-  statusGood: { color: '#5BD98C' },
-  statusBad: { color: '#FF5C63' },
-  statusWarn: { color: '#E3BC46' },
-  delta: { color: '#24D3E0' },
-  aside: { color: '#6E6A86' },
-} satisfies Record<string, Paint>
+export type ProseKind =
+  | 'label' | 'strong' | 'highlight' | 'good' | 'bad' | 'warn' | 'code' | 'path' | 'number' | 'quote' | 'link' | 'italic'
+  | 'strike' | 'statusGood' | 'statusBad' | 'statusWarn' | 'delta' | 'aside'
 
-export type ProseKind = keyof typeof DARK_PROSE
+export type BlockKind = 'heading1' | 'heading2' | 'heading3' | 'bullet' | 'ordinal' | 'checkDone' | 'checkOpen' | 'quoteBar' | 'rule' | 'codeLabel'
 
-const DARK_BLOCK = {
-  heading1: { color: '#24D3E0', underline: true },
-  heading2: { color: '#E06AA0' },
-  heading3: { color: '#E3BC46' },
-  bullet: { color: '#24D3E0' },
-  ordinal: { color: '#FF9E3D' },
-  checkDone: { color: '#00FF41' },
-  checkOpen: { color: '#6E6A86' },
-  quoteBar: { color: '#6E6A86' },
-  rule: { color: '#4D1A24' },
-  codeLabel: { color: '#6E6A86', italic: true },
-} satisfies Record<string, Paint>
+export type CodeKind =
+  | 'keyword' | 'string' | 'number' | 'constant' | 'comment' | 'function' | 'type' | 'property' | 'operator' | 'punctuation'
+  | 'decorator' | 'variable' | 'flag' | 'key' | 'added' | 'removed' | 'hunk' | 'meta'
 
-export type BlockKind = keyof typeof DARK_BLOCK
+export type ScreenTone = 'dim' | 'rule' | 'ok' | 'bad' | 'warn' | 'edit' | 'run' | 'agent' | 'web' | 'plan' | 'mcp'
 
-const DARK_CODE = {
-  keyword: { color: '#E06AA0' },
-  string: { color: '#5BD98C' },
-  number: { color: '#FF9E3D' },
-  constant: { color: '#FF9E3D' },
-  comment: { color: '#6E6A86', italic: true },
-  function: { color: '#24D3E0' },
-  type: { color: '#E3BC46' },
-  property: { color: '#9CDCFE' },
-  operator: { color: '#FF5C63' },
-  punctuation: { color: '#8A8A9A' },
-  decorator: { color: '#B48EFF' },
-  variable: { color: '#FF9E3D' },
-  flag: { color: '#E3BC46' },
-  key: { color: '#24D3E0' },
-  added: { color: '#00FF41' },
-  removed: { color: '#FF5C63' },
-  hunk: { color: '#24D3E0' },
-  meta: { color: '#6E6A86' },
-} satisfies Record<string, Paint>
-
-export type CodeKind = keyof typeof DARK_CODE
-
-const DARK_SCREEN = {
-  dim: '#6E6A86',
-  rule: '#4D1A24',
-  ok: '#00FF41',
-  bad: '#FF5C63',
-  warn: '#E3BC46',
-  edit: '#E3BC46',
-  run: '#24D3E0',
-  agent: '#E06AA0',
-  web: '#5AA6DE',
-  plan: '#24D3E0',
-  mcp: '#B48EFF',
-}
-
-export type ScreenTone = keyof typeof DARK_SCREEN
-
-export type MermaidConfig = { theme: 'base'; themeVariables: Record<string, string | boolean> }
+type MermaidConfig = { theme: 'base'; themeVariables: Record<string, string | boolean> }
 
 export type PaletteSet = {
   PROSE: Record<ProseKind, Paint>
@@ -131,21 +66,13 @@ const mermaid = (v: { dark: boolean; bg: string; box: string; cluster: string; t
 
 const DARK_MERMAID = mermaid({ dark: true, bg: '#111111', box: '#16161E', cluster: '#1B1B26', text: '#E3C7C1', border: '#24D3E0', line: '#E06AA0', noteBg: '#3D0A12', noteBorder: '#FF5C63', rule: '#4D1A24' })
 
-export const DARK: PaletteSet = {
-  PROSE: DARK_PROSE,
-  BLOCK: DARK_BLOCK,
-  CODE: DARK_CODE,
-  SCREEN: DARK_SCREEN,
-  BG: { code: '#16161E', zebra: '#16161E', page: '#111111' },
-  CALLOUT: { decision: '#E3BC46', risk: '#FF5C63', done: '#00FF41', summary: '#24D3E0', note: '#5AA6DE', tip: '#E06AA0' },
-  TABLE: { header: { color: '#24D3E0', underline: true } },
-  MERMAID: DARK_MERMAID,
-}
-
-/** What a palette is built from: each role one color (undefined: the terminal's own). */
+/**
+ * What a palette is built from: each role one color (undefined: the terminal's own). `codeBg` is inline code's,
+ * `blockBg` a code block's.
+ */
 type Roles = {
   good: string; goodSoft: string; bad: string; badBg: string | undefined; warn: string; label: string; strong: string
-  hlFg: string; hlBg: string; code: string; codeBg: string | undefined; link: string; number: string; quote: string
+  hlFg: string; hlBg: string; code: string; codeBg: string | undefined; blockBg: string | undefined; link: string; number: string; quote: string
   decorator: string; property: string; punct: string; italic: string | undefined; dim: string; rule: string
   zebra: string | undefined; page: string; mermaid: MermaidConfig
 }
@@ -208,7 +135,7 @@ function fromRoles(r: Roles): PaletteSet {
       meta: color(r.dim),
     },
     SCREEN: { dim: r.dim, rule: r.rule, ok: r.good, bad: r.bad, warn: r.warn, edit: r.warn, run: r.code, agent: r.strong, web: r.link, plan: r.code, mcp: r.decorator },
-    BG: { code: r.codeBg, zebra: r.zebra, page: r.page },
+    BG: { code: r.blockBg, zebra: r.zebra, page: r.page },
     CALLOUT: { decision: r.warn, risk: r.bad, done: r.good, summary: r.code, note: r.link, tip: r.strong },
     TABLE: { header: { ...color(r.code), underline: true } },
     MERMAID: r.mermaid,
@@ -219,14 +146,14 @@ const LIGHT_MERMAID = mermaid({ dark: false, bg: '#FFFFFF', box: '#F4F5F8', clus
 
 const DARK_ROLES: Roles = {
   good: '#00FF41', goodSoft: '#5BD98C', bad: '#FF5C63', badBg: '#3D0A12', warn: '#E3BC46', label: '#FF3D45', strong: '#E06AA0',
-  hlFg: '#111111', hlBg: '#E3BC46', code: '#24D3E0', codeBg: '#1B1B26', link: '#5AA6DE', number: '#FF9E3D', quote: '#C3A6FF',
+  hlFg: '#111111', hlBg: '#E3BC46', code: '#24D3E0', codeBg: '#1B1B26', blockBg: '#16161E', link: '#5AA6DE', number: '#FF9E3D', quote: '#C3A6FF',
   decorator: '#B48EFF', property: '#9CDCFE', punct: '#8A8A9A', italic: '#D8C0BA', dim: '#6E6A86', rule: '#4D1A24',
   zebra: '#16161E', page: '#111111', mermaid: DARK_MERMAID,
 }
 
 const LIGHT_ROLES: Roles = {
   good: '#0A7D32', goodSoft: '#1E8A4C', bad: '#B3121B', badBg: '#FDE2E4', warn: '#9A6700', label: '#C4141C', strong: '#A3246B',
-  hlFg: '#111111', hlBg: '#FFE066', code: '#00707A', codeBg: '#F4F5F8', link: '#1F5FA8', number: '#B35300', quote: '#6B3FC4',
+  hlFg: '#111111', hlBg: '#FFE066', code: '#00707A', codeBg: '#F4F5F8', blockBg: '#F4F5F8', link: '#1F5FA8', number: '#B35300', quote: '#6B3FC4',
   decorator: '#6B3FC4', property: '#1F5FA8', punct: '#6B6880', italic: '#5A4A45', dim: '#6B6880', rule: '#E3C8CC',
   zebra: '#F2F3F7', page: '#FFFFFF', mermaid: LIGHT_MERMAID,
 }
@@ -239,10 +166,12 @@ const LIGHT_CB_ROLES: Roles = { ...LIGHT_ROLES, good: '#0072B2', goodSoft: '#007
 // (a color name like 'green' is a fixed shade, not the terminal's). One table serves light and dark.
 const ansiRoles = (mermaidConfig: MermaidConfig, page: string): Roles => ({
   good: 'success', goodSoft: 'success', bad: 'error', badBg: undefined, warn: 'warning', label: 'error', strong: 'permission',
-  hlFg: 'inverseText', hlBg: 'warning', code: 'suggestion', codeBg: undefined, link: 'ide', number: 'claude', quote: 'merged',
+  hlFg: 'inverseText', hlBg: 'warning', code: 'suggestion', codeBg: undefined, blockBg: undefined, link: 'ide', number: 'claude', quote: 'merged',
   decorator: 'merged', property: 'ide', punct: 'inactive', italic: undefined, dim: 'inactive', rule: 'subtle',
   zebra: undefined, page, mermaid: mermaidConfig,
 })
+
+export const DARK: PaletteSet = fromRoles(DARK_ROLES)
 
 export const PALETTES: Record<ThemeKind, PaletteSet> = {
   dark: DARK,

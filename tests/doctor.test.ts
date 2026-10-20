@@ -1,8 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
+import { RUN } from './world'
 import { PT } from './lang'
-
-const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
 
 function machine(on: On, m: { version: string; colorterm?: string; uname: string; mmdc: boolean; chrome: boolean; cursor: boolean }) {
   mock.env(on, { HOME: '/Users/u', ...(m.colorterm === undefined ? {} : { COLORTERM: m.colorterm }) })

@@ -4,7 +4,7 @@ import type { EngineInterface } from 'claude-code'
 import type { Failure, FileTouch, TimelineRow } from '../../types'
 import { getFlags } from '../flags'
 import { tr } from '../i18n'
-import { formatClock, formatDuration, plural, testCount } from '../format'
+import { formatClock, formatDuration, plural, scoreText } from '../format'
 import { allCommits, explanationFor } from '../screen/notes'
 import { shortPath } from '../screen/toolInfo'
 import { sealLabel } from '../screen/turns'
@@ -16,14 +16,15 @@ const FAILURES = atom({ plugin: 'realce', key: 'failures' } as const, [])
 
 const MAX_TURNS = 10
 
-export type ReportInput = {
+type SummaryInput = {
   timeline: readonly TimelineRow[]
   files: readonly FileTouch[]
   commits: readonly string[]
   failures: readonly Failure[]
-  cwd: string
+  // Null before the session's env is read: the paths then show whole.
+  cwd: string | null
   tzOffsetMinutes: number
-  // The session keeps the last 50 turns and 20 failures: past that the report says it shows the latest.
+  // The session keeps the last 50 turns and 20 failures: past that the summary says it shows the latest.
   isTimelineFull?: boolean
   isFailuresFull?: boolean
   // The Haiku's sentence for the last failure, once it came back.
@@ -37,7 +38,7 @@ const inlineCode = (text: string) => {
 }
 
 /** The session in markdown, ready to paste into a PR or a report: turns and their seals, tests, files, git, failures. */
-export function reportText(r: ReportInput): string {
+export function summaryText(r: SummaryInput): string {
   const title = tr('## Session summary', '## Resumo da sessão')
   if (r.timeline.length + r.files.length + r.commits.length + r.failures.length === 0) {
     return `${title}\n\n${tr('Nothing happened in this session yet.', 'Nada aconteceu ainda nesta sessão.')}`
@@ -64,8 +65,7 @@ export function reportText(r: ReportInput): string {
     }
     const tests = [...r.timeline].reverse().find(t => t.tests !== null)?.tests
     if (tests !== undefined && tests !== null) {
-      const score = tests.failed === 0 ? `✔ ${testCount(tests.passed, tests.unit)}` : `✖ ${plural(tests.failed, tr('test failed', 'teste falhou'), tr('tests failed', 'testes falharam'))}`
-      lines.push(`- **${tr('Tests', 'Testes')}:** ${tr('last score', 'último placar')} ${score}`)
+      lines.push(`- **${tr('Tests', 'Testes')}:** ${tr('last score', 'último placar')} ${scoreText(tests)}`)
     }
   }
   if (r.files.length > 0) {
@@ -84,13 +84,13 @@ export function reportText(r: ReportInput): string {
   return lines.join('\n')
 }
 
-/** `/realce summary` (`resumo`): the report shown, and on the clipboard. */
-export async function reportCommand($: EngineInterface, cwd: string, tzOffsetMinutes: number): Promise<string> {
+/** `/realce summary` (`resumo`): the summary shown, and on the clipboard. */
+export async function summaryCommand($: EngineInterface, cwd: string | null, tzOffsetMinutes: number): Promise<string> {
   const [timeline, files, failures] = await Promise.all([read($, TIMELINE), read($, FILES), read($, FAILURES)])
   // The why follows the erros flag, as the pane's does.
   const lastId = (await getFlags($)).erros ? failures[failures.length - 1]?.toolUseId : undefined
   const why = lastId === undefined ? null : explanationFor(lastId)
-  const text = reportText({
+  const text = summaryText({
     timeline, files, commits: allCommits(), failures, cwd, tzOffsetMinutes, isTimelineFull: timeline.length >= 50, isFailuresFull: failures.length >= 20,
     ...(why?.status === 'ready' ? { lastWhy: why.text } : {}),
   })

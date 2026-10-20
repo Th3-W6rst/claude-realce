@@ -5,7 +5,7 @@ import { getFlags } from '../flags'
 import { formatDuration } from '../format'
 import { tr } from '../i18n'
 import { sealLabel, testsLabel, turnStatsFor } from '../screen/turns'
-import { asRecord, str } from '../screen/toolInfo'
+import { asRecord, errorText, failedRun, guard, str } from '../safe'
 import { detach, logLine, notify, runProcess } from '../io'
 
 // Past this the person has likely looked away: the engine says nothing about the window's focus.
@@ -23,7 +23,7 @@ export const lastNotifyFailure = () => lastFailure
 export const lastNotifyWasBanner = () => wasBanner
 
 /** '6m 25s · ✔ tests · ✔ proved': what the finished turn did, the parts it has. */
-export function finishText(durationMs: number, stats: TurnStats | null): string {
+function finishText(durationMs: number, stats: TurnStats | null): string {
   const parts = [formatDuration(durationMs)]
   if (stats !== null) {
     const tests = testsLabel(stats)
@@ -43,9 +43,9 @@ export async function noteTurnStart($: EngineInterface, e: Args<'prompt.submit'>
 async function playSound($: EngineInterface, file: string): Promise<void> {
   try {
     const run = await runProcess($, ['afplay', file])
-    if (run.exitCode !== 0) logLine($, `realce: the sound did not play (${run.stderr.trim() || `afplay exited with ${run.exitCode}`})`)
+    if (run.exitCode !== 0) logLine($, `realce: the sound did not play (${failedRun(run, 'afplay')})`)
   } catch (error) {
-    logLine($, `realce: the sound did not play (${error instanceof Error ? error.message : String(error)})`)
+    logLine($, `realce: the sound did not play (${errorText(error)})`)
   }
 }
 
@@ -60,7 +60,7 @@ async function systemBanner($: EngineInterface, text: string, title: string): Pr
     )
     return run.exitCode === 0 ? null : run.stderr.trim() || tr(`osascript exited with ${run.exitCode}`, `osascript saiu com ${run.exitCode}`)
   } catch (error) {
-    return error instanceof Error ? error.message : String(error)
+    return errorText(error)
   }
 }
 
@@ -92,15 +92,13 @@ export async function notifyFinish($: EngineInterface, e: Args<'turn.complete'>)
 export function registerNotify(on: On): void {
   // The question is up while next(e) runs: the notice goes before it.
   on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
-    try {
+    // The question is the person's: a notice that failed is said, and the dialog opens all the same.
+    await guard($, 'the question notice', async () => {
       if (e.agentId === undefined && turnStartedAt !== null && (await getFlags($)).avisos && (await $.clock.now()) - turnStartedAt >= LONG_MS) {
         const first = asRecord(Array.isArray(e.questions) ? e.questions[0] : undefined)
         await send($, str(first.question) ?? tr('Claude has a question.', 'O Claude tem uma pergunta.'), tr('Claude needs you', 'Claude precisa de você'), SOUNDS.question)
       }
-    } catch (error) {
-      // The question is the person's: a notice that failed is said, and the dialog opens all the same.
-      logLine($, `realce: the question notice failed: ${error instanceof Error ? error.message : String(error)}`)
-    }
+    })
     return next(e)
   })
 }

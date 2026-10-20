@@ -81,7 +81,7 @@ describe('readable diff', () => {
     expect(await ui.find({ text: 'linha 7' })).toBeDefined()
     expect(await ui.find({ text: 'linha 8' })).toBeUndefined()
     expect(await ui.find({ key: 'diff-fold' })).toBeDefined()
-    expect((await ui.find({ key: 'diff-fold' }))?.text).toBe('▸ Mostrar mais (32 linhas)')
+    expect((await ui.find({ key: 'diff-fold' }))?.text).toBe('▸ Mostrar mais 32 linhas')
     await ui.press({ key: 'diff-fold' })
     expect(await ui.find({ text: 'linha 39' })).toBeDefined()
   })

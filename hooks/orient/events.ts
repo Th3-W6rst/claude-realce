@@ -7,13 +7,13 @@ import { noteInput, noteTurnEnd } from './away'
 import { noteTurnStart, notifyFinish } from './notify'
 import { notePinnable } from './pins'
 import { completeTimeline, recordPrompt } from './timeline'
-import { openSessionPane } from './paneToggle'
+import { loadPaneOpen, openSessionPane } from './paneToggle'
 import { extractPending } from './pending'
 import { applyPlanCall } from './plan'
 import { every } from '../io'
 
-// The orient area's share of the session's shared events. hooks/events.ts calls each by name (the engine follows $
-// only into declared functions), so these five names stay; a body left empty means the area does not listen.
+// The orient area's share of the session's shared events: hooks/events.ts calls each by name (the engine follows $
+// only into declared functions), one per event the area listens to.
 
 const PENDING = atom({ plugin: 'realce', key: 'pending' } as const, null)
 const PLAN = atom({ plugin: 'realce', key: 'plan' } as const, [])
@@ -22,7 +22,8 @@ const PLAN_TOOLS: readonly string[] = ['TodoWrite', 'TaskCreate', 'TaskUpdate', 
 const AGENTS_POLL_MS = 2000
 
 export async function orientSessionStart($: EngineInterface, e: Args<'session.start'>): Promise<void> {
-  // Timers die with the module: each load starts its own poll. The pane reads agents whatever the flags say.
+  // Timers die with the module: each load starts its own poll.
+  await loadPaneOpen($)
   every($, AGENTS_POLL_MS, () => void refreshAgents($))
   const flags = await getFlags($)
   // On by default, so a -p run or the SDK would hold a pane nobody can see.

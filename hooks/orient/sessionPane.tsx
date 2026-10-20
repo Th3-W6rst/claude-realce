@@ -1,17 +1,21 @@
 import { atom, read } from 'claude-code'
 import type { On } from 'claude-code'
 
-import { pick, tr, type Text } from '../i18n'
-import type { AgentRow, Explanation, ExplainPanel, FileTouch, Pin, PlanItem, TimelineRow, UsageReading } from '../../types'
+import { tr } from '../i18n'
+import type { AgentRow, ExplainPanel, FileTouch, Pin, PlanItem, TimelineRow, UsageReading } from '../../types'
 import { usageLine } from './limits'
 import { closeExplanation } from './explain'
 import { pathHref } from '../code/links'
+import { cachedEnv } from '../env'
 import { formatClock } from '../format'
 import { SCREEN, type ScreenTone } from '../palette'
-import { fitEnd, fitSegments, fitStart, type Segment } from './fit'
+import { fitEnd, fitStart, segmentRow, type Segment } from '../fit'
 import type { SESSION_PANE } from './paneToggle'
 import { timed } from '../perf'
 import { getFlags } from '../flags'
+import { agentStatus } from '../screen/agentCard'
+import { explanationFor } from '../screen/notes'
+import { shortPath } from '../screen/toolInfo'
 import { scrollToRow, timelineText } from './timeline'
 
 const PENDING = atom({ plugin: 'realce', key: 'pending' } as const, null)
@@ -19,12 +23,10 @@ const PLAN = atom({ plugin: 'realce', key: 'plan' } as const, [])
 const FILES = atom({ plugin: 'realce', key: 'files' } as const, [])
 const FAILURES = atom({ plugin: 'realce', key: 'failures' } as const, [])
 const AGENTS = atom({ plugin: 'realce', key: 'agents' } as const, [])
-const ENV = atom({ plugin: 'realce', key: 'env' } as const, null)
 const TIMELINE = atom({ plugin: 'realce', key: 'timeline' } as const, [])
 const EXPLAIN = atom({ plugin: 'realce', key: 'explain' } as const, null)
 const PINS = atom({ plugin: 'realce', key: 'pins' } as const, [])
 const USAGE = atom({ plugin: 'realce', key: 'usage' } as const, null)
-const EXPLANATIONS = atom({ plugin: 'realce', key: 'explanations' } as const, {})
 
 // A literal, so the module scan can name the pane's matcher; the type ties it to the toggle's id.
 const PANE_ID: typeof SESSION_PANE = 'realce-sessao'
@@ -40,23 +42,10 @@ const PLAN_MARK: Record<PlanItem['status'], { glyph: string; tone: ScreenTone }>
   pending: { glyph: '○', tone: 'dim' },
 }
 
-const AGENT_STATUS: Record<string, { label: Text; tone: ScreenTone }> = {
-  running: { label: { en: 'Running', pt: 'Rodando' }, tone: 'run' },
-  pending: { label: { en: 'Queued', pt: 'Na fila' }, tone: 'dim' },
-  waiting: { label: { en: 'Waiting', pt: 'Aguardando' }, tone: 'warn' },
-  idle: { label: { en: 'Idle', pt: 'Ocioso' }, tone: 'dim' },
-  completed: { label: { en: 'Done', pt: 'Concluído' }, tone: 'ok' },
-  failed: { label: { en: 'Failed', pt: 'Falhou' }, tone: 'bad' },
-  killed: { label: { en: 'Stopped', pt: 'Parado' }, tone: 'warn' },
-}
-
-const relative = (path: string, cwd: string | undefined) =>
-  cwd !== undefined && path.startsWith(`${cwd}/`) ? path.slice(cwd.length + 1) : path
-
-function fileSegments(f: FileTouch, cwd: string | undefined, cols: number): Segment[] {
+function fileSegments(f: FileTouch, cwd: string | null, cols: number): Segment[] {
   const counts = ` +${f.added} −${f.removed}`
   return [
-    { text: fitStart(relative(f.path, cwd), Math.max(1, cols - [...counts].length)) },
+    { text: fitStart(shortPath(f.path, cwd), Math.max(1, cols - counts.length)) },
     { text: ' ' },
     { text: `+${f.added}`, color: SCREEN.ok },
     { text: ' ' },
@@ -65,8 +54,7 @@ function fileSegments(f: FileTouch, cwd: string | undefined, cols: number): Segm
 }
 
 function agentSegments(a: AgentRow, tzOffsetMinutes: number | undefined): Segment[] {
-  const known = AGENT_STATUS[a.status]
-  const status = known === undefined ? { label: a.status, tone: 'dim' as const } : { label: pick(known.label), tone: known.tone }
+  const status = agentStatus(a.status)
   const segments: Segment[] = [
     { text: '◆ ', color: SCREEN.agent },
     { text: a.description },
@@ -74,7 +62,7 @@ function agentSegments(a: AgentRow, tzOffsetMinutes: number | undefined): Segmen
     { text: status.label, color: SCREEN[status.tone] },
   ]
   // Since when, not for how long: a clock time stays true without redrawing the pane every second.
-  if (tzOffsetMinutes !== undefined) segments.push({ text: ` · desde ${formatClock(a.firstSeenAt, tzOffsetMinutes)}`, color: SCREEN.dim })
+  if (tzOffsetMinutes !== undefined) segments.push({ text: tr(` · since ${formatClock(a.firstSeenAt, tzOffsetMinutes)}`, ` · desde ${formatClock(a.firstSeenAt, tzOffsetMinutes)}`), color: SCREEN.dim })
   return segments
 }
 
@@ -83,28 +71,25 @@ export function registerSessionPane(on: On): void {
     const { Box, Text, Button, Link } = $.ui.resolve(e)
     const cols = e.props.bodyColumns
     const flags = await getFlags($)
-    const [pending, plan, files, failures, agents, env, timeline, explain, pins, usage, explanations] = await Promise.all([
+    // The env and the failures' sentences come from the module: each change of them redraws the screen.
+    const env = cachedEnv()
+    const [pending, plan, files, failures, agents, timeline, explain, pins, usage] = await Promise.all([
       read($, PENDING),
       read($, PLAN),
       read($, FILES),
       read($, FAILURES),
       read($, AGENTS),
-      read($, ENV),
       flags.linha ? read($, TIMELINE) : Promise.resolve([] as TimelineRow[]),
       flags.explica ? read($, EXPLAIN) : Promise.resolve(null as ExplainPanel | null),
       flags.fixar ? read($, PINS) : Promise.resolve([] as Pin[]),
       flags.limite ? read($, USAGE) : Promise.resolve(null as UsageReading | null),
-      flags.erros ? read($, EXPLANATIONS) : Promise.resolve({} as Record<string, Explanation>),
     ])
     const items = pending?.items ?? []
     if (plan.length + items.length + files.length + failures.length + agents.length + timeline.length + pins.length === 0 && explain === null && usage === null) {
       return <Text dimColor>{tr('Nothing here yet.', 'Nada por aqui ainda.')}</Text>
     }
-    const row = (segments: readonly Segment[]) => (
-      <Text wrap="truncate-end">
-        {fitSegments(segments, cols).map(s => (s.color === undefined ? s.text : <Text color={s.color}>{s.text}</Text>))}
-      </Text>
-    )
+    const t = $.ui.resolve(e)
+    const row = (segments: readonly Segment[]) => segmentRow(t, segments, cols)
     const heading = (title: string) => <Text color={SCREEN.plan}>{fitEnd(title, cols)}</Text>
     const done = plan.filter(p => p.status === 'completed').length
     const sorted = [...agents].sort((a, b) => Number(ACTIVE_AGENT.has(b.status)) - Number(ACTIVE_AGENT.has(a.status)))
@@ -179,14 +164,14 @@ export function registerSessionPane(on: On): void {
             {files
               .slice(-MAX_FILES)
               .reverse()
-              .map(f => (flags.caminhos && env !== null ? <Link href={pathHref(f.path, env)}>{row(fileSegments(f, env.cwd, cols))}</Link> : row(fileSegments(f, env?.cwd, cols))))}
+              .map(f => (flags.caminhos && env !== null ? <Link href={pathHref(f.path, env)}>{row(fileSegments(f, env.cwd, cols))}</Link> : row(fileSegments(f, env?.cwd ?? null, cols))))}
           </Box>
         )}
         {failures.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
             {heading(`${tr('Failures', 'Falhas')} (${failures.length})`)}
             {failures.slice(-MAX_FAILURES).reverse().map(f => {
-              const why = f.toolUseId === undefined ? undefined : explanations[f.toolUseId]
+              const why = flags.erros && f.toolUseId !== undefined ? explanationFor(f.toolUseId) : null
               return (
                 <Box flexDirection="column">
                   {f.toolUseId === undefined ? (

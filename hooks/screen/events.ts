@@ -8,13 +8,15 @@ import { commitCards } from './commit'
 import { loadNotes, setCommit } from './notes'
 import { isAnswerExit, maybeExplain, rememberAnswer } from './explainError'
 import { sealOf } from './seal'
-import { asRecord, bashText, EDIT_TOOLS, editCounts, editedPath, failureLine, hasBashEdits, str } from './toolInfo'
+import { bashText, EDIT_TOOLS, editCounts, editedPath, failureLine, hasBashEdits } from './toolInfo'
+import { asRecord, str } from '../safe'
+import { keepNewest } from '../memo'
 import { rememberTestTime } from './spinner'
 import { rememberTurn } from './turns'
 import { redraw } from '../io'
 
-// The screen area's share of the session's shared events. hooks/events.ts calls each by name (the engine follows $
-// only into declared functions), so these five names stay; a body left empty means the area does not listen.
+// The screen area's share of the session's shared events: hooks/events.ts calls each by name (the engine follows $
+// only into declared functions), one per event the area listens to.
 
 const TURN = atom({ plugin: 'realce', key: 'turn' } as const, null)
 const TURNS = atom({ plugin: 'realce', key: 'turns' } as const, {})
@@ -25,13 +27,6 @@ const MAX_FILES = 50
 const MAX_FAILURES = 20
 // Rules and prompt times only matter for rows still in the transcript; older ones draw without them.
 const MAX_KEPT = 300
-
-/** The newest `max` entries of a record keyed by row, by the time each holds. */
-function keepNewest<V>(record: Record<string, V>, max: number, timeOf: (v: V) => number): Record<string, V> {
-  const entries = Object.entries(record)
-  if (entries.length <= max) return record
-  return Object.fromEntries(entries.sort((a, b) => timeOf(a[1]) - timeOf(b[1])).slice(-max))
-}
 
 export async function screenSessionStart($: EngineInterface, e: Args<'session.start'>): Promise<void> {
   await loadNotes($)
@@ -49,7 +44,7 @@ export async function screenTurnStart($: EngineInterface, e: Args<'turn.step'>):
 }
 
 /** A main turn starts: its rule's stats count from here. */
-export async function openTurn($: EngineInterface): Promise<void> {
+async function openTurn($: EngineInterface): Promise<void> {
   const flags = await getFlags($)
   if (!flags.separador && !flags.selo) return
   const startedAt = await $.clock.now()
@@ -130,6 +125,3 @@ export async function screenTurnComplete($: EngineInterface, e: Args<'turn.compl
   // The closing rule reads its stats from the module, not the state: draw it (and the screen with it) once more.
   redraw($, 'ui.render')
 }
-
-/** Once the row is stored. */
-export async function screenAppend($: EngineInterface, e: Args<'session.append'>, stored: ResultOf['session.append']): Promise<void> {}

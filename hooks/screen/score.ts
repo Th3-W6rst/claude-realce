@@ -25,7 +25,7 @@ function pytest(text: string): Found | null {
   const m = lastMatch(text, /^=*[ \t]*((?:\d+ (?:passed|failed|skipped|errors?|xfailed|xpassed|deselected|warnings?)(?:, )?)+) in ([\d.]+)s(?: \([^)\n]*\))?[ \t]*=*[ \t]*$/gm)
   if (m === undefined) return null
   const c = countWords(m[1]!, { passed: 'passed', xpassed: 'passed', failed: 'failed', error: 'failed', errors: 'failed', skipped: 'skipped', xfailed: 'skipped' })
-  return { score: { runner: 'pytest', ...c, seconds: Number(m[2]), unit: 'testes' }, at: m.index! + m[0].length }
+  return { score: { runner: 'pytest', ...c, seconds: Number(m[2]), unit: 'tests' }, at: m.index! + m[0].length }
 }
 
 function jest(text: string): Found | null {
@@ -33,7 +33,7 @@ function jest(text: string): Found | null {
   if (m === undefined) return null
   const c = countWords(m[1]!, { passed: 'passed', failed: 'failed', skipped: 'skipped', todo: 'skipped' })
   const time = /^Time:[ \t]+([\d.]+)[ \t]*(ms|s)\b/m.exec(text.slice(m.index!))
-  return { score: { runner: 'jest', ...c, ...(time ? { seconds: toSeconds(time[1]!, time[2]!) } : {}), unit: 'testes' }, at: m.index! + m[0].length }
+  return { score: { runner: 'jest', ...c, ...(time ? { seconds: toSeconds(time[1]!, time[2]!) } : {}), unit: 'tests' }, at: m.index! + m[0].length }
 }
 
 function vitest(text: string): Found | null {
@@ -41,7 +41,7 @@ function vitest(text: string): Found | null {
   if (m === undefined) return null
   const c = countWords(m[1]!, { passed: 'passed', failed: 'failed', skipped: 'skipped', todo: 'skipped' })
   const time = /^[ \t]*Duration[ \t]+([\d.]+)(ms|s)\b/m.exec(text.slice(m.index!))
-  return { score: { runner: 'vitest', ...c, ...(time ? { seconds: toSeconds(time[1]!, time[2]!) } : {}), unit: 'testes' }, at: m.index! + m[0].length }
+  return { score: { runner: 'vitest', ...c, ...(time ? { seconds: toSeconds(time[1]!, time[2]!) } : {}), unit: 'tests' }, at: m.index! + m[0].length }
 }
 
 // bun test, and `claude plugin test`, which runs on it: " 16 pass\n 0 fail\nRan 16 tests across 1 file. [0.62s]".
@@ -50,7 +50,7 @@ function bun(text: string): Found | null {
   if (m === undefined) return null
   const before = text.slice(0, m.index!)
   const count = (word: string) => Number(lastMatch(before, new RegExp(`^[ \\t]*(\\d+) ${word}[ \\t]*$`, 'gm'))?.[1] ?? 0)
-  const score: TestScore = { runner: 'bun', passed: count('pass'), failed: count('fail'), skipped: count('skip') + count('todo'), seconds: toSeconds(m[1]!, m[2]!), unit: 'testes' }
+  const score: TestScore = { runner: 'bun', passed: count('pass'), failed: count('fail'), skipped: count('skip') + count('todo'), seconds: toSeconds(m[1]!, m[2]!), unit: 'tests' }
   return { score, at: m.index! + m[0].length }
 }
 
@@ -60,7 +60,7 @@ function mocha(text: string): Found | null {
   const rest = text.slice(m.index! + m[0].length)
   const failed = /^[ \t]*(\d+) failing/m.exec(rest)
   const pending = /^[ \t]*(\d+) pending/m.exec(rest)
-  const score: TestScore = { runner: 'mocha', passed: Number(m[1]), failed: Number(failed?.[1] ?? 0), skipped: Number(pending?.[1] ?? 0), seconds: toSeconds(m[2]!, m[3]!), unit: 'testes' }
+  const score: TestScore = { runner: 'mocha', passed: Number(m[1]), failed: Number(failed?.[1] ?? 0), skipped: Number(pending?.[1] ?? 0), seconds: toSeconds(m[2]!, m[3]!), unit: 'tests' }
   return { score, at: m.index! + m[0].length }
 }
 
@@ -70,7 +70,7 @@ function cargo(text: string): Found | null {
   if (lines.length === 0) return null
   const sum = (i: number) => lines.reduce((n, m) => n + Number(m[i]), 0)
   const last = lines[lines.length - 1]!
-  return { score: { runner: 'cargo', passed: sum(1), failed: sum(2), skipped: sum(3), seconds: Number(sum(4).toFixed(3)), unit: 'testes' }, at: last.index! + last[0].length }
+  return { score: { runner: 'cargo', passed: sum(1), failed: sum(2), skipped: sum(3), seconds: Number(sum(4).toFixed(3)), unit: 'tests' }, at: last.index! + last[0].length }
 }
 
 // go test reports packages, not tests: one "ok" or "FAIL" line each.
@@ -79,7 +79,7 @@ function goTest(text: string): Found | null {
   if (lines.length === 0 || lines.every(m => m[1] === '?')) return null
   const count = (word: string) => lines.filter(m => m[1] === word).length
   const last = lines[lines.length - 1]!
-  return { score: { runner: 'go', passed: count('ok'), failed: count('FAIL'), skipped: count('?'), unit: 'pacotes' }, at: last.index! + last[0].length }
+  return { score: { runner: 'go', passed: count('ok'), failed: count('FAIL'), skipped: count('?'), unit: 'packages' }, at: last.index! + last[0].length }
 }
 
 // XCTest prints one line per suite and the whole run's last.
@@ -88,7 +88,7 @@ function xctest(text: string): Found | null {
   if (m === undefined) return null
   const skipped = Number(m[2] ?? 0)
   const failed = Number(m[3])
-  const score: TestScore = { runner: 'xctest', passed: Number(m[1]) - failed - skipped, failed, skipped, seconds: Number(m[4]), unit: 'testes' }
+  const score: TestScore = { runner: 'xctest', passed: Number(m[1]) - failed - skipped, failed, skipped, seconds: Number(m[4]), unit: 'tests' }
   return { score, at: m.index! + m[0].length }
 }
 
@@ -99,7 +99,7 @@ function swiftTesting(text: string): Found | null {
   const total = Number(m[1])
   const failedTests = new Set([...text.slice(0, m.index!).matchAll(/^.*?✘ Test (.+?) failed after/gm)].map(f => f[1]))
   const failed = m[2] === 'passed' ? 0 : Math.min(total, failedTests.size || Number(m[4] ?? 1))
-  return { score: { runner: 'swift-testing', passed: total - failed, failed, skipped: 0, seconds: Number(m[3]), unit: 'testes' }, at: m.index! + m[0].length }
+  return { score: { runner: 'swift-testing', passed: total - failed, failed, skipped: 0, seconds: Number(m[3]), unit: 'tests' }, at: m.index! + m[0].length }
 }
 
 // node --test: "ℹ pass 11" (or "# pass 11" in TAP) lines, then "duration_ms 52.3". The whole summary must be
@@ -112,7 +112,7 @@ function nodeTest(text: string): Found | null {
   const duration = /^[ℹ#] duration_ms ([\d.]+)$/mu.exec(rest)
   if (line('pass') === null || line('fail') === null || duration === null) return null
   const count = (word: string) => Number(line(word)?.[1] ?? 0)
-  const score: TestScore = { runner: 'node', passed: count('pass'), failed: count('fail') + count('cancelled'), skipped: count('skipped') + count('todo'), seconds: Number(duration[1]) / 1000, unit: 'testes' }
+  const score: TestScore = { runner: 'node', passed: count('pass'), failed: count('fail') + count('cancelled'), skipped: count('skipped') + count('todo'), seconds: Number(duration[1]) / 1000, unit: 'tests' }
   return { score, at: m.index! + duration.index + duration[0].length }
 }
 
@@ -126,7 +126,7 @@ function rspec(text: string): Found | null {
   const total = Number(m[1])
   const failed = Number(m[2])
   const skipped = Number(m[3] ?? 0)
-  return { score: { runner: 'rspec', passed: total - failed - skipped, failed, skipped, seconds: Number(time[1]), unit: 'testes' }, at: m.index! + m[0].length }
+  return { score: { runner: 'rspec', passed: total - failed - skipped, failed, skipped, seconds: Number(time[1]), unit: 'tests' }, at: m.index! + m[0].length }
 }
 
 // deno test: "ok | 12 passed | 0 failed (52ms)", "FAILED | 3 passed (4 steps) | 1 failed (1 step) | 2 ignored |
@@ -141,7 +141,7 @@ const denoSeconds = (t: string) => {
 function deno(text: string): Found | null {
   const m = lastMatch(text, DENO)
   if (m === undefined) return null
-  return { score: { runner: 'deno', passed: Number(m[1]), failed: Number(m[2]), skipped: Number(m[3] ?? 0), seconds: denoSeconds(m[4]!), unit: 'testes' }, at: m.index! + m[0].length }
+  return { score: { runner: 'deno', passed: Number(m[1]), failed: Number(m[2]), skipped: Number(m[3] ?? 0), seconds: denoSeconds(m[4]!), unit: 'tests' }, at: m.index! + m[0].length }
 }
 
 const RUNNERS = [pytest, jest, vitest, bun, mocha, cargo, goTest, xctest, swiftTesting, nodeTest, rspec, deno]
@@ -165,7 +165,7 @@ export function formatSeconds(seconds: number): string {
 
 /** '✔ 426 passed · ✖ 2 failed · ⏭ 3 skipped · ⏱ 12.3s' (or in Portuguese): skipped and time only when there are. */
 export function formatScore(s: TestScore): string {
-  const noun = (n: number) => (s.unit === 'pacotes' ? `${n === 1 ? tr('package', 'pacote') : tr('packages', 'pacotes')} ` : '')
+  const noun = (n: number) => (s.unit === 'packages' ? `${n === 1 ? tr('package', 'pacote') : tr('packages', 'pacotes')} ` : '')
   const verb = (n: number, one: string, many: string) => `${n} ${noun(n)}${n === 1 ? one : many}`
   const parts = [`✔ ${verb(s.passed, tr('passed', 'passou'), tr('passed', 'passaram'))}`, `✖ ${verb(s.failed, tr('failed', 'falhou'), tr('failed', 'falharam'))}`]
   if (s.skipped > 0) parts.push(`⏭ ${verb(s.skipped, tr('skipped', 'pulado'), tr('skipped', 'pulados'))}`)

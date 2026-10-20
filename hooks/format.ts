@@ -1,8 +1,12 @@
+import type { TestScore } from '../types'
 import { lang, tr } from './i18n'
 
 // Shared wording of numbers, durations and times, as the engine's own lines spell them ("6m 25s").
 
 const pad = (n: number) => String(n).padStart(2, '0')
+
+/** The session's wall clock: the hooks environment's own clock may run in UTC. */
+const shifted = (epochMs: number, tzOffsetMinutes: number) => new Date(epochMs + tzOffsetMinutes * 60_000)
 
 export function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000)
@@ -14,7 +18,7 @@ export function formatDuration(ms: number): string {
 
 /** 'HH:MM' at the session's offset from UTC (the hooks environment's own clock may run in UTC). */
 export function formatClock(epochMs: number, tzOffsetMinutes: number): string {
-  const d = new Date(epochMs + tzOffsetMinutes * 60_000)
+  const d = shifted(epochMs, tzOffsetMinutes)
   return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
 }
 
@@ -22,15 +26,33 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 /** 'DD/MM' ('Oct 21' in English) at the session's offset from UTC. */
 export function formatDayMonth(epochMs: number, tzOffsetMinutes: number): string {
-  const d = new Date(epochMs + tzOffsetMinutes * 60_000)
+  const d = shifted(epochMs, tzOffsetMinutes)
   return tr(`${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`, `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}`)
 }
 
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
+/** 'DD-MM_HH-MM' at the session's offset from UTC: how every report the person keeps is named. */
+export function formatStamp(epochMs: number, tzOffsetMinutes: number): string {
+  const d = shifted(epochMs, tzOffsetMinutes)
+  return `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}_${pad(d.getUTCHours())}-${pad(d.getUTCMinutes())}`
+}
+
 /** '1 test', '159 tests', '1 package' ('1 teste', '159 testes', '1 pacote'): a test score's count in its unit. */
-export const testCount = (n: number, unit: 'testes' | 'pacotes') =>
-  unit === 'pacotes' ? plural(n, tr('package', 'pacote'), tr('packages', 'pacotes')) : plural(n, tr('test', 'teste'), tr('tests', 'testes'))
+export const testCount = (n: number, unit: TestScore['unit']) =>
+  unit === 'packages' ? plural(n, tr('package', 'pacote'), tr('packages', 'pacotes')) : plural(n, tr('test', 'teste'), tr('tests', 'testes'))
+
+/** '2 tests failed', '1 package failed' ('2 testes falharam', '1 pacote falhou'). */
+export const failedCount = (n: number, unit: TestScore['unit']) =>
+  unit === 'packages'
+    ? plural(n, tr('package failed', 'pacote falhou'), tr('packages failed', 'pacotes falharam'))
+    : plural(n, tr('test failed', 'teste falhou'), tr('tests failed', 'testes falharam'))
+
+/** A score in a few words: '✔ 159 tests' while all pass, '✖ 2 tests failed' once any fails. */
+export const scoreText = (t: TestScore): string => (t.failed === 0 ? `✔ ${testCount(t.passed, t.unit)}` : `✖ ${failedCount(t.failed, t.unit)}`)
+
+/** '12k tokens', '1 token': an agent's spend, rounded to the thousand. */
+export const formatTokens = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k tokens` : plural(n, 'token', 'tokens'))
 
 /** The decimal mark of the language in force: a comma in Portuguese, a dot in English. */
 export const decimalMark = () => (lang() === 'pt' ? ',' : '.')

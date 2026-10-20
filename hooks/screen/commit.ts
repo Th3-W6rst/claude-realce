@@ -1,7 +1,7 @@
 import { plural } from '../format'
-import { pick, tr, type Text } from '../i18n'
+import { pickOr, tr, type Text } from '../i18n'
 import type { ScreenTone } from '../palette'
-import { asRecord, str } from './toolInfo'
+import { asRecord, str } from '../safe'
 
 import type { CommitCard } from '../../types'
 
@@ -23,8 +23,6 @@ const PR_ACTION: Record<string, Text> = {
 }
 
 const BRANCH_ACTION: Record<string, Text> = { merged: { en: 'merged', pt: 'mesclou' }, rebased: { en: 'rebased onto', pt: 'rebase em' } }
-
-const actionOf = (actions: Record<string, Text>, action: string): string => (actions[action] === undefined ? action : pick(actions[action]!))
 
 export const CARD_TONE: Record<CommitCard['kind'], ScreenTone> = { commit: 'ok', push: 'run', pr: 'web', branch: 'plan' }
 
@@ -85,6 +83,6 @@ export function cardText(card: CommitCard): string {
     return parts.join(' · ')
   }
   if (card.kind === 'push') return `↑ push ${card.branch}`
-  if (card.kind === 'pr') return [`⇡ PR #${card.number}${card.action === '' ? '' : ` ${actionOf(PR_ACTION, card.action)}`}`, ...(card.url === null ? [] : [card.url])].join(' · ')
-  return `⎇ ${actionOf(BRANCH_ACTION, card.action)} ${card.ref}`
+  if (card.kind === 'pr') return [`⇡ PR #${card.number}${card.action === '' ? '' : ` ${pickOr(PR_ACTION, card.action)}`}`, ...(card.url === null ? [] : [card.url])].join(' · ')
+  return `⎇ ${pickOr(BRANCH_ACTION, card.action)} ${card.ref}`
 }

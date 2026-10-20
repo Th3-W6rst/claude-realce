@@ -1,6 +1,7 @@
+import { closesFence, openFence, type Fence } from '../text/blocks'
+
 const MAX_PENDING = 6
 
-const FENCE = /^\s*(```|~~~)/
 const INLINE_CODE = /`[^`\n]*`/g
 const ATTENTION = /\{!(.+?)!\}/g
 const DECISION = /^\s*>\s*\[!(?:decisão|decisao|decision)\][+-]?\s*(.*)$/iu
@@ -24,14 +25,16 @@ const clean = (text: string, codes: readonly string[]) =>
 export function extractPending(answer: string): string[] {
   const found: string[] = []
   const lines = answer.split('\n')
-  let isInFence = false
+  // Code asks nothing: a fence runs to the mark that closes it, so a `~~~` inside a ``` block opens no other.
+  let fence: Fence | null = null
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!
-    if (FENCE.test(line)) {
-      isInFence = !isInFence
+    if (fence !== null) {
+      if (closesFence(line, fence)) fence = null
       continue
     }
-    if (isInFence) continue
+    fence = openFence(line)
+    if (fence !== null) continue
     const { prose, codes } = holdCode(line)
     const decision = DECISION.exec(prose)
     if (decision !== null) {
