@@ -4,7 +4,7 @@ import type { On } from 'claude-code'
 
 import { parseTaskNotification } from '../hooks/screen/agents'
 import { formatScore, parseTestSummary } from '../hooks/screen/score'
-import { SPINNER_WORDS, translateSpinnerMessage } from '../hooks/screen/spinner'
+import { activityOf, isTestCommand, runningWord, SPINNER_WORDS, translateSpinnerMessage } from '../hooks/screen/spinner'
 import { summarizeGroup, summarizeTool } from '../hooks/screen/tools'
 import { cardText, commitCards } from '../hooks/screen/commit'
 import { claimsDone, sealOf } from '../hooks/screen/seal'
@@ -128,6 +128,22 @@ describe('tools by kind', () => {
     const output = { structuredPatch: [{ lines: ['+a', '+b', '-c', ' d'] }] }
     await ui.redraw({ ...running, isRunning: false, output })
     expect(await drawnText(ui, 'realce-tool')).toBe('✎ Editou /a/b/x.ts  +2 −1')
+  })
+
+  test('a call with its result is settled, whatever isRunning says', async ($, on) => {
+    // Seen live: a pytest that wrote files kept isRunning true on every draw after its result came back.
+    mock.store(on)
+    on('ui.invalidate', () => ({ value: undefined }))
+    engineRow(on, 'ToolUse')
+    engineRow(on, 'ToolGroup')
+    const call = { tool_use_id: 'r1', tool: 'Bash', input: { command: 'python3 -m pytest -q' }, isRunning: true, isErrored: false, isInterrupted: false, output: BASH_OK('2 passed in 25.02s') }
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolUse', requestId: 'r1', props: call })
+    expect(((await drawnText(ui, 'realce-tool')) ?? '').startsWith('◌')).toBe(false)
+    const group = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls: [call], isActive: false, isExpanded: false } })
+    expect(((await drawnText(group, 'realce-group')) ?? '').startsWith('◌')).toBe(false)
+    await $.command.run({ command: 'realce', args: 'foco on', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } })
+    await ui.redraw(call)
+    expect(await ui.find({ key: 'realce-tool' })).toBeUndefined()
   })
 
   test('a Bash row draws its command highlighted, two lines at most', async ($, on) => {
@@ -441,7 +457,7 @@ describe('error explained', () => {
     requestId: id,
     props: { tool_use_id: id, tool: 'Bash', input: { command }, isRunning: false, isErrored: true, isInterrupted: false },
   })
-  const why = async (ui: { findAll: (q: { type: string }) => Promise<{ text: string }[]> }) => (await ui.findAll({ type: 'Text' })).map(t => t.text).find(t => t.startsWith('  ↳'))
+  const why = async (ui: { findAll: (q: { type: string }) => Promise<{ text: string }[]> }) => (await ui.findAll({ type: 'Text' })).map(t => t.text).find(t => t.startsWith('↳'))
 
   test('a failed command gets one sentence', async ($, on) => {
     mock.store(on)
@@ -450,9 +466,11 @@ describe('error explained', () => {
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
     await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
     const ui = await $.ui.mount(failedRow('b1', 'cat sumiu.txt'))
-    expect(await why(ui)).toBe('  ↳ Explicando…')
+    expect(await why(ui)).toBe('↳ Explicando…')
     await clock.settle()
-    expect(await why(ui)).toBe('  ↳ Por quê: O arquivo não existe.')
+    expect(await why(ui)).toBe('↳ Por quê: O arquivo não existe.')
+    // The indent is the box's, so a long sentence wraps under itself and not at the left edge.
+    expect(await ui.find({ key: 'realce-why' })).toMatchObject({ props: { paddingLeft: 2 } })
     expect(asked).toHaveLength(1)
     expect(asked[0]).toMatchObject({ model: 'haiku', maxTokens: 200, timeoutMs: 20000 })
     expect(String(asked[0]!.system)).toContain('Explique em UMA frase curta, em português simples')
@@ -468,7 +486,7 @@ describe('error explained', () => {
     await clock.settle()
     const calls = [{ tool_use_id: 'b1', tool: 'Bash', input: { command: 'cat sumiu.txt' }, isRunning: false, isErrored: true, isInterrupted: false }]
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
-    expect(await why(ui)).toBe('  ↳ Por quê: O arquivo não existe.')
+    expect(await why(ui)).toBe('↳ Por quê: O arquivo não existe.')
   })
 
   test('a long answer is cut to two lines', async ($, on) => {
@@ -479,7 +497,7 @@ describe('error explained', () => {
     await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
     await clock.settle()
     const line = (await why(await $.ui.mount(failedRow('b1', 'cat sumiu.txt')))) ?? ''
-    expect([...line].length).toBeLessThanOrEqual(2 + '↳ Por quê: '.length + 200)
+    expect([...line].length).toBeLessThanOrEqual('↳ Por quê: '.length + 200)
     expect(line.endsWith('…')).toBe(true)
   })
 
@@ -494,7 +512,7 @@ describe('error explained', () => {
     on('fs.exists', () => ({ value: false }))
     await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
-    expect(await why(await $.ui.mount(failedRow('b1', 'cat sumiu.txt')))).toBe('  ↳ Sem explicação: interrompida ao recarregar o mod')
+    expect(await why(await $.ui.mount(failedRow('b1', 'cat sumiu.txt')))).toBe('↳ Sem explicação: interrompida ao recarregar o mod')
   })
 
   test('the same error is explained once', async ($, on) => {
@@ -535,7 +553,7 @@ describe('error explained', () => {
     const asked = explainWorld(on, () => ({ isAnswered: false, reason: 'api-error', status: 529, error: { kind: 'overloaded' }, usage: USAGE }))
     await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
     await clock.settle()
-    expect(await why(await $.ui.mount(failedRow('b1', 'cat a')))).toBe('  ↳ Sem explicação: api-error')
+    expect(await why(await $.ui.mount(failedRow('b1', 'cat a')))).toBe('↳ Sem explicação: api-error')
     expect(asked).toHaveLength(1)
   })
 
@@ -546,7 +564,7 @@ describe('error explained', () => {
     explainWorld(on, () => ({ deny: 'sem rede' }))
     await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
     await clock.settle()
-    expect(await why(await $.ui.mount(failedRow('b1', 'cat a')))).toMatch(/^ {2}↳ Sem explicação: .*sem rede/)
+    expect(await why(await $.ui.mount(failedRow('b1', 'cat a')))).toMatch(/^↳ Sem explicação: .*sem rede/)
   })
 
   test('answer-style failures are not explained', async ($, on) => {
@@ -849,6 +867,93 @@ describe('spinner', () => {
   test('spinner off keeps the engine word', async ($, on) => {
     mock.store(on, { flags: { spinner: false } })
     expect((await spinner($, on, { mode: 'thinking', message: null })).word).toBe('Sauteing')
+  })
+
+  test('a test command is told apart from any other', () => {
+    for (const command of [
+      'npm test', 'npm run test:unit', 'yarn test', 'pnpm t', 'bun test', 'pytest -q tests/', 'python3 -m pytest', 'python -m unittest',
+      'cargo test', 'cargo nextest run', 'go test ./...', 'deno test -A', 'node --test', 'npx vitest run', 'CI=1 npx jest',
+      'bundle exec rspec', 'uv run pytest', 'timeout 60 pytest', './gradlew test', 'mvn verify', 'make check', 'swift test',
+      'xcodebuild -scheme App test', 'claude plugin test .', 'cd app && npm test', 'tsc -p . && claude plugin test .',
+      './node_modules/.bin/jest', 'dotnet test', 'mix test',
+    ]) expect([command, isTestCommand(command)]).toEqual([command, true])
+    for (const command of [
+      'npm install', 'npm run build', 'cat test.txt', 'ls tests', 'grep -rn test src', 'echo npm test', 'git commit -m "test"',
+      'make', 'cargo build', 'go vet ./...', 'node index.js', 'claude plugin validate .', 'python3 script.py',
+    ]) expect([command, isTestCommand(command)]).toEqual([command, false])
+  })
+
+  test('each call is named by what it does', () => {
+    expect(activityOf({ tool: 'Read', file_path: '/a/b/render.tsx' })).toEqual({ activity: 'read', target: 'render.tsx' })
+    expect(activityOf({ tool: 'Edit', file_path: '/a/b/x.ts', old_string: 'a', new_string: 'b' })).toEqual({ activity: 'edit', target: 'x.ts' })
+    expect(activityOf({ tool: 'Bash', command: 'pytest -q' })).toEqual({ activity: 'test', target: null })
+    expect(activityOf({ tool: 'Bash', command: 'git add -A && git commit -m "x"' })).toEqual({ activity: 'commit', target: null })
+    expect(activityOf({ tool: 'Bash', command: 'git push origin master' })).toEqual({ activity: 'push', target: null })
+    expect(activityOf({ tool: 'Bash', command: 'ls -la' })).toEqual({ activity: 'other', target: null })
+    expect(activityOf({ tool: 'Grep', pattern: 'registerSpinner' })).toEqual({ activity: 'search', target: '“registerSpinner”' })
+    expect(activityOf({ tool: 'WebFetch', url: 'https://docs.example.com/a/b', prompt: 'x' })).toEqual({ activity: 'web', target: 'docs.example.com' })
+    expect(activityOf({ tool: 'Agent', description: 'Revisar o diff', prompt: 'x' })).toEqual({ activity: 'agent', target: 'Revisar o diff' })
+    expect(activityOf({ tool: 'Read', file_path: `/a/${'x'.repeat(60)}.ts` }).target).toBe(`${'x'.repeat(31)}…`)
+  })
+
+  test('the word says what runs now, one call or several', () => {
+    expect(runningWord([])).toBeNull()
+    expect(runningWord([{ activity: 'test', target: null }])).toBe('Rodando os testes')
+    expect(runningWord([{ activity: 'edit', target: 'x.ts' }])).toBe('Editando x.ts')
+    expect(runningWord([{ activity: 'agent', target: 'Revisar o diff' }])).toBe('Delegando: Revisar o diff')
+    expect(runningWord([{ activity: 'read', target: 'a.ts' }, { activity: 'read', target: 'b.ts' }, { activity: 'read', target: 'c.ts' }])).toBe('Lendo 3 arquivos')
+    expect(runningWord([{ activity: 'agent', target: 'a' }, { activity: 'agent', target: 'b' }])).toBe('Delegando a 2 agentes')
+    expect(runningWord([{ activity: 'read', target: 'a.ts' }, { activity: 'search', target: '“x”' }])).toBe('Executando 2 ferramentas')
+    expect(runningWord([{ activity: 'other', target: null }])).toBe('Executando')
+  })
+
+  test('while a call runs the spinner names it, and goes back after', async ($, on) => {
+    mock.store(on)
+    let release = () => {}
+    const held = new Promise<void>(resolve => (release = resolve))
+    on('tool.call', async () => {
+      await held
+      return { result: BASH_OK('===== 12 passed in 0.50s =====') }
+    })
+    let word = ''
+    on('ui.render', { component: 'Spinner' }, ($, e) => {
+      word = e.props.word
+      const { Text } = $.ui.resolve(e)
+      return <Text>engine</Text>
+    })
+    const spinning = { word: 'Sauteing', suffix: '…', mode: 'tool-use' as const, message: null }
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Spinner', props: spinning })
+    expect(word).toBe('Executando')
+    const call = $.tool.call({ tool: 'Bash', command: 'npm test' })
+    await ui.redraw(spinning)
+    expect(word).toBe('Rodando os testes')
+    release()
+    await call
+    await ui.redraw(spinning)
+    expect(word).toBe('Executando')
+  })
+
+  test('a subagent\'s call leaves the spinner word alone', async ($, on) => {
+    mock.store(on)
+    let release = () => {}
+    const held = new Promise<void>(resolve => (release = resolve))
+    on('tool.call', async () => {
+      await held
+      return { result: BASH_OK('ok') }
+    })
+    let word = ''
+    on('ui.render', { component: 'Spinner' }, ($, e) => {
+      word = e.props.word
+      const { Text } = $.ui.resolve(e)
+      return <Text>engine</Text>
+    })
+    const spinning = { word: 'Sauteing', suffix: '…', mode: 'tool-use' as const, message: null }
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Spinner', props: spinning })
+    const call = $.tool.call(inSubagent({ tool: 'Bash', command: 'npm test' }))
+    await ui.redraw(spinning)
+    expect(word).toBe('Executando')
+    release()
+    await call
   })
 })
 

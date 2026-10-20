@@ -40,7 +40,7 @@ export const FLAGS: readonly FlagSpec[] = [
   { id: 'pendencias', group: 'Orientação', label: 'Precisa de você', description: 'Faixa acima do prompt com o que pede sua decisão', isDefaultOn: true },
   { id: 'plano', group: 'Orientação', label: 'Progresso do plano', description: 'Barra com as tarefas enquanto o Claude trabalha', isDefaultOn: true },
   { id: 'painel', group: 'Orientação', label: 'Painel ao iniciar', description: 'Abre o painel lateral da sessão sozinho', isDefaultOn: true },
-  { id: 'spinner', group: 'Orientação', label: 'Spinner em português', description: '"Pensando", "Escrevendo", "Executando"', isDefaultOn: true },
+  { id: 'spinner', group: 'Orientação', label: 'Spinner em português', description: '"Pensando", "Escrevendo" e o que roda agora ("Rodando os testes", "Editando x.ts")', isDefaultOn: true },
   { id: 'avisos', group: 'Orientação', label: 'Aviso quando termina', description: 'Notificação do macOS no fim de um turno longo ou numa pergunta', isDefaultOn: true },
   { id: 'som', group: 'Orientação', label: 'Som nos avisos', description: 'Um som curto junto da notificação', isDefaultOn: false },
   { id: 'ausencia', group: 'Orientação', label: 'Enquanto você estava fora', description: 'Resumo do que aconteceu quando você volta a digitar', isDefaultOn: true },

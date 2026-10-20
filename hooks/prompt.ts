@@ -23,11 +23,11 @@ const AIDS: readonly { flag: keyof Flags; needsMermaid?: true; text: string }[] 
     flag: 'enfase',
     text: `- \`**Label:**\` opening a line or list item: a subtopic label.
 - \`**term**\` mid-sentence: a key term.
-- \`==fact==\`: the one most important fact of the reply; at most two per reply.
-- \`{+good+}\`: a good outcome (tests pass, fixed, improved).
-- \`{-bad-}\`: a bad outcome (a failure, a regression, a bug found).
-- \`{!attention!}\`: what needs the person's attention or decision (pending, a GO, a risk).
-Marks span a few words; never nest them, never put them inside code spans or blocks.`,
+- \`==…==\` around the one most important fact of the reply, at most two per reply: \`==the cache was never read==\`.
+- \`{+…+}\` around a good outcome (tests pass, fixed, improved): \`{+all 342 tests pass+}\`.
+- \`{-…-}\` around a bad outcome (a failure, a regression, a bug found): \`{-the build fails-}\`.
+- \`{!…!}\` around what needs the person's attention or decision (pending, a GO, a risk): \`{!waiting for your GO!}\`.
+A mark wraps the few words it colors, never a tag in front of a sentence; never nest them, never put them inside code spans or blocks.`,
   },
   {
     flag: 'callouts',

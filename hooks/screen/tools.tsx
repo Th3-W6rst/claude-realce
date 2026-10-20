@@ -92,6 +92,12 @@ const KIND_TONE: Record<ToolKind, ScreenTone> = { read: 'dim', edit: 'edit', run
 
 type RowState = { isRunning: boolean; isErrored: boolean; isInterrupted: boolean }
 
+/**
+ * Still running: no result yet. The engine keeps isRunning true on a call that resolved with files changed (seen with a
+ * pytest that wrote caches), while `output` is the stored result "once the call has resolved", by its contract.
+ */
+export const isStillRunning = (call: { isRunning: boolean; output?: unknown }): boolean => call.isRunning && call.output === undefined
+
 function shellLine(t: T, line: string): RenderElement[] {
   const { Text } = t
   return (highlight(line, 'sh')[0] ?? []).map(tok => (tok.kind ? <Text {...CODE[tok.kind]}>{tok.text}</Text> : tok.text) as RenderElement)
@@ -113,10 +119,19 @@ function cardRows(t: T, cards: readonly CommitCard[]): RenderElement {
 
 /** The sentence under a failed command: while the model writes it, then it or why there is none. */
 function whyLine(t: T, why: Explanation): RenderElement {
-  const { Text } = t
-  if (why.status === 'pending') return <Text color={SCREEN.dim}>  ↳ Explicando…</Text>
-  if (why.status === 'failed') return <Text color={SCREEN.dim} wrap="truncate-end">{`  ↳ Sem explicação: ${why.reason}`}</Text>
-  return <Text color={SCREEN.warn}>{`  ↳ Por quê: ${why.text}`}</Text>
+  const { Box, Text } = t
+  // The box holds the indent, so a long sentence wraps under itself and not at the left edge.
+  return (
+    <Box key="realce-why" paddingLeft={2}>
+      {why.status === 'pending' ? (
+        <Text color={SCREEN.dim}>↳ Explicando…</Text>
+      ) : why.status === 'failed' ? (
+        <Text color={SCREEN.dim} wrap="truncate-end">{`↳ Sem explicação: ${why.reason}`}</Text>
+      ) : (
+        <Text color={SCREEN.warn}>{`↳ Por quê: ${why.text}`}</Text>
+      )}
+    </Box>
+  )
 }
 
 function toolRow(t: T, s: ToolSummary, state: RowState, score: TestScore | null = null, why: Explanation | null = null): RenderElement {
@@ -195,7 +210,8 @@ export function registerTools(on: On): void {
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => timed('ToolUse', async () => {
     const flags = await getFlags($)
     if (e.surface !== 'terminal') return next(e)
-    const { isRunning, isErrored, isInterrupted, output } = e.props
+    const { isErrored, isInterrupted, output } = e.props
+    const isRunning = isStillRunning(e.props)
     // Focus mode hides what finished well, whatever the tool; running and failed calls stay in sight.
     if (flags.foco && !isRunning && !isErrored && !isInterrupted) return hiddenRow($.ui.resolve(e))
     // Only the tools summarizeTool draws: any other call stays the engine's.
@@ -211,7 +227,7 @@ export function registerTools(on: On): void {
       if (cards.length > 0) return cardRows($.ui.resolve(e), cards)
       // The test score rides the command's own row: a result hook cost a trip to the engine for every result drawn.
       const score = flags.placar && e.props.tool === 'Bash' && output !== undefined ? parseTestSummary(bashText(output)) : null
-      return summary === null ? null : toolRow($.ui.resolve(e), summary, e.props, score, why)
+      return summary === null ? null : toolRow($.ui.resolve(e), summary, { isRunning, isErrored, isInterrupted }, score, why)
     })
     return row ?? next(e)
   }))
@@ -220,18 +236,18 @@ export function registerTools(on: On): void {
     const flags = await getFlags($)
     if (e.surface !== 'terminal') return next(e)
     const calls = e.props.calls
-    if (flags.foco && !calls.some(c => c.isRunning || c.isErrored)) return hiddenRow($.ui.resolve(e))
+    if (flags.foco && !calls.some(c => isStillRunning(c) || c.isErrored)) return hiddenRow($.ui.resolve(e))
     if (!flags.ferramentas || e.props.isExpanded) return next(e)
     const cards = flags.commits ? calls.flatMap(c => (c.tool_use_id === undefined ? [] : [commitFor(c.tool_use_id)].filter((x): x is string => x !== null))) : []
     // The folded group is what the screen shows: a failed command's sentence rides under it, the first one's.
     const failed = flags.erros ? calls.filter(c => c.isErrored && c.tool === 'Bash' && c.tool_use_id !== undefined) : []
     const why = failed.map(c => explanationFor(c.tool_use_id!)).find(w => w !== null) ?? null
-    const key = `${e.requestId}|${flagsVersion()}|${calls.map(c => `${c.tool}${+c.isRunning}${+c.isErrored}`).join(',')}|${cards.join(',')}|${why === null ? '' : JSON.stringify(why)}`
+    const key = `${e.requestId}|${flagsVersion()}|${calls.map(c => `${c.tool}${+isStillRunning(c)}${+c.isErrored}`).join(',')}|${cards.join(',')}|${why === null ? '' : JSON.stringify(why)}`
     return memo('ToolGroup', key, () => {
       const t = $.ui.resolve(e)
       const { Box, Text } = t
       const errored = calls.filter(c => c.isErrored).length
-      const icon = calls.some(c => c.isRunning) ? '◌' : '◇'
+      const icon = calls.some(isStillRunning) ? '◌' : '◇'
       return (
         <Box key="realce-group" flexDirection="column">
           <Text color={SCREEN.dim} wrap="truncate-end">

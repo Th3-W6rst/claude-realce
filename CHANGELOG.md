@@ -2,6 +2,18 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.24
+- "Precisa de você" mantém o código citado no pedido (`@pytest.mark.slow` sumia).
+- A explicação de um erro longo quebra recuada, sob ela mesma.
+
+## 0.4.23
+- Um comando que termina mexendo em arquivos (um pytest que grava caches) não fica mais com o ícone de "rodando".
+- O Claude aprende as marcas de cor com exemplos reais e não escreve mais `{!attention!}` como etiqueta.
+
+## 0.4.22
+- O spinner diz o que roda agora: "Rodando os testes", "Editando render.tsx", "Lendo 3 arquivos",
+  "Delegando: Revisar o diff".
+
 ## 0.4.21
 - Selo de prova mais rígido: um documento que cita "12 examples, 0 failures" ou um título "# tests 3" não conta
   mais como teste; o Deno é reconhecido com testes filtrados, passos e tempo em minutos.

@@ -7,6 +7,7 @@ import { startPerfLog } from './perf'
 import { refreshPromptSection } from './prompt'
 import { orientAppend, orientPromptSubmit, orientSessionStart, orientToolCall, orientTurnComplete } from './orient/events'
 import { screenAppend, screenPromptSubmit, screenSessionStart, screenToolCall, screenTurnComplete } from './screen/events'
+import { spinnerToolEnd, spinnerToolStart } from './screen/spinner'
 import { welcomeHint } from './system/demo'
 import { checkUpdate } from './system/update'
 import { refreshTheme } from './theme'
@@ -58,7 +59,13 @@ export function registerEvents(on: On): void {
   })
 
   on('tool.call', async ($, e, next) => {
-    const result = await next(e)
+    await guard($, 'tool.call (spinner)', () => spinnerToolStart($, e))
+    let result: Awaited<ReturnType<typeof next>>
+    try {
+      result = await next(e)
+    } finally {
+      await guard($, 'tool.call (spinner)', () => spinnerToolEnd($, e))
+    }
     await guard($, 'tool.call (código)', () => codeToolCall($, e, result))
     await guard($, 'tool.call (tela)', () => screenToolCall($, e, result))
     await guard($, 'tool.call (orientação)', () => orientToolCall($, e, result))

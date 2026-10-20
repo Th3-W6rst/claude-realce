@@ -12,7 +12,7 @@ Plugin (mod) do Claude Code que deixa a tela mais fácil de ler. Cada recurso te
 *Gerada pelo próprio mod: `/realce demo` e depois `/realce print`; os números da tabela são só de exemplo. No tema
 claro: [demo-claro.png](images/demo-claro.png).*
 
-Versão atual: 0.4.21 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
+Versão atual: 0.4.24 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (dúvidas e problemas em *Issues*).
 
 ## Requisitos
@@ -112,7 +112,7 @@ desliga o recurso (o comando passa a dizer como religar).
 | Orientação | `pendencias` | Precisa de você | Faixa acima do prompt com o que pede sua decisão | ligado |
 | Orientação | `plano` | Progresso do plano | Barra com as tarefas enquanto o Claude trabalha | ligado |
 | Orientação | `painel` | Painel ao iniciar | Abre o painel lateral da sessão sozinho | ligado |
-| Orientação | `spinner` | Spinner em português | "Pensando", "Escrevendo", "Executando" | ligado |
+| Orientação | `spinner` | Spinner em português | "Pensando", "Escrevendo" e o que roda agora ("Rodando os testes", "Editando x.ts") | ligado |
 | Orientação | `avisos` | Aviso quando termina | Notificação do macOS no fim de um turno longo ou numa pergunta | ligado |
 | Orientação | `som` | Som nos avisos | Um som curto junto da notificação | desligado |
 | Orientação | `ausencia` | Enquanto você estava fora | Resumo do que aconteceu quando você volta a digitar | ligado |

@@ -89,6 +89,12 @@ describe('pending', () => {
     expect(extractPending([1, 2, 3, 4, 5, 6, 7].map(n => `{!item ${n}!}`).join(' '))).toHaveLength(6)
   })
 
+  test('code quoted inside what is asked stays in it', () => {
+    // Seen live: "se viro um `@pytest.mark.slow` excluído" reached the band as "se viro um excluído".
+    expect(extractPending('{!você decide se viro um `@pytest.mark.slow` excluído!}')).toEqual(['você decide se viro um @pytest.mark.slow excluído'])
+    expect(extractPending('> [!DECISÃO] Apagar `test_lento.py`?')).toEqual(['Apagar test_lento.py?'])
+  })
+
   test('marks quoted as code are not asked of you', () => {
     expect(extractPending('Use `{!x!}` para marcar.\n```\n{!y!}\n> [!DECISÃO] z\n```\nNada.')).toEqual([])
   })

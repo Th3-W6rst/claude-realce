@@ -38,6 +38,11 @@ export type PendingItems = { items: string[]; turnId: string }
 
 export type PlanItem = { id?: string; text: string; status: 'pending' | 'in_progress' | 'completed'; activeForm?: string }
 
+export type Activity = 'read' | 'edit' | 'search' | 'web' | 'agent' | 'test' | 'commit' | 'push' | 'other'
+
+/** A main-loop call still running, as the spinner names it. */
+export type RunningCall = { id: string; activity: Activity; target: string | null }
+
 export type AgentRow = { id: string; type: string; description: string; status: string; firstSeenAt: number }
 
 // The engine's scan lists what each file reads and writes, so every file declares the atoms it uses itself:
@@ -67,6 +72,7 @@ declare module 'claude-code' {
       pins: Pin[]
       limit: LimitWarning | null
       usage: UsageReading | null
+      running: Record<string, RunningCall>
     }
   }
 }

@@ -199,7 +199,15 @@ describe('feature commands', () => {
 describe('prompt section', () => {
   test('all flags on teach every aid', () => {
     const text = buildSection(allFlags(true), true)?.text ?? ''
-    for (const aid of ['{!attention!}', '[!DECISÃO]', 'de X para Y', 'markdown table', '```mermaid']) expect(text).toContain(aid)
+    for (const aid of ['{!', '[!DECISÃO]', 'de X para Y', 'markdown table', '```mermaid']) expect(text).toContain(aid)
+  })
+
+  test('each mark is taught around real words, never as a bare tag', () => {
+    // A placeholder like {!attention!} was copied as a tag in front of a sentence ("{!attention!}25 segundos…").
+    const text = buildSection(allFlags(true), true)?.text ?? ''
+    for (const tag of ['{+good+}', '{-bad-}', '{!attention!}', '==fact==']) expect(text).not.toContain(tag)
+    for (const example of ['{+all 342 tests pass+}', '{-the build fails-}', '{!waiting for your GO!}']) expect(text).toContain(example)
+    expect(text).toContain('never a tag in front of a sentence')
   })
 
   test('selo tells the model the turn is sealed by its tests', () => {
@@ -214,7 +222,7 @@ describe('prompt section', () => {
 
   test('enfase off drops the typed marks only', () => {
     const text = buildSection({ ...allFlags(true), enfase: false }, true)?.text ?? ''
-    expect(text).not.toContain('{+good+}')
+    expect(text).not.toContain('{+')
     expect(text).toContain('[!DECISÃO]')
   })
 
