@@ -7,6 +7,7 @@ import { memo } from '../memo'
 import { CODE, SCREEN, type ScreenTone } from '../palette'
 import type { Explanation, TestScore } from '../../types'
 import { CARD_TONE, cardText, commitCards, type CommitCard } from './commit'
+import { isAnswerExit, wasAnswer } from './explainError'
 import { commitFor, explanationFor } from './notes'
 import { formatScore, parseTestSummary } from './score'
 import { asRecord, bashText, EDIT_TOOLS, editCounts, editedPath, shortPath, str } from './toolInfo'
@@ -90,13 +91,28 @@ const DRAWN_TOOLS = [
 
 const KIND_TONE: Record<ToolKind, ScreenTone> = { read: 'dim', edit: 'edit', run: 'run', agent: 'agent', web: 'web', plan: 'plan', mcp: 'mcp' }
 
-type RowState = { isRunning: boolean; isErrored: boolean; isInterrupted: boolean }
+type RowState = { isRunning: boolean; isErrored: boolean; isInterrupted: boolean; isAnswer?: boolean }
 
 /**
  * Still running: no result yet. The engine keeps isRunning true on a call that resolved with files changed (seen with a
  * pytest that wrote caches), while `output` is the stored result "once the call has resolved", by its contract.
  */
 export const isStillRunning = (call: { isRunning: boolean; output?: unknown }): boolean => call.isRunning && call.output === undefined
+
+type CallState = { tool_use_id?: string; tool: string; input: unknown; isErrored: boolean; output?: unknown }
+
+/**
+ * An errored call whose exit is an answer (`grep` with no match, `test -f` false): it ran fine and said no. Told by
+ * what tool.call saw; a call from before this load by the text it left, and one with no text (a folded group's) stays
+ * the engine's error.
+ */
+export function isAnswered(call: CallState): boolean {
+  if (!call.isErrored || call.tool !== 'Bash') return false
+  if (call.tool_use_id !== undefined && wasAnswer(call.tool_use_id)) return true
+  return typeof call.output === 'string' && /^Exit code \d+/m.test(call.output) && isAnswerExit(str(asRecord(call.input).command) ?? '', call.output)
+}
+
+const hasFailed = (call: CallState): boolean => call.isErrored && !isAnswered(call)
 
 function shellLine(t: T, line: string): RenderElement[] {
   const { Text } = t
@@ -138,7 +154,7 @@ function toolRow(t: T, s: ToolSummary, state: RowState, score: TestScore | null 
   const { Box, Text } = t
   const icon = state.isRunning ? '◌' : state.isErrored ? '✖' : s.icon
   const head = s.verb === '' ? `${icon} ` : `${icon} ${s.verb} `
-  const tail = state.isInterrupted ? <Text color={SCREEN.dim}> · interrompida</Text> : null
+  const tail = state.isInterrupted ? <Text color={SCREEN.dim}> · interrompida</Text> : state.isAnswer ? <Text color={SCREEN.dim}> · sem resultado</Text> : null
   if (s.kind === 'run') {
     const lines = s.target.split('\n')
     const more = lines.length > 2 ? ' …' : ''
@@ -210,8 +226,10 @@ export function registerTools(on: On): void {
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => timed('ToolUse', async () => {
     const flags = await getFlags($)
     if (e.surface !== 'terminal') return next(e)
-    const { isErrored, isInterrupted, output } = e.props
+    const { isInterrupted, output } = e.props
     const isRunning = isStillRunning(e.props)
+    const isAnswer = isAnswered(e.props)
+    const isErrored = hasFailed(e.props)
     // Focus mode hides what finished well, whatever the tool; running and failed calls stay in sight.
     if (flags.foco && !isRunning && !isErrored && !isInterrupted) return hiddenRow($.ui.resolve(e))
     // Only the tools summarizeTool draws: any other call stays the engine's.
@@ -220,14 +238,15 @@ export function registerTools(on: On): void {
     // Only a failed command reads the explanations, so only those rows redraw when one arrives.
     const why: Explanation | null = flags.erros && isErrored && e.props.tool === 'Bash' ? explanationFor(e.props.tool_use_id) : null
     // A row changes only with its call's state: everything else is the same call drawn again.
-    const key = `${e.requestId}|${isRunning}|${isErrored}|${isInterrupted}|${output === undefined}|${flagsVersion()}|${cwd}|${why === null ? '' : JSON.stringify(why)}`
+    const key = `${e.requestId}|${isRunning}|${isErrored}|${isAnswer}|${isInterrupted}|${output === undefined}|${flagsVersion()}|${cwd}|${why === null ? '' : JSON.stringify(why)}`
     const row = memo('ToolUse', key, () => {
-      const summary = summarizeTool(e.props.tool, e.props.input, cwd, isErrored ? undefined : output)
-      const cards = flags.commits && e.props.tool === 'Bash' && !isErrored && output !== undefined ? commitCards(output) : []
+      // An errored call's output is the error text the model read, not the tool's result.
+      const summary = summarizeTool(e.props.tool, e.props.input, cwd, e.props.isErrored ? undefined : output)
+      const cards = flags.commits && e.props.tool === 'Bash' && !e.props.isErrored && output !== undefined ? commitCards(output) : []
       if (cards.length > 0) return cardRows($.ui.resolve(e), cards)
       // The test score rides the command's own row: a result hook cost a trip to the engine for every result drawn.
       const score = flags.placar && e.props.tool === 'Bash' && output !== undefined ? parseTestSummary(bashText(output)) : null
-      return summary === null ? null : toolRow($.ui.resolve(e), summary, { isRunning, isErrored, isInterrupted }, score, why)
+      return summary === null ? null : toolRow($.ui.resolve(e), summary, { isRunning, isErrored, isInterrupted, isAnswer }, score, why)
     })
     return row ?? next(e)
   }))
@@ -236,17 +255,17 @@ export function registerTools(on: On): void {
     const flags = await getFlags($)
     if (e.surface !== 'terminal') return next(e)
     const calls = e.props.calls
-    if (flags.foco && !calls.some(c => isStillRunning(c) || c.isErrored)) return hiddenRow($.ui.resolve(e))
+    if (flags.foco && !calls.some(c => isStillRunning(c) || hasFailed(c))) return hiddenRow($.ui.resolve(e))
     if (!flags.ferramentas || e.props.isExpanded) return next(e)
     const cards = flags.commits ? calls.flatMap(c => (c.tool_use_id === undefined ? [] : [commitFor(c.tool_use_id)].filter((x): x is string => x !== null))) : []
     // The folded group is what the screen shows: a failed command's sentence rides under it, the first one's.
-    const failed = flags.erros ? calls.filter(c => c.isErrored && c.tool === 'Bash' && c.tool_use_id !== undefined) : []
+    const failed = flags.erros ? calls.filter(c => hasFailed(c) && c.tool === 'Bash' && c.tool_use_id !== undefined) : []
     const why = failed.map(c => explanationFor(c.tool_use_id!)).find(w => w !== null) ?? null
-    const key = `${e.requestId}|${flagsVersion()}|${calls.map(c => `${c.tool}${+isStillRunning(c)}${+c.isErrored}`).join(',')}|${cards.join(',')}|${why === null ? '' : JSON.stringify(why)}`
+    const key = `${e.requestId}|${flagsVersion()}|${calls.map(c => `${c.tool}${+isStillRunning(c)}${+hasFailed(c)}`).join(',')}|${cards.join(',')}|${why === null ? '' : JSON.stringify(why)}`
     return memo('ToolGroup', key, () => {
       const t = $.ui.resolve(e)
       const { Box, Text } = t
-      const errored = calls.filter(c => c.isErrored).length
+      const errored = calls.filter(hasFailed).length
       const icon = calls.some(isStillRunning) ? '◌' : '◇'
       return (
         <Box key="realce-group" flexDirection="column">
@@ -264,7 +283,8 @@ export function registerTools(on: On): void {
   // The result under a row focus mode hid goes with it; the edit tools' results are the diff's own hook.
   on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
     const flags = await getFlags($)
-    if (!flags.foco || e.surface !== 'terminal' || e.props.isErrored) return next(e)
+    // An answered call (a grep with no match) finished well: its result goes with its row.
+    if (!flags.foco || e.surface !== 'terminal' || (e.props.isErrored && !wasAnswer(e.props.tool_use_id))) return next(e)
     return hiddenRow($.ui.resolve(e))
   })
 }

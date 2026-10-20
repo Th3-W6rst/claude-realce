@@ -30,6 +30,26 @@ export function isAnswerStyle(command: string): boolean {
   return shellCommands(command).some(([first = '', second]) => ANSWER_COMMANDS.has(first) || (first === 'command' && second === '-v'))
 }
 
+/**
+ * A failure that is an answer: an answer-style command that exited 1 (no match, false, a difference). Exit 2 is
+ * their real error (`grep x sumiu.txt`); output with no exit code is taken as the usual 1.
+ */
+export function isAnswerExit(command: string, output: string): boolean {
+  const code = /^Exit code (\d+)/m.exec(output)?.[1]
+  return isAnswerStyle(command) && (code === undefined || code === '1')
+}
+
+// The calls of this load whose failure was an answer, for the result rows that carry no command to tell.
+const answered = new Set<string>()
+const MAX_ANSWERED = 500
+
+export function rememberAnswer(toolUseId: string): void {
+  answered.add(toolUseId)
+  if (answered.size > MAX_ANSWERED) answered.delete(answered.values().next().value!)
+}
+
+export const wasAnswer = (toolUseId: string): boolean => answered.has(toolUseId)
+
 /** What the model reads: the command and the end of its output. */
 export function explainPrompt(command: string, output: string): string {
   const tail = output.trimEnd().split('\n').slice(-OUTPUT_LINES).join('\n')
@@ -56,7 +76,7 @@ export async function maybeExplain($: EngineInterface, toolUseId: string, comman
   const record = asRecord(result)
   if (record.interrupted === true || typeof record.backgroundTaskId === 'string') return
   const line = failureLine(output)
-  if (line === '' || isAnswerStyle(command)) return
+  if (line === '' || isAnswerExit(command, output)) return
   const key = errorKey(command, line)
   if (seen.has(key) || sent >= MAX_PER_LOAD) return
   seen.add(key)

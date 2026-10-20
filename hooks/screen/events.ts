@@ -6,7 +6,7 @@ import { getFlags, isMasterOn } from '../flags'
 import { parseTestSummary } from './score'
 import { commitCards, shortCardText } from './commit'
 import { loadNotes, setCommit } from './notes'
-import { maybeExplain } from './explainError'
+import { isAnswerExit, maybeExplain, rememberAnswer } from './explainError'
 import { sealOf } from './seal'
 import { asRecord, bashText, EDIT_TOOLS, editCounts, editedPath, failureLine, hasBashEdits, str } from './toolInfo'
 import { rememberTestTime } from './spinner'
@@ -93,8 +93,12 @@ export async function screenToolCall($: EngineInterface, e: Args<'tool.call'>, r
     })
   }
   if (e.tool === 'Bash' && isError) {
-    await maybeExplain($, e.tool_use_id, (str(asRecord(e).command) ?? '').trim(), output, result.result)
-    const failure: Failure = { command: (str(asRecord(e).command) ?? '').trim().slice(0, 300), line: failureLine(output), at, toolUseId: e.tool_use_id }
+    const command = (str(asRecord(e).command) ?? '').trim()
+    await maybeExplain($, e.tool_use_id, command, output, result.result)
+    // A grep with no match or a run the person cut short answered or stopped: neither failed.
+    if (isAnswerExit(command, output)) return rememberAnswer(e.tool_use_id)
+    if (asRecord(result.result).interrupted === true) return
+    const failure: Failure = { command: command.slice(0, 300), line: failureLine(output), at, toolUseId: e.tool_use_id }
     await update($, FAILURES, failures => [...failures, failure].slice(-MAX_FAILURES))
   }
 }

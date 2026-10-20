@@ -6,7 +6,7 @@ import { parseTaskNotification } from '../hooks/screen/agents'
 import { formatScore, parseTestSummary } from '../hooks/screen/score'
 import { activityOf, isTestCommand, runningWord, SPINNER_WORDS, translateSpinnerMessage } from '../hooks/screen/spinner'
 import { summarizeGroup, summarizeTool } from '../hooks/screen/tools'
-import { isAnswerStyle } from '../hooks/screen/explainError'
+import { isAnswerExit, isAnswerStyle } from '../hooks/screen/explainError'
 import { shellCommands } from '../hooks/screen/toolInfo'
 import { cardText, commitCards } from '../hooks/screen/commit'
 import { claimsDone, sealOf } from '../hooks/screen/seal'
@@ -462,6 +462,7 @@ describe('error explained', () => {
     })
     on('tool.call', { tool: 'Bash' }, ($, e) => {
       const command = String(e.command)
+      if (command === 'grep x sumiu.txt') return { isError: true as const, result: 'Exit code 2\ngrep: sumiu.txt: No such file or directory', text: 'Exit code 2\ngrep: sumiu.txt: No such file or directory' }
       if (command.startsWith('grep') || command.startsWith('test ')) return { isError: true as const, result: 'Exit code 1', text: 'Exit code 1' }
       if (command === 'quiet') return { isError: true as const, result: '', text: '' }
       if (command === 'stopped') return { isError: true as const, result: { stdout: 'parcial', stderr: '', interrupted: true }, text: 'Interrompido' }
@@ -609,6 +610,23 @@ describe('error explained', () => {
     expect(asked).toHaveLength(0)
   })
 
+  test('an exit code is an answer only where the command makes 1 a no', () => {
+    expect(isAnswerExit('grep -q x f', 'Exit code 1')).toBe(true)
+    expect(isAnswerExit('test -f a && echo sim', 'Exit code 1')).toBe(true)
+    expect(isAnswerExit('grep x sumiu.txt', 'Exit code 2\ngrep: sumiu.txt: No such file or directory')).toBe(false)
+    expect(isAnswerExit('cat x', 'Exit code 1\ncat: x: No such file or directory')).toBe(false)
+    expect(isAnswerExit('which mmdc', '')).toBe(true)
+  })
+
+  test('a grep that could not read its file is explained', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    await $.tool.call({ tool: 'Bash', command: 'grep x sumiu.txt', tool_use_id: 'g2' })
+    await clock.settle()
+    expect(asked).toHaveLength(1)
+  })
+
   test('erros off sends nothing', async ($, on) => {
     mock.store(on, { flags: { erros: false } })
     const clock = mock.clock(on)
@@ -642,6 +660,19 @@ describe('focus mode', () => {
     expect(await isHidden(result)).toBe(true)
     const failed = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolResult', requestId: 'r3', props: { tool_use_id: 'r3', tool: 'Bash', output: 'x', isErrored: true } })
     expect(await failed.find({ text: 'engine' })).toBeDefined()
+  })
+
+  test('foco hides a grep with no match, row and result', async ($, on) => {
+    mock.store(on, { flags: { foco: true } })
+    mock.clock(on)
+    engineRow(on, 'ToolUse')
+    engineRow(on, 'ToolResult')
+    on('tool.call', () => ({ isError: true as const, result: 'Exit code 1', text: 'Exit code 1' }))
+    await $.tool.call({ tool: 'Bash', command: 'grep -q TODO x.ts', tool_use_id: 'g1' })
+    const answered = row('Bash', { command: 'grep -q TODO x.ts' }, { isErrored: true }, 'g1')
+    expect(await isHidden(await $.ui.mount({ ...answered, props: { ...answered.props, output: 'Exit code 1' } }))).toBe(true)
+    const result = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolResult', requestId: 'g1', props: { tool_use_id: 'g1', tool: 'Bash', output: 'Exit code 1', isErrored: true } })
+    expect(await isHidden(result)).toBe(true)
   })
 
   test('foco keeps an interrupted row', async ($, on) => {
@@ -772,6 +803,56 @@ describe('session tracking', () => {
     expect(written.files).toEqual([{ path: '/a/b/x.ts', added: 4, removed: 0, edits: 2, at: 1_000 }])
     expect(written.failures).toMatchObject([{ command: 'npm test', line: 'Tests:       2 failed, 424 passed, 426 total', at: 1_000 }])
     expect(typeof (written.failures as { toolUseId?: string }[])[0]?.toolUseId).toBe('string')
+  })
+
+  test('a command whose exit code is an answer, or one cut short, is no failure', async ($, on) => {
+    mock.store(on)
+    mock.clock(on, { now: 1_000 })
+    on('tool.call', { tool: 'Bash' }, ($, e) => {
+      const command = String(e.command)
+      if (command === 'stopped') return { isError: true as const, result: { stdout: 'parcial', stderr: '', interrupted: true }, text: 'Interrompido' }
+      return { isError: true as const, result: `Exit code 1\n${command}: falhou`, text: `Exit code 1\n${command}: falhou` }
+    })
+    const written = watchState(on)
+    await $.tool.call({ tool: 'Bash', command: 'grep -q TODO hooks/flags.ts' })
+    await $.tool.call({ tool: 'Bash', command: 'test -f nada.txt' })
+    await $.tool.call({ tool: 'Bash', command: 'stopped' })
+    expect(written.failures).toBeUndefined()
+    await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt' })
+    expect(written.failures).toMatchObject([{ command: 'cat sumiu.txt' }])
+  })
+
+  test('a no-match row reads as an answer, not an error', async ($, on) => {
+    mock.store(on)
+    engineRow(on, 'ToolUse')
+    engineRow(on, 'ToolGroup')
+    const call = { tool_use_id: 'n1', tool: 'Bash', input: { command: 'grep -q TODO hooks/flags.ts' }, isRunning: false, isErrored: true, isInterrupted: false, output: 'Exit code 1' }
+    const row = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolUse', requestId: 'n1', props: call })
+    const text = (await drawnText(row, 'realce-tool')) ?? ''
+    expect(text.startsWith('✖')).toBe(false)
+    expect(text).toContain('sem resultado')
+    const group = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls: [call], isActive: false, isExpanded: false } })
+    expect(await drawnText(group, 'realce-group')).not.toContain('com erro')
+  })
+
+  test('a folded group without outputs still counts a real grep error', async ($, on) => {
+    // Seen live: the group's calls came without output, and a grep that exited 2 lost its "com erro".
+    mock.store(on)
+    mock.clock(on)
+    engineRow(on, 'ToolGroup')
+    on('tool.call', { tool: 'Bash' }, ($, e) =>
+      String(e.command).startsWith('grep -q')
+        ? { isError: true as const, result: 'Exit code 1', text: 'Exit code 1' }
+        : { isError: true as const, result: 'Exit code 2\ngrep: sumiu.txt: No such file or directory', text: 'Exit code 2\ngrep: sumiu.txt: No such file or directory' },
+    )
+    await $.tool.call({ tool: 'Bash', command: 'grep -q nada calc.py', tool_use_id: 'a1' })
+    await $.tool.call({ tool: 'Bash', command: 'grep x sumiu.txt', tool_use_id: 'a2' })
+    const calls = [
+      { tool_use_id: 'a1', tool: 'Bash', input: { command: 'grep -q nada calc.py' }, isRunning: false, isErrored: true, isInterrupted: false },
+      { tool_use_id: 'a2', tool: 'Bash', input: { command: 'grep x sumiu.txt' }, isRunning: false, isErrored: true, isInterrupted: false },
+    ]
+    const group = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+    expect(await drawnText(group, 'realce-group')).toContain('1 com erro')
   })
 
   test('the master switch off tracks nothing', async ($, on) => {
@@ -944,6 +1025,10 @@ describe('spinner', () => {
     expect(activityOf({ tool: 'WebFetch', url: 'https://docs.example.com/a/b', prompt: 'x' })).toEqual({ activity: 'web', target: 'docs.example.com' })
     expect(activityOf({ tool: 'Agent', description: 'Revisar o diff', prompt: 'x' })).toEqual({ activity: 'agent', target: 'Revisar o diff' })
     expect(activityOf({ tool: 'Read', file_path: `/a/${'x'.repeat(60)}.ts` }).target).toBe(`${'x'.repeat(31)}…`)
+    expect(activityOf({ tool: 'Skill', skill: 'superpowers:brainstorming' })).toEqual({ activity: 'skill', target: 'superpowers:brainstorming' })
+    expect(activityOf({ tool: 'TodoWrite', todos: [] })).toEqual({ activity: 'plan', target: null })
+    expect(activityOf({ tool: 'TaskUpdate', taskId: '7' })).toEqual({ activity: 'plan', target: null })
+    expect(activityOf({ tool: 'mcp__rea__open_binary', path: '/x' })).toEqual({ activity: 'other', target: 'rea: open_binary' })
   })
 
   test('the word says what runs now, one call or several', () => {
@@ -955,6 +1040,9 @@ describe('spinner', () => {
     expect(runningWord([{ activity: 'agent', target: 'a' }, { activity: 'agent', target: 'b' }])).toBe('Delegando a 2 agentes')
     expect(runningWord([{ activity: 'read', target: 'a.ts' }, { activity: 'search', target: '“x”' }])).toBe('Executando 2 ferramentas')
     expect(runningWord([{ activity: 'other', target: null }])).toBe('Executando')
+    expect(runningWord([{ activity: 'skill', target: 'superpowers:brainstorming' }])).toBe('Carregando a skill superpowers:brainstorming')
+    expect(runningWord([{ activity: 'plan', target: null }])).toBe('Atualizando o plano')
+    expect(runningWord([{ activity: 'other', target: 'rea: open_binary' }])).toBe('Executando rea: open_binary')
   })
 
   test('while a call runs the spinner names it, and goes back after', async ($, on) => {

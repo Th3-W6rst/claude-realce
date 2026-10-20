@@ -152,12 +152,21 @@ export function activityOf(call: { tool: string } & Record<string, unknown>): Om
     const description = str(input.description)
     return { activity: 'agent', target: description === null ? null : cut(description) }
   }
-  return { activity: 'other', target: null }
+  if (call.tool === 'Skill') {
+    const skill = str(input.skill)
+    return { activity: 'skill', target: skill === null ? null : cut(skill) }
+  }
+  if (PLAN_TOOLS.has(call.tool)) return { activity: 'plan', target: null }
+  // An MCP tool by its server and name: `mcp__rea__open_binary` → `rea: open_binary`.
+  const mcp = /^mcp__(.+?)__(.+)$/.exec(call.tool)
+  return { activity: 'other', target: mcp === null ? null : cut(`${mcp[1]}: ${mcp[2]}`) }
 }
 
+const PLAN_TOOLS: ReadonlySet<string> = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate'])
+
 const DOING: Record<Activity, string> = {
-  read: 'Lendo', edit: 'Editando', search: 'Buscando', web: 'Pesquisando', agent: 'Delegando',
-  test: 'Rodando os testes', commit: 'Fazendo o commit', push: 'Fazendo o push', other: 'Executando',
+  read: 'Lendo', edit: 'Editando', search: 'Buscando', web: 'Pesquisando', agent: 'Delegando', skill: 'Carregando a skill',
+  plan: 'Atualizando o plano', test: 'Rodando os testes', commit: 'Fazendo o commit', push: 'Fazendo o push', other: 'Executando',
 }
 
 // Several calls of one kind: the count says more than any one name.

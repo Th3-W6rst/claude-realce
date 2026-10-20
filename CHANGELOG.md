@@ -2,6 +2,15 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.30
+- Correção da 0.4.29: num grupo dobrado, um `grep` com erro de verdade volta a contar "com erro".
+
+## 0.4.29
+- Um `grep` sem resultado, um `test -f` falso ou um `which` que não achou aparecem como resposta ("sem resultado"),
+  não como erro, e ficam fora de "Falhas"; com saída 2 (arquivo que não existe) continuam erro.
+- Um comando interrompido não conta como falha.
+- O spinner nomeia skills ("Carregando a skill …"), a atualização do plano e as ferramentas MCP.
+
 ## 0.4.28
 - `/realce demo`: o exemplo em amarelo se lê como exemplo ("aprovar o deploy (exemplo)") e a resposta diz que ele
   sobe para a faixa acima do prompt; imagens do README atualizadas.
