@@ -1,4 +1,7 @@
-// "de 87 para 106" and "87 ms → 106 ms" gain their difference, "(+19)": a change read at a glance.
+// "de 87 para 106", "from 87 to 106" and "87 ms → 106 ms" gain their difference, "(+19)": a change read at a glance.
+
+import { decimalMark } from '../format'
+import { tr } from '../i18n'
 
 /** `end`: just past the second number (and its unit); `arrow`: where the arrow is, for the arrow form. */
 export type Delta = { end: number; label: string; arrow?: { start: number; end: number } }
@@ -8,7 +11,9 @@ const UNIT_RE = new RegExp(`^(?:${UNIT})$`, 'u')
 // A sign or digit glued to a word or another number ("v1", "2.1.303", "x-3") is no number of its own.
 const NUM = `(?<![\\p{L}\\p{N}_.,+\\-−])[+\\-−]?\\d+(?:[.,]\\d+)*(?:\\s?(?:${UNIT})(?![\\p{L}\\p{N}_]))?(?![\\p{L}\\p{N}_]|[.,]\\d)`
 const DELTA = new RegExp(
-  `(?<![\\p{L}\\p{N}_])[Dd]e\\s+(?<from1>${NUM})\\s+(?:para|a)\\s+(?<to1>${NUM})|(?<from2>${NUM})\\s*(?<arrow>→|->)\\s*(?<to2>${NUM})`,
+  `(?<![\\p{L}\\p{N}_])[Dd]e\\s+(?<from1>${NUM})\\s+(?:para|a)\\s+(?<to1>${NUM})` +
+    `|(?<![\\p{L}\\p{N}_])[Ff]rom\\s+(?<from3>${NUM})\\s+to\\s+(?<to3>${NUM})` +
+    `|(?<from2>${NUM})\\s*(?<arrow>→|->)\\s*(?<to2>${NUM})`,
   'gu',
 )
 
@@ -40,7 +45,7 @@ export function scanDeltas(text: string): (Delta & { start: number })[] {
     const g = m.groups ?? {}
     // An arrow between bare numbers maps an input to an output ("4 → 8"): only with a unit is it a change.
     if (g.arrow !== undefined && parseNumber(g.to2 ?? '')?.unit === '') continue
-    const label = deltaLabel(g.from1 ?? g.from2 ?? '', g.to1 ?? g.to2 ?? '')
+    const label = deltaLabel(g.from1 ?? g.from3 ?? g.from2 ?? '', g.to1 ?? g.to3 ?? g.to2 ?? '')
     if (label === null) continue
     const start = m.index ?? 0
     const end = start + m[0].length
@@ -65,6 +70,6 @@ function deltaLabel(fromText: string, toText: string): string | null {
   const diff = to.value - from.value
   const size = Math.abs(diff).toFixed(decimals)
   if (Number(size) === 0) return null
-  const suffix = unit === '%' ? ' p.p.' : unit === '' ? '' : ` ${unit}`
-  return `(${diff > 0 ? '+' : '−'}${size.replace('.', ',')}${suffix})`
+  const suffix = unit === '%' ? tr(' pp', ' p.p.') : unit === '' ? '' : ` ${unit}`
+  return `(${diff > 0 ? '+' : '−'}${size.replace('.', decimalMark())}${suffix})`
 }

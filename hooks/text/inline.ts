@@ -46,17 +46,19 @@ const GOOD_WORDS = [
   'passa', 'passam', 'passou', 'passaram', 'passando', 'ok', 'corrigido', 'corrigida', 'corrigidos', 'corrigidas',
   'resolvido', 'resolvida', 'resolvidos', 'resolvidas', 'funciona', 'funcionam', 'funcionou', 'sucesso', 'verde',
   'pronto', 'pronta', 'prontos', 'prontas', 'concluído', 'concluída', 'concluídos', 'concluídas', 'melhorou',
-  'fixed', 'passed', 'passing', 'works', 'success', 'green', 'done', '✅', '✓', '✔',
+  'fixed', 'pass', 'passes', 'passed', 'passing', 'works', 'working', 'resolved', 'solved', 'success', 'green', 'done',
+  'completed', 'ready', 'improved', '✅', '✓', '✔',
 ]
 const BAD_WORDS = [
   'falha', 'falhas', 'falham', 'falhou', 'falharam', 'falhando', 'erro', 'erros', 'errado', 'errada', 'errados',
   'erradas', 'quebrou', 'quebrado', 'quebrada', 'quebraram', 'piorou', 'piora', 'pioraram', 'bug', 'bugs',
   'regressão', 'regressões', 'crash', 'travou', 'vermelho', 'failed', 'failing', 'fails', 'error', 'errors',
-  'broken', 'regression', '❌', '✗', '✘',
+  'fail', 'broken', 'broke', 'breaks', 'crashed', 'crashes', 'wrong', 'regression', 'regressed', '❌', '✗', '✘',
 ]
 const WARN_WORDS = [
   'falta', 'faltam', 'faltando', 'pendente', 'pendentes', 'atenção', 'cuidado', 'risco', 'riscos', 'bloqueado',
-  'bloqueada', 'bloqueados', 'bloqueadas', 'aguardando', 'warning', 'pending', 'blocked', 'risk', '⚠️', '⚠',
+  'bloqueada', 'bloqueados', 'bloqueadas', 'aguardando', 'warning', 'pending', 'blocked', 'risk', 'risks', 'missing',
+  'waiting', 'caution', '⚠️', '⚠',
 ]
 // Case-sensitive: "GO" is the person's go-ahead, "go" is a language.
 const WARN_EXACT = ['GO', 'TODO', 'FIXME', 'WIP']

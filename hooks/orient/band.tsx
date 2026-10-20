@@ -9,6 +9,7 @@ import { hideLimit, limitText } from './limits'
 import { cachedEnv } from '../env'
 import { planBar, planProgress, type PlanProgress } from './plan'
 import { timed } from '../perf'
+import { tr } from '../i18n'
 
 const PENDING = atom({ plugin: 'realce', key: 'pending' } as const, null)
 const PLAN = atom({ plugin: 'realce', key: 'plan' } as const, [])
@@ -26,13 +27,13 @@ export async function hidePending($: EngineInterface): Promise<void> {
 function planSegments(p: PlanProgress): Segment[] {
   const bar = planBar(p.filled)
   const segments: Segment[] = [
-    { text: 'Plano', color: SCREEN.plan },
+    { text: tr('Plan', 'Plano'), color: SCREEN.plan },
     { text: ' ' },
     { text: bar.filled, color: SCREEN.plan },
     { text: bar.empty, color: SCREEN.dim },
     { text: ` ${p.done}/${p.total}` },
   ]
-  if (p.now !== null) segments.push({ text: ' · Agora:', color: SCREEN.dim }, { text: ` ${p.now}` })
+  if (p.now !== null) segments.push({ text: tr(' · Now:', ' · Agora:'), color: SCREEN.dim }, { text: ` ${p.now}` })
   return segments
 }
 
@@ -51,7 +52,7 @@ export function registerBand(on: On): void {
       flags.plano ? read($, PLAN) : Promise.resolve(null),
     ])
     if (pending !== null && pending.items.length > 0 && bodyColumns > HIDE_CELLS) {
-      const lines = wrapLines(`⚠ Precisa de você: ${pending.items.join(' · ')}`, bodyColumns - HIDE_CELLS, maxRows)
+      const lines = wrapLines(`⚠ ${tr('Needs you', 'Precisa de você')}: ${pending.items.join(' · ')}`, bodyColumns - HIDE_CELLS, maxRows)
       return (
         <Box flexDirection="row" width={bodyColumns}>
           <Box width={bodyColumns - HIDE_CELLS}>
@@ -59,7 +60,7 @@ export function registerBand(on: On): void {
           </Box>
           <Box marginLeft={1}>
             <Button key="hide-pending" onPress={() => void hidePending($)}>
-              Ocultar
+              {tr('Hide', 'Ocultar')}
             </Button>
           </Box>
         </Box>
@@ -78,7 +79,7 @@ export function registerBand(on: On): void {
           </Box>
           <Box marginLeft={1}>
             <Button key="hide-limit" onPress={() => void hideLimit($, limit)}>
-              Ocultar
+              {tr('Hide', 'Ocultar')}
             </Button>
           </Box>
         </Box>
@@ -94,7 +95,7 @@ export function registerBand(on: On): void {
           </Box>
           <Box marginLeft={1}>
             <Button key="hide-away" onPress={() => void hideAway($)}>
-              Ocultar
+              {tr('Hide', 'Ocultar')}
             </Button>
           </Box>
         </Box>

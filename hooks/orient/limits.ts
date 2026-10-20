@@ -6,6 +6,7 @@ import { SCREEN } from '../palette'
 import type { Segment } from './fit'
 import { getFlags } from '../flags'
 import { formatClock, formatDayMonth } from '../format'
+import { pick, tr, type Text } from '../i18n'
 
 const LIMIT = atom({ plugin: 'realce', key: 'limit' } as const, null)
 const USAGE = atom({ plugin: 'realce', key: 'usage' } as const, null)
@@ -17,10 +18,16 @@ const CONTEXT_WARN_AT = 90
 const STEPS = [80, 90, 95, 100] as const
 const DAY_MS = 24 * 3_600_000
 
-const WINDOW_NAMES: Record<string, string> = { five_hour: '5 h', seven_day: '7 dias', spend_limit: 'gasto' }
+const WINDOW_NAMES: Record<string, Text> = {
+  five_hour: { en: '5 h', pt: '5 h' },
+  seven_day: { en: '7 days', pt: '7 dias' },
+  spend_limit: { en: 'spend', pt: 'gasto' },
+}
+
+const windowName = (kind: string): string => (WINDOW_NAMES[kind] === undefined ? kind : pick(WINDOW_NAMES[kind]!))
 
 // What the person hid, by source: hiding the context's warning leaves the 5-hour window's to say its own.
-let hidden: { label: string; step: number } | null = null
+let hidden: { window: string; step: number } | null = null
 
 const stepOf = (percent: number) => [...STEPS].reverse().find(s => percent >= s) ?? 0
 
@@ -28,39 +35,43 @@ const stepOf = (percent: number) => [...STEPS].reverse().find(s => percent >= s)
 export function limitWarning(e: Pick<Args<'session.measure'>, 'context' | 'rateLimits'>): LimitWarning | null {
   const candidates: LimitWarning[] = e.rateLimits.map(r => ({
     kind: 'rate' as const,
-    label: WINDOW_NAMES[r.kind] ?? r.kind,
+    window: r.kind,
     percent: Math.round(r.percentUsed),
     resetsAt: r.resetsAt === undefined ? null : Date.parse(r.resetsAt),
   }))
-  if (e.context.percent !== undefined) candidates.push({ kind: 'context', label: 'contexto', percent: Math.round(e.context.percent), resetsAt: null })
+  if (e.context.percent !== undefined) candidates.push({ kind: 'context', window: 'context', percent: Math.round(e.context.percent), resetsAt: null })
   const top = candidates.filter(c => c.percent >= (c.kind === 'context' ? CONTEXT_WARN_AT : WARN_AT)).sort((a, b) => b.percent - a.percent)[0]
   return top ?? null
 }
 
-/** '⚠ Limite de 5 h em 86% · renova às 23:40' ('renova em 22/10 às 23:40' past a day); the context's own advice. */
+/** '⚠ 5 h limit at 86% · resets at 23:40' ('resets Oct 22 at 23:40' past a day; or in Portuguese); the context's advice. */
 export function limitText(w: LimitWarning, tzOffsetMinutes: number | undefined, now: number): string {
-  if (w.kind === 'context') return `⚠ Contexto em ${w.percent}%: um /compact antes de algo grande`
-  if (w.resetsAt === null || Number.isNaN(w.resetsAt) || tzOffsetMinutes === undefined) return `⚠ Limite de ${w.label} em ${w.percent}%`
-  const day = w.resetsAt - now > DAY_MS ? `em ${formatDayMonth(w.resetsAt, tzOffsetMinutes)} ` : ''
-  return `⚠ Limite de ${w.label} em ${w.percent}% · renova ${day}às ${formatClock(w.resetsAt, tzOffsetMinutes)}`
+  if (w.kind === 'context') return tr(`⚠ Context at ${w.percent}%: a /compact before anything big`, `⚠ Contexto em ${w.percent}%: um /compact antes de algo grande`)
+  const name = windowName(w.window)
+  const head = tr(`⚠ ${name} limit at ${w.percent}%`, `⚠ Limite de ${name} em ${w.percent}%`)
+  if (w.resetsAt === null || Number.isNaN(w.resetsAt) || tzOffsetMinutes === undefined) return head
+  const clock = formatClock(w.resetsAt, tzOffsetMinutes)
+  if (w.resetsAt - now <= DAY_MS) return tr(`${head} · resets at ${clock}`, `${head} · renova às ${clock}`)
+  const day = formatDayMonth(w.resetsAt, tzOffsetMinutes)
+  return tr(`${head} · resets ${day} at ${clock}`, `${head} · renova em ${day} às ${clock}`)
 }
 
 const tone = (percent: number, warnAt: number) => (percent >= 95 ? SCREEN.bad : percent >= warnAt ? SCREEN.warn : SCREEN.dim)
 
-/** 'Contexto 30% · 5 h 46% · 7 dias 12%', each part in the color its fill calls for; nothing before a reading. */
+/** 'Context 30% · 5 h 46% · 7 days 12%', each part in the color its fill calls for; nothing before a reading. */
 export function usageLine(u: UsageReading): Segment[] {
   // The context colors as its warning comes: from 90%; the windows from 80%.
-  const parts = [...(u.context === null ? [] : [{ label: 'Contexto', percent: u.context, warnAt: CONTEXT_WARN_AT }]), ...u.windows.map(w => ({ ...w, warnAt: WARN_AT }))]
+  const parts = [...(u.context === null ? [] : [{ label: tr('Context', 'Contexto'), percent: u.context, warnAt: CONTEXT_WARN_AT }]), ...u.windows.map(w => ({ label: windowName(w.window), percent: w.percent, warnAt: WARN_AT }))]
   return parts.flatMap((p, i) => [...(i > 0 ? [{ text: ' · ', color: SCREEN.dim }] : []), { text: `${p.label} ${p.percent}%`, color: tone(p.percent, p.warnAt) }])
 }
 
 const readingOf = (e: Pick<Args<'session.measure'>, 'context' | 'rateLimits'>): UsageReading => ({
   context: e.context.percent === undefined ? null : Math.round(e.context.percent),
-  windows: e.rateLimits.map(r => ({ label: WINDOW_NAMES[r.kind] ?? r.kind, percent: Math.round(r.percentUsed) })),
+  windows: e.rateLimits.map(r => ({ window: r.kind, percent: Math.round(r.percentUsed) })),
 })
 
 export async function hideLimit($: EngineInterface, w: LimitWarning): Promise<void> {
-  hidden = { label: w.label, step: stepOf(w.percent) }
+  hidden = { window: w.window, step: stepOf(w.percent) }
   await update($, LIMIT, () => null)
 }
 
@@ -79,8 +90,8 @@ async function noteMeasure($: EngineInterface, e: Args<'session.measure'>): Prom
     await update($, LIMIT, current => (current === null ? current : null))
     return
   }
-  if (hidden !== null && hidden.label === warning.label && stepOf(warning.percent) <= hidden.step) return
-  if (hidden?.label === warning.label) hidden = null
+  if (hidden !== null && hidden.window === warning.window && stepOf(warning.percent) <= hidden.step) return
+  if (hidden?.window === warning.window) hidden = null
   await update($, LIMIT, current => (JSON.stringify(current) === JSON.stringify(warning) ? current : warning))
 }
 

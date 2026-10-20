@@ -12,6 +12,7 @@ import type { RenderCtx } from './ctx'
 import { toPlainMarkdown } from './inline'
 import { renderReply } from './render'
 import { timed } from '../perf'
+import { tr } from '../i18n'
 
 const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
 // One member per code block of a reply, `${requestId}:${index}`: whether it is unfolded.
@@ -56,5 +57,5 @@ export function registerText(on: On): void {
 
 async function copySource($: EngineInterface, text: string, surface: RenderSurface): Promise<void> {
   const copied = await $.ui.copy({ text, surface })
-  $.ui.toast(copied.isCopied ? 'Copiado.' : `Não deu para copiar: ${copied.reason}.`)
+  $.ui.toast(copied.isCopied ? tr('Copied.', 'Copiado.') : tr(`Could not copy: ${copied.reason}.`, `Não deu para copiar: ${copied.reason}.`))
 }

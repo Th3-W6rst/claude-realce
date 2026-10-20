@@ -16,7 +16,8 @@ export type OpenTurn = { startedAt: number; tools: number; files: string[]; test
 
 export type TurnStats = { endedAt: number; tools: number; files: number; tests: TestScore | null; seal: Seal | null }
 
-export type Explanation = { status: 'pending' } | { status: 'ready'; text: string } | { status: 'failed'; reason: string }
+/** `cut`: the module reloaded while the model was writing it; said in the language in force when drawn. */
+export type Explanation = { status: 'pending' } | { status: 'ready'; text: string } | { status: 'failed'; reason: string } | { status: 'cut' }
 
 export type AwaySummary = { minutes: number; turns: number; files: number; tests: TestScore | null; seal: Seal | null; pending: number }
 
@@ -26,9 +27,10 @@ export type ExplainPanel = { excerpt: string; status: 'pending' | 'ready' | 'fai
 
 export type Pin = { requestId: string; at: number; preview: string }
 
-export type LimitWarning = { kind: 'rate' | 'context'; label: string; percent: number; resetsAt: number | null }
+/** `window`: the engine's name for the source (`five_hour`, `seven_day`, `context`): its words are drawn, not kept. */
+export type LimitWarning = { kind: 'rate' | 'context'; window: string; percent: number; resetsAt: number | null }
 
-export type UsageReading = { context: number | null; windows: { label: string; percent: number }[] }
+export type UsageReading = { context: number | null; windows: { window: string; percent: number }[] }
 
 export type FileTouch = { path: string; added: number; removed: number; edits: number; at: number }
 
@@ -42,6 +44,13 @@ export type Activity = 'read' | 'edit' | 'search' | 'web' | 'agent' | 'skill' | 
 
 /** A main-loop call still running, as the spinner names it. */
 export type RunningCall = { id: string; activity: Activity; target: string | null }
+
+/** What a git command did, as its one-line card says it. */
+export type CommitCard =
+  | { kind: 'commit'; verb: string; sha: string; branch: string | null; message: string | null; stat: { files: number; added: number; removed: number } | null }
+  | { kind: 'push'; branch: string }
+  | { kind: 'pr'; number: number; action: string; url: string | null }
+  | { kind: 'branch'; ref: string; action: string }
 
 export type AgentRow = { id: string; type: string; description: string; status: string; firstSeenAt: number }
 
@@ -64,8 +73,8 @@ declare module 'claude-code' {
       agents: AgentRow[]
       paneOpen: boolean
       explanations: Record<string, Explanation>
-      /** A git command's short card ('● commit 9cd805a') by its tool_use_id, for the folded group that holds it. */
-      commits: Record<string, string>
+      /** A git command's cards by its tool_use_id, for the folded group that holds it: data, drawn in the language. */
+      commits: Record<string, CommitCard[]>
       away: AwaySummary | null
       timeline: TimelineRow[]
       explain: ExplainPanel | null

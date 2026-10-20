@@ -2,6 +2,7 @@ import { atom, update } from 'claude-code'
 import type { Args, EngineInterface, ResultOf } from 'claude-code'
 
 import type { Pin } from '../../types'
+import { tr } from '../i18n'
 
 const PINS = atom({ plugin: 'realce', key: 'pins' } as const, [])
 
@@ -30,12 +31,12 @@ export async function notePinnable($: EngineInterface, e: Args<'session.append'>
   if (text.trim() !== '') lastReply = { requestId: stored.uuid, preview: preview(text) }
 }
 
-/** `/realce fixar`: the reply the selection lies in, or the newest one, pinned or unpinned in the session pane. */
+/** `/realce pin` (`fixar`): the reply the selection lies in, or the newest one, pinned or unpinned in the session pane. */
 export async function pinCommand($: EngineInterface): Promise<string> {
   const selection = await $.ui.selection()
   const target =
     selection?.requestId !== undefined ? { requestId: selection.requestId, preview: preview(selection.text) } : lastReply
-  if (target === null) return 'Nenhuma resposta para fixar ainda.'
+  if (target === null) return tr('No reply to pin yet.', 'Nenhuma resposta para fixar ainda.')
   const at = await $.clock.now()
   let isPinned = false
   await update($, PINS, pins => {
@@ -43,5 +44,5 @@ export async function pinCommand($: EngineInterface): Promise<string> {
     isPinned = next.some(p => p.requestId === target.requestId)
     return next
   })
-  return isPinned ? 'Resposta fixada.' : 'Resposta desafixada.'
+  return isPinned ? tr('Reply pinned.', 'Resposta fixada.') : tr('Reply unpinned.', 'Resposta desafixada.')
 }

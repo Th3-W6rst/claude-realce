@@ -4,6 +4,7 @@ import type { On, PromptComposeInput, RenderPropsOf } from 'claude-code'
 import { featureOff, FLAGS, type Flags } from '../hooks/flags'
 import { formatClock, formatDuration, parseTzOffset, plural } from '../hooks/format'
 import { buildSection } from '../hooks/prompt'
+import { PT } from './lang'
 
 const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
 const COMPOSE: PromptComposeInput = { model: 'm', promptModel: 'm', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] }
@@ -23,14 +24,14 @@ const baseSections = (on: On) => on('prompt.compose', () => ({ sections: [{ id: 
 
 describe('commands', () => {
   test('every flag starts on except foco and som', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     baseSections(on)
     expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Modo foco, Som nos avisos\./)
   })
 
   test('/realce coluna off turns one flag off', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     baseSections(on)
     expect((await $.command.run({ ...RUN, args: 'coluna off' })).text).toBe('Desligado: Coluna de leitura.')
@@ -38,7 +39,7 @@ describe('commands', () => {
   })
 
   test('/realce off and on keep each flag as it was', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     baseSections(on)
     await $.command.run({ ...RUN, args: 'coluna off' })
@@ -51,7 +52,7 @@ describe('commands', () => {
   })
 
   test('/realce status says whether the screen is fullscreen', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     baseSections(on)
     expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Tela cheia: sim\./)
@@ -60,19 +61,19 @@ describe('commands', () => {
   })
 
   test('/realce ajuda lists every command', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const text = (await $.command.run({ ...RUN, args: 'ajuda' })).text ?? ''
     for (const word of ['/realce on', '/realce painel', '/realce foco', '/realce explica', '/realce fixar', '/realce print', '/realce demo', '/realce status']) expect(text).toContain(word)
     expect(text.split('\n')[0]).toBe('Comandos do realce:')
   })
 
   test('the help does not promise a key to every flag', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     expect((await $.command.run({ ...RUN, args: 'ajuda' })).text).not.toMatch(/uma tecla por recurso/)
   })
 
   test('the new flag takes no earlier flag\'s key', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     on('prompt.compose', () => ({ sections: [] }))
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
     expect((await ui.find({ key: 'flag-atualizacao' }))?.props.hotkey).toBe('9')
@@ -80,7 +81,7 @@ describe('commands', () => {
   })
 
   test('/realce copiar copies the last reply', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const copied: string[] = []
     on('ui.copy', ($, e) => {
       copied.push(e.text)
@@ -92,14 +93,14 @@ describe('commands', () => {
   })
 
   test('/realce with anything else answers the usage', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const text = (await $.command.run({ ...RUN, args: 'xyz' })).text ?? ''
-    expect(text).toMatch(/^Uso: \/realce \[ajuda\|diagnostico\|on\|off\|status\|painel\|copiar\|resumo\|foco\|explica\|fixar\|print\|demo\|<recurso> on\|off\]/)
+    expect(text).toMatch(/^Uso: \/realce \[ajuda\|diagnostico\|on\|off\|status\|painel\|copiar\|resumo\|foco\|explica\|fixar\|print\|demo\|idioma\|<recurso> on\|off\]/)
     expect(text).toMatch(/coluna/)
   })
 
   test('/realce with no argument opens the flags pane', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     let opened = ''
     on('ui.open', ($, e) => {
       opened = e.id
@@ -110,7 +111,7 @@ describe('commands', () => {
   })
 
   test('/realce painel opens the session pane, then closes it', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const calls: string[] = []
     on('ui.open', ($, e) => {
       calls.push(`open ${e.id}`)
@@ -129,7 +130,7 @@ describe('commands', () => {
 
 describe('flags pane', () => {
   test('a press toggles its flag', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     on('prompt.compose', () => ({ sections: [] }))
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
@@ -142,7 +143,7 @@ describe('flags pane', () => {
   })
 
   test('the pane lists 38 flags under 5 groups, 36 of them on a key', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     on('prompt.compose', () => ({ sections: [] }))
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
     for (const group of ['Texto', 'Código', 'Ferramentas', 'Orientação', 'Sistema']) expect(await ui.find({ type: 'Text', text: group })).toBeDefined()
@@ -155,7 +156,7 @@ describe('flags pane', () => {
   })
 
   test('a narrow pane keeps each flag on one line, in the theme colors', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     on('prompt.compose', () => ({ sections: [] }))
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: { ...PANE, bodyColumns: 40 } })
     for (const b of await ui.findAll({ type: 'Button' })) expect([...b.text].length).toBeLessThanOrEqual(37)
@@ -164,7 +165,7 @@ describe('flags pane', () => {
   })
 
   test('pressing a new flag toggles it', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     on('prompt.compose', () => ({ sections: [] }))
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
@@ -173,7 +174,7 @@ describe('flags pane', () => {
   })
 
   test('the pane switches the whole mod on and off', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     on('prompt.compose', () => ({ sections: [] }))
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
@@ -184,7 +185,7 @@ describe('flags pane', () => {
   })
 
   test('with the master off the pane says so', async ($, on) => {
-    mock.store(on, { master: false })
+    mock.store(on, { ...PT, master: false })
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
     expect(await ui.find({ type: 'Text', text: 'Realce desligado: /realce on liga.' })).toBeDefined()
   })
@@ -237,7 +238,7 @@ describe('prompt section', () => {
   })
 
   test('compose adds the section on the terminal, never bare or headless', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     baseSections(on)
     expect((await $.prompt.compose(COMPOSE)).sections.map(s => s.id)).toEqual(['intro', 'realce:reading-aids'])
@@ -246,7 +247,7 @@ describe('prompt section', () => {
   })
 
   test('a compose ahead of session.start still teaches diagrams where mmdc is', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     baseSections(on)
     on('process.run', ($, e) => ({
@@ -257,7 +258,7 @@ describe('prompt section', () => {
   })
 
   test('/realce status says whether the last request taught the aids', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     baseSections(on)
     expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Nenhum request/)
@@ -270,7 +271,7 @@ describe('prompt section', () => {
 
 describe('session env', () => {
   test('session.start records directory, home, editor, offset and mmdc', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     mock.env(on, { HOME: '/Users/u' })
     baseSections(on)

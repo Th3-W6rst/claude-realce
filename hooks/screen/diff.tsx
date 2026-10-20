@@ -2,6 +2,8 @@ import { read, update } from 'claude-code'
 import type { Elements, EngineInterface, On, RenderElement } from 'claude-code'
 
 import { flagsVersion, getFlags } from '../flags'
+import { plural } from '../format'
+import { tr } from '../i18n'
 import { memo } from '../memo'
 import { CODE, FOLD_AT, FOLD_SHOW, SCREEN } from '../palette'
 import { timed } from '../perf'
@@ -21,7 +23,7 @@ export function diffLines(structuredPatch: unknown): DiffLine[] {
   const out: DiffLine[] = []
   for (const hunk of Array.isArray(structuredPatch) ? structuredPatch.map(asRecord) : []) {
     let lineNo = typeof hunk.newStart === 'number' ? hunk.newStart : 1
-    out.push({ kind: 'hunk', text: `@@ linha ${lineNo}`, lineNo: null })
+    out.push({ kind: 'hunk', text: tr(`@@ line ${lineNo}`, `@@ linha ${lineNo}`), lineNo: null })
     const lines = Array.isArray(hunk.lines) ? hunk.lines.filter((l): l is string => typeof l === 'string') : []
     let dels: DiffLine[] = []
     let adds: DiffLine[] = []
@@ -113,10 +115,10 @@ function patchTree(t: T, id: string, lines: readonly DiffLine[], isLong: boolean
   return (
     <Box key="realce-diff" flexDirection="column">
       {shown.map((line, i) => lineRow(t, line, linePieces(id, i, line)))}
-      {(!isLong || isOpen) && hidden > 0 && <Text color={SCREEN.dim}>{`… e mais ${hidden} linhas: abra o arquivo para ver tudo`}</Text>}
+      {(!isLong || isOpen) && hidden > 0 && <Text color={SCREEN.dim}>{tr(`… and ${hidden} more lines: open the file to see them all`, `… e mais ${hidden} linhas: abra o arquivo para ver tudo`)}</Text>}
       {isLong && (
         <Button plain key="diff-fold" dimColor onPress={onFold}>
-          {isOpen ? '▾ Recolher' : `▸ Mostrar mais (${content - FOLD_SHOW} linhas)`}
+          {isOpen ? tr('▾ Fold', '▾ Recolher') : tr(`▸ Show more (${content - FOLD_SHOW} lines)`, `▸ Mostrar mais (${content - FOLD_SHOW} linhas)`)}
         </Button>
       )}
     </Box>
@@ -131,7 +133,7 @@ function newFileTree(t: T, content: string): RenderElement {
       {lines.slice(0, FOLD_SHOW).map((text, i) => (
         <Text color={CODE.added.color} wrap="truncate-end">{`${gutter(i + 1)} + ${text}`}</Text>
       ))}
-      <Text color={SCREEN.dim}>{`${lines.length} ${lines.length === 1 ? 'linha' : 'linhas'} no arquivo novo`}</Text>
+      <Text color={SCREEN.dim}>{tr(`${plural(lines.length, 'line', 'lines')} in the new file`, `${plural(lines.length, 'linha', 'linhas')} no arquivo novo`)}</Text>
     </Box>
   )
 }

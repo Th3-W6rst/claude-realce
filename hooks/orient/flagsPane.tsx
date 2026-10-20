@@ -1,6 +1,7 @@
 import type { EngineInterface, On } from 'claude-code'
 
-import { FLAG_GROUPS, FLAGS, getStoredFlags, isMasterOn, setFlag, setMaster, type FlagId } from '../flags'
+import { FLAG_GROUPS, FLAGS, getStoredFlags, GROUP_LABELS, isMasterOn, setFlag, setMaster, type FlagId } from '../flags'
+import { pick, tr } from '../i18n'
 import { refreshTheme } from '../theme'
 import { SCREEN } from '../palette'
 import { timed } from '../perf'
@@ -32,12 +33,12 @@ export function registerFlagsPane(on: On): void {
     return (
       <Box flexDirection="column">
         <Button plain key="master" onPress={() => setMaster($, !isOn)}>
-          {isOn ? '[x] Realce ligado' : '[ ] Realce ligado'}
+          {`${isOn ? '[x]' : '[ ]'} ${tr('Realce on', 'Realce ligado')}`}
         </Button>
-        {!isOn && <Text color={SCREEN.warn}>Realce desligado: /realce on liga.</Text>}
+        {!isOn && <Text color={SCREEN.warn}>{tr('Realce is off: /realce on turns it on.', 'Realce desligado: /realce on liga.')}</Text>}
         {FLAG_GROUPS.map(group => (
           <Box flexDirection="column" marginTop={1}>
-            <Text color={SCREEN.plan}>{group}</Text>
+            <Text color={SCREEN.plan}>{pick(GROUP_LABELS[group])}</Text>
             {FLAGS.filter(f => f.group === group).map(f => (
               <Button
                 key={`flag-${f.id}`}
@@ -46,16 +47,16 @@ export function registerFlagsPane(on: On): void {
                 {...(FLAGS.indexOf(f) === 0 ? { autoFocus: true as const } : {})}
                 onPress={() => toggleFlag($, f.id, !flags[f.id])}
               >
-                {fitEnd(`${flags[f.id] ? '[x] ' : '[ ] '}${f.label}`, cells)}
-                {[...`${flags[f.id] ? '[x] ' : '[ ] '}${f.label}`].length + 3 < cells && (
-                  <Text dimColor>{fitEnd(` · ${f.description}`, cells - [...`${flags[f.id] ? '[x] ' : '[ ] '}${f.label}`].length)}</Text>
+                {fitEnd(`${flags[f.id] ? '[x] ' : '[ ] '}${pick(f.label)}`, cells)}
+                {[...`${flags[f.id] ? '[x] ' : '[ ] '}${pick(f.label)}`].length + 3 < cells && (
+                  <Text dimColor>{fitEnd(` · ${pick(f.description)}`, cells - [...`${flags[f.id] ? '[x] ' : '[ ] '}${pick(f.label)}`].length)}</Text>
                 )}
               </Button>
             ))}
           </Box>
         ))}
         <Box marginTop={1}>
-          <Text dimColor>Letra ou número alterna · Tab e Enter também · Esc fecha</Text>
+          <Text dimColor>{tr('A letter or digit toggles · Tab and Enter too · Esc closes', 'Letra ou número alterna · Tab e Enter também · Esc fecha')}</Text>
         </Box>
       </Box>
     )

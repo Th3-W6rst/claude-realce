@@ -1,6 +1,7 @@
 import type { EngineInterface } from 'claude-code'
 
 import { getFlags } from '../flags'
+import { pick, tr, type Text } from '../i18n'
 import { setExplanation } from './notes'
 import { asRecord, failureLine, shellCommands } from './toolInfo'
 
@@ -10,9 +11,12 @@ const OUTPUT_LINES = 40
 // About two lines under the command: the model does not always keep to one short sentence.
 const MAX_CHARS = 200
 
-// Who reads it did not run it: the coding assistant did, so the sentence is about the command, never "you".
-const SYSTEM =
-  'Um assistente de código rodou este comando, e ele falhou. Explique a quem acompanha, em UMA frase de no máximo 25 palavras, em português simples, por que falhou e o que fazer a seguir. Fale do comando, nunca "você". Sem markdown, sem crases, sem rodeios.'
+// Who reads it did not run it: the coding assistant did, so the sentence is about the command, never "you". The
+// sentence comes in the interface's language.
+const SYSTEM: Text = {
+  en: 'A coding assistant ran this command, and it failed. Explain to whoever is watching, in ONE sentence of at most 25 words, in plain English, why it failed and what to do next. Speak of the command, never "you". No markdown, no backticks, no preamble.',
+  pt: 'Um assistente de código rodou este comando, e ele falhou. Explique a quem acompanha, em UMA frase de no máximo 25 palavras, em português simples, por que falhou e o que fazer a seguir. Fale do comando, nunca "você". Sem markdown, sem crases, sem rodeios.',
+}
 
 // For these an exit code of 1 is an answer (no match, false, a difference), not a failure worth a sentence.
 const ANSWER_COMMANDS: ReadonlySet<string> = new Set(['grep', 'rg', 'test', '[', 'diff', 'cmp', 'which'])
@@ -62,14 +66,14 @@ export const wasAnswer = (toolUseId: string): boolean => answered.has(toolUseId)
 /** What the model reads: the command and the end of its output. */
 export function explainPrompt(command: string, output: string): string {
   const tail = output.trimEnd().split('\n').slice(-OUTPUT_LINES).join('\n')
-  return `Comando:\n${command}\n\nSaída (fim):\n${tail}`
+  return tr(`Command:\n${command}\n\nOutput (end):\n${tail}`, `Comando:\n${command}\n\nSaída (fim):\n${tail}`)
 }
 
 const cut = (text: string) => ([...text].length <= MAX_CHARS ? text : `${[...text].slice(0, MAX_CHARS - 1).join('').trimEnd()}…`)
 
 async function runExplain($: EngineInterface, toolUseId: string, command: string, output: string): Promise<void> {
   try {
-    const reply = await $.model.complete({ model: 'haiku', system: SYSTEM, prompt: explainPrompt(command, output), maxTokens: 200, timeoutMs: 20_000 })
+    const reply = await $.model.complete({ model: 'haiku', system: pick(SYSTEM), prompt: explainPrompt(command, output), maxTokens: 200, timeoutMs: 20_000 })
     await setExplanation($, toolUseId, reply.isAnswered ? { status: 'ready', text: cut(reply.text.trim().replace(/\s+/g, ' ')) } : { status: 'failed', reason: reply.reason })
   } catch (error) {
     await setExplanation($, toolUseId, { status: 'failed', reason: error instanceof Error ? error.message : String(error) })

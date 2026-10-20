@@ -5,6 +5,7 @@ import type { Block } from '../text/blocks'
 import type { RenderCtx } from '../text/ctx'
 import { diagramHash, imageCells, isMermaid } from './diagram'
 import { highlight, isKnownLanguage } from './highlight'
+import { tr } from '../i18n'
 
 export type CodeBlock = Extract<Block, { type: 'code' }>
 
@@ -20,13 +21,13 @@ function renderDiagram(ctx: RenderCtx, block: CodeBlock, index: number): RenderE
   const diagram = ctx.diagrams[diagramHash(block.source)]
   if (diagram?.status === 'ready') {
     const { columns, rows } = imageCells(diagram, Math.max(1, ctx.columns - 2))
-    return <Image source={{ file: diagram.file, format: 'png' }} alt="Diagrama" columns={columns} rows={rows} />
+    return <Image source={{ file: diagram.file, format: 'png' }} alt={tr('Diagram', 'Diagrama')} columns={columns} rows={rows} />
   }
   // No entry: the reply came before this session (or its load), when nothing marked it to render.
   const note =
-    diagram === undefined ? <Text {...BLOCK.codeLabel}>O diagrama aparece quando a resposta terminar</Text>
-    : diagram.status === 'rendering' ? <Text {...BLOCK.codeLabel}>Gerando diagrama…</Text>
-    : <Text {...PROSE.statusBad}>Diagrama inválido: {diagram.error}</Text>
+    diagram === undefined ? <Text {...BLOCK.codeLabel}>{tr('The diagram shows once the reply is done', 'O diagrama aparece quando a resposta terminar')}</Text>
+    : diagram.status === 'rendering' ? <Text {...BLOCK.codeLabel}>{tr('Drawing the diagram…', 'Gerando diagrama…')}</Text>
+    : <Text {...PROSE.statusBad}>{tr(`Invalid diagram: ${diagram.error}`, `Diagrama inválido: ${diagram.error}`)}</Text>
   return (
     <Box flexDirection="column">
       {renderCode(ctx, block, index)}
@@ -45,12 +46,12 @@ function renderCode(ctx: RenderCtx, block: CodeBlock, index: number): RenderElem
   const label = block.language === '' ? null : <Text {...BLOCK.codeLabel}>{block.language}</Text>
   const copy = ctx.flags.copiar ? (
     <Button plain key={`copy-${index}`} dimColor onPress={() => ctx.onCopy(block.source)}>
-      Copiar
+      {tr('Copy', 'Copiar')}
     </Button>
   ) : null
   const fold = isLong ? (
     <Button plain key={`fold-${index}`} dimColor onPress={() => ctx.onFold(index, !isOpen)}>
-      {isOpen ? '▾ Recolher' : `▸ Mostrar mais ${lines.length - FOLD_SHOW} linhas`}
+      {isOpen ? tr('▾ Fold', '▾ Recolher') : tr(`▸ Show ${lines.length - FOLD_SHOW} more lines`, `▸ Mostrar mais ${lines.length - FOLD_SHOW} linhas`)}
     </Button>
   ) : null
   const header =

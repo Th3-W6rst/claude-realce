@@ -5,6 +5,7 @@ import type { AwaySummary, TurnStats } from '../../types'
 import { getFlags } from '../flags'
 import { plural, testCount } from '../format'
 import { sealLabel, turnStatsFor } from '../screen/turns'
+import { tr } from '../i18n'
 
 const AWAY = atom({ plugin: 'realce', key: 'away' } as const, null)
 const PENDING = atom({ plugin: 'realce', key: 'pending' } as const, null)
@@ -31,15 +32,21 @@ export function awaySummary(now: number, lastInput: number, ended: readonly Turn
   }
 }
 
-/** '↺ Enquanto você estava fora (32 min): 2 turnos · 5 arquivos · ✔ 159 testes · 1 decisão esperando'. */
+/** '↺ While you were away (32 min): 2 turns · 5 files · ✔ 159 tests · 1 decision waiting' (or in Portuguese). */
 export function awayText(s: AwaySummary): string {
-  const parts = [plural(s.turns, 'turno', 'turnos')]
-  if (s.files > 0) parts.push(plural(s.files, 'arquivo', 'arquivos'))
-  if (s.tests !== null) parts.push(s.tests.failed === 0 ? `✔ ${testCount(s.tests.passed, s.tests.unit)}` : `✖ ${plural(s.tests.failed, 'teste falhou', 'testes falharam')}`)
+  const parts = [plural(s.turns, tr('turn', 'turno'), tr('turns', 'turnos'))]
+  if (s.files > 0) parts.push(plural(s.files, tr('file', 'arquivo'), tr('files', 'arquivos')))
+  if (s.tests !== null) {
+    parts.push(
+      s.tests.failed === 0
+        ? `✔ ${testCount(s.tests.passed, s.tests.unit)}`
+        : `✖ ${plural(s.tests.failed, tr('test failed', 'teste falhou'), tr('tests failed', 'testes falharam'))}`,
+    )
+  }
   const seal = sealLabel(s.seal)
   if (seal !== null) parts.push(seal.text)
-  if (s.pending > 0) parts.push(plural(s.pending, 'decisão esperando', 'decisões esperando'))
-  return `↺ Enquanto você estava fora (${s.minutes} min): ${parts.join(' · ')}`
+  if (s.pending > 0) parts.push(plural(s.pending, tr('decision waiting', 'decisão esperando'), tr('decisions waiting', 'decisões esperando')))
+  return tr(`↺ While you were away (${s.minutes} min): ${parts.join(' · ')}`, `↺ Enquanto você estava fora (${s.minutes} min): ${parts.join(' · ')}`)
 }
 
 export async function hideAway($: EngineInterface): Promise<void> {

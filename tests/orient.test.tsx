@@ -10,6 +10,7 @@ import { scrollRefusal } from '../hooks/orient/timeline'
 import { questionHeader } from '../hooks/orient/question'
 import { extractPending } from '../hooks/orient/pending'
 import { applyPlanCall, planRow, type PlanItem } from '../hooks/orient/plan'
+import { PT } from './lang'
 
 const BAND: RenderPropsOf['AbovePrompt'] = {
   hasSurvey: false,
@@ -141,7 +142,7 @@ describe('plan', () => {
 
 describe('band', () => {
   test('the band shows what needs you when idle', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engine(on)
     await finish($, ANSWER)
     const ui = await mountBand($)
@@ -153,7 +154,7 @@ describe('band', () => {
   })
 
   test('the band shows the plan while working', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engine(on)
     await finish($, ANSWER)
     await $.tool.call({ tool: 'TodoWrite', todos: [TODOS_DONE[0]!, { ...TODOS[1]!, status: 'in_progress' }] })
@@ -163,7 +164,7 @@ describe('band', () => {
   })
 
   test('idle with nothing pending, an open plan still shows; a finished one does not', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engine(on)
     await $.tool.call({ tool: 'TodoWrite', todos: TODOS })
     const ui = await mountBand($)
@@ -174,7 +175,7 @@ describe('band', () => {
   })
 
   test('the person\'s next prompt clears what needed you', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engine(on)
     await finish($, ANSWER)
@@ -187,7 +188,7 @@ describe('band', () => {
   })
 
   test('a subagent answer or plan does not reach the band', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engine(on)
     await finish($, ANSWER, 'agent-1')
     await $.tool.call({ tool: 'TodoWrite', todos: TODOS, agentId: 'agent-1' } as Parameters<Engine['tool']['call']>[0])
@@ -197,7 +198,7 @@ describe('band', () => {
   })
 
   test('an answer with nothing for you clears the band', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engine(on)
     await finish($, ANSWER)
     await finish($, 'Pronto.')
@@ -205,14 +206,14 @@ describe('band', () => {
   })
 
   test('a survey holds the band', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engine(on)
     await finish($, ANSWER)
     expect(await (await mountBand($, { hasSurvey: true })).find({ text: 'engine' })).toBeDefined()
   })
 
   test('the band fits its width and rows', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engine(on)
     await finish($, Array.from({ length: 6 }, (_, n) => `{!uma pendência bem comprida de número ${n}!}`).join(' '))
     const ui = await mountBand($, { bodyColumns: 50, maxRows: 2 })
@@ -230,7 +231,7 @@ describe('band', () => {
   })
 
   test('pendencias and plano off draw the engine', async ($, on) => {
-    mock.store(on, { flags: { pendencias: false, plano: false } })
+    mock.store(on, { ...PT, flags: { pendencias: false, plano: false } })
     engine(on)
     await finish($, ANSWER)
     await $.tool.call({ tool: 'TodoWrite', todos: TODOS })
@@ -243,7 +244,7 @@ describe('session pane', () => {
   const AGENT: AgentInfo = { id: 'a1', description: 'Revisar desenho', type: 'Explore', status: 'running' }
 
   test('the session pane lists the plan, what needs you, files, failures and agents', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on, { now: Date.UTC(2026, 9, 19, 18, 41) })
     engine(on)
     let agents: AgentInfo[] = []
@@ -276,7 +277,7 @@ describe('session pane', () => {
   })
 
   test('an agent keeps the time it was first seen, and its new status shows', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on, { now: Date.UTC(2026, 9, 19, 18, 41) })
     engine(on)
     let agents: AgentInfo[] = [AGENT]
@@ -291,7 +292,7 @@ describe('session pane', () => {
   })
 
   test('agents are written only when the list changes', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     let writes = 0
     on('state.set', { plugin: 'realce', key: 'agents' }, ($, e, next) => {
@@ -309,7 +310,7 @@ describe('session pane', () => {
   })
 
   test('a narrow pane keeps each row on its line, file names whole', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     on('state.get', { plugin: 'realce', key: 'files' }, () => ({
       value: { value: [{ path: '/x/uma/pasta/bem/funda/arquivo.ts', added: 12, removed: 3, edits: 1, at: 1 }], version: 1 },
     }))
@@ -320,12 +321,12 @@ describe('session pane', () => {
   })
 
   test('an empty session says so', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     expect(await (await mountPane($)).find({ text: 'Nada por aqui ainda.' })).toBeDefined()
   })
 
   test('painel opens at start by default', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     const { opened } = startStandIns(on)
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
@@ -333,7 +334,7 @@ describe('session pane', () => {
   })
 
   test('a -p run opens no pane', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     const { opened } = startStandIns(on)
     await $.session.start({ cwd: '/a/b', surface: null, isInteractive: false })
@@ -341,7 +342,7 @@ describe('session pane', () => {
   })
 
   test('painel off leaves the pane closed at start', async ($, on) => {
-    mock.store(on, { flags: { painel: false } })
+    mock.store(on, { ...PT, flags: { painel: false } })
     mock.clock(on)
     const { opened } = startStandIns(on)
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
@@ -377,7 +378,7 @@ describe('finish notice', () => {
   }
 
   test('a long turn notifies with its duration, tests and seal', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     const { sent, played } = notifyWorld(on)
     await longTurn($, 61_000)
@@ -386,7 +387,7 @@ describe('finish notice', () => {
   })
 
   test('a short turn does not', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     const { sent } = notifyWorld(on)
     await longTurn($, 59_000)
@@ -394,7 +395,7 @@ describe('finish notice', () => {
   })
 
   test('an aborted turn does not', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     const { sent } = notifyWorld(on)
     await longTurn($, 61_000, { isAborted: true })
@@ -402,7 +403,7 @@ describe('finish notice', () => {
   })
 
   test("a subagent's turn does not", async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     const { sent } = notifyWorld(on)
     await $.turn.complete({ answer: 'x', durationMs: 90_000, isAborted: false, turnId: 't2', reason: 'answer', agentId: 'sub1' })
@@ -410,7 +411,7 @@ describe('finish notice', () => {
   })
 
   test('a question after a minute of work notifies', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const { sent } = notifyWorld(on)
     await $.prompt.submit({ text: 'oi', origin: { kind: 'composer' }, wait: false })
@@ -420,7 +421,7 @@ describe('finish notice', () => {
   })
 
   test('a question right away does not', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     const { sent } = notifyWorld(on)
     await $.prompt.submit({ text: 'oi', origin: { kind: 'composer' }, wait: false })
@@ -429,7 +430,7 @@ describe('finish notice', () => {
   })
 
   test('som plays a system sound with the notice', async ($, on) => {
-    mock.store(on, { flags: { som: true } })
+    mock.store(on, { ...PT, flags: { som: true } })
     const clock = mock.clock(on)
     const { played } = notifyWorld(on)
     await longTurn($, 61_000)
@@ -438,7 +439,7 @@ describe('finish notice', () => {
   })
 
   test('a refused notice shows in status', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     notifyWorld(on, { isSent: false, reason: 'disabled' })
     on('prompt.compose', () => ({ sections: [] }))
@@ -448,7 +449,7 @@ describe('finish notice', () => {
   })
 
   test('a terminal with no channel gets the macOS banner instead', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const { runs } = notifyWorld(on, { isSent: false, reason: 'no-channel' })
     on('prompt.compose', () => ({ sections: [] }))
@@ -463,7 +464,7 @@ describe('finish notice', () => {
   })
 
   test('a notice text that starts with a dash still reaches the banner', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const { runs } = notifyWorld(on, { isSent: false, reason: 'no-channel' })
     await $.prompt.submit({ text: 'oi', origin: { kind: 'composer' }, wait: false })
@@ -475,7 +476,7 @@ describe('finish notice', () => {
   })
 
   test('avisos off sends nothing', async ($, on) => {
-    mock.store(on, { flags: { avisos: false } })
+    mock.store(on, { ...PT, flags: { avisos: false } })
     mock.clock(on)
     const { sent } = notifyWorld(on)
     await longTurn($, 61_000)
@@ -506,7 +507,7 @@ describe('while you were away', () => {
     ($.prompt as unknown as { edit: (e: PromptEditInput) => Promise<unknown> }).edit({ origin: { kind: 'composer' }, text: '', cursor: 0, start: 0, end: 0, inputText: 'a' })
 
   async function awayWorld($: Engine, on: On, minutes: number) {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on, { now: Date.UTC(2026, 9, 19, 20, 0) })
     engine(on)
     on('prompt.edit', ($, e) => ({ text: e.text + e.inputText, cursor: e.cursor + e.inputText.length }))
@@ -527,7 +528,7 @@ describe('while you were away', () => {
   })
 
   test('typing while the turn ran means you were there', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on, { now: Date.UTC(2026, 9, 19, 20, 0) })
     engine(on)
     on('prompt.edit', ($, e) => ({ text: e.text + e.inputText, cursor: e.cursor + e.inputText.length }))
@@ -548,7 +549,7 @@ describe('while you were away', () => {
   })
 
   test('what needs you comes first', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on, { now: Date.UTC(2026, 9, 19, 20, 0) })
     engine(on)
     on('prompt.edit', ($, e) => ({ text: e.text + e.inputText, cursor: e.cursor + e.inputText.length }))
@@ -569,7 +570,7 @@ describe('while you were away', () => {
   })
 
   test('ausencia off shows nothing', async ($, on) => {
-    mock.store(on, { flags: { ausencia: false } })
+    mock.store(on, { ...PT, flags: { ausencia: false } })
     const clock = mock.clock(on)
     engine(on)
     on('prompt.edit', ($, e) => ({ text: e.text + e.inputText, cursor: e.cursor + e.inputText.length }))
@@ -588,7 +589,7 @@ describe('timeline', () => {
   }
 
   test('a prompt opens a row, its turn completes it', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on, { now: Date.UTC(2026, 9, 19, 23, 41) })
     engine(on)
     startStandIns(on)
@@ -603,7 +604,7 @@ describe('timeline', () => {
   // The kit has no transcript to scroll ($.ui.scroll to a row answers "no implementation"): the scroll itself is
   // checked live; here, each row is the button that asks for it.
   test('each row is a button to its prompt', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engine(on)
     await promptRow($, 'oi', 'u7')
@@ -612,7 +613,7 @@ describe('timeline', () => {
   })
 
   test('a prompt typed over a running turn joins its row', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engine(on)
     await promptRow($, 'primeiro', 'u1')
@@ -626,7 +627,7 @@ describe('timeline', () => {
 
   test("a plugin's prompt is shown by its words, not the engine's frame", async ($, on) => {
     // Seen live: /realce demo's row read "The realce plugin sent a me…".
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engine(on)
     const framed = 'The realce plugin sent a message:\nDemonstração do realce\n\nThis is how Claude Code surfaces a prompt a plugin submits between turns.'
@@ -642,7 +643,7 @@ describe('timeline', () => {
   })
 
   test('a reminder or a tool result opens no row', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engine(on)
     await $.session.append({ message: { type: 'user', role: 'user', isMeta: true, content: [{ type: 'text', text: 'lembrete' }] }, door: 'prompt', origin: { kind: 'composer' }, uuid: 'm1' })
@@ -650,7 +651,7 @@ describe('timeline', () => {
   })
 
   test('linha off hides the section', async ($, on) => {
-    mock.store(on, { flags: { linha: false } })
+    mock.store(on, { ...PT, flags: { linha: false } })
     mock.clock(on)
     engine(on)
     await promptRow($, 'oi', 'u1')
@@ -689,14 +690,14 @@ describe('explain this', () => {
   }
 
   test('no selection says how', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     explainWorld(on, undefined)
     expect((await $.command.run({ ...RUN, args: 'explica' })).text).toBe('Selecione um trecho da conversa (em tela cheia) ou escreva o que explicar: /realce explica <texto>.')
   })
 
   test('the text after the command is explained when given', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const asked = explainWorld(on, undefined)
     expect((await $.command.run({ ...RUN, args: 'explica O que é um Hook?' })).text).toBe('Explicando no painel.')
@@ -705,7 +706,7 @@ describe('explain this', () => {
   })
 
   test('a selection is explained in the pane', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const asked = explainWorld(on, { text: 'ui.blit repinta um Raster' })
     expect((await $.command.run({ ...RUN, args: 'explica' })).text).toBe('Explicando no painel.')
@@ -720,7 +721,7 @@ describe('explain this', () => {
   })
 
   test('a late answer to an older request does not replace the newer one', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     let selection = { text: 'primeiro' }
     let release: (v: unknown) => void = () => {}
@@ -744,7 +745,7 @@ describe('explain this', () => {
   })
 
   test('the explanation closes from the pane', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     explainWorld(on, { text: 'abc' })
     await $.command.run({ ...RUN, args: 'explica' })
@@ -755,7 +756,7 @@ describe('explain this', () => {
   })
 
   test('a long selection is cut to 4000 characters', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const asked = explainWorld(on, { text: 'x'.repeat(9000) })
     await $.command.run({ ...RUN, args: 'explica' })
@@ -764,7 +765,7 @@ describe('explain this', () => {
   })
 
   test('a model failure shows why', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     explainWorld(on, { text: 'abc' }, { isAnswered: false, reason: 'empty-reply', usage: USAGE })
     await $.command.run({ ...RUN, args: 'explica' })
@@ -773,7 +774,7 @@ describe('explain this', () => {
   })
 
   test('explica off says how to turn it on', async ($, on) => {
-    mock.store(on, { flags: { explica: false } })
+    mock.store(on, { ...PT, flags: { explica: false } })
     mock.clock(on)
     explainWorld(on, { text: 'abc' })
     expect((await $.command.run({ ...RUN, args: 'explica' })).text).toBe('Recurso desligado: Explica isso. /realce explica on liga.')
@@ -799,7 +800,7 @@ describe('pins', () => {
   }
 
   test('/realce fixar pins the last reply, then unpins it', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     on('ui.selection', () => ({ value: undefined as never }))
     expect((await $.command.run({ ...RUN, args: 'fixar' })).text).toBe('Nenhuma resposta para fixar ainda.')
@@ -814,7 +815,7 @@ describe('pins', () => {
   })
 
   test('a selection in a reply pins that reply', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     on('ui.selection', () => ({ value: { text: 'Primeira resposta', requestId: 'a1' } }))
     await reply($, 'Primeira resposta', 'a1')
@@ -826,7 +827,7 @@ describe('pins', () => {
   })
 
   test('fixar off says how to turn it on', async ($, on) => {
-    mock.store(on, { flags: { fixar: false } })
+    mock.store(on, { ...PT, flags: { fixar: false } })
     expect((await $.command.run({ ...RUN, args: 'fixar' })).text).toBe('Recurso desligado: Fixar respostas. /realce fixar on liga.')
   })
 })
@@ -837,20 +838,20 @@ describe('usage limit', () => {
 
   test('the highest window past 80% is the warning', () => {
     expect(limitWarning(measure([{ kind: 'five_hour', percentUsed: 60 }]))).toBeNull()
-    expect(limitWarning(measure([{ kind: 'five_hour', percentUsed: 86, resetsAt: '2026-10-20T02:40:00Z' }, { kind: 'seven_day', percentUsed: 81 }]))).toEqual({ kind: 'rate', label: '5 h', percent: 86, resetsAt: Date.UTC(2026, 9, 20, 2, 40) })
-    expect(limitWarning(measure([], { window: 200_000, tokens: 182_000, percent: 91 }))).toEqual({ kind: 'context', label: 'contexto', percent: 91, resetsAt: null })
+    expect(limitWarning(measure([{ kind: 'five_hour', percentUsed: 86, resetsAt: '2026-10-20T02:40:00Z' }, { kind: 'seven_day', percentUsed: 81 }]))).toEqual({ kind: 'rate', window: 'five_hour', percent: 86, resetsAt: Date.UTC(2026, 9, 20, 2, 40) })
+    expect(limitWarning(measure([], { window: 200_000, tokens: 182_000, percent: 91 }))).toEqual({ kind: 'context', window: 'context', percent: 91, resetsAt: null })
   })
 
   test('the warning says what fills and when it renews', () => {
-    expect(limitText({ kind: 'rate', label: '5 h', percent: 86, resetsAt: Date.UTC(2026, 9, 20, 2, 40) }, -180, Date.UTC(2026, 9, 20, 2, 0))).toBe('⚠ Limite de 5 h em 86% · renova às 23:40')
-    expect(limitText({ kind: 'rate', label: '7 dias', percent: 91, resetsAt: null }, -180, Date.UTC(2026, 9, 20, 2, 0))).toBe('⚠ Limite de 7 dias em 91%')
-    expect(limitText({ kind: 'context', label: 'contexto', percent: 85, resetsAt: null }, -180, Date.UTC(2026, 9, 20, 2, 0))).toBe('⚠ Contexto em 85%: um /compact antes de algo grande')
+    expect(limitText({ kind: 'rate', window: 'five_hour', percent: 86, resetsAt: Date.UTC(2026, 9, 20, 2, 40) }, -180, Date.UTC(2026, 9, 20, 2, 0))).toBe('⚠ Limite de 5 h em 86% · renova às 23:40')
+    expect(limitText({ kind: 'rate', window: 'seven_day', percent: 91, resetsAt: null }, -180, Date.UTC(2026, 9, 20, 2, 0))).toBe('⚠ Limite de 7 dias em 91%')
+    expect(limitText({ kind: 'context', window: 'context', percent: 85, resetsAt: null }, -180, Date.UTC(2026, 9, 20, 2, 0))).toBe('⚠ Contexto em 85%: um /compact antes de algo grande')
   })
 
   test('a renewal more than a day away says the date', () => {
     const now = Date.UTC(2026, 9, 20, 2, 0)
-    expect(limitText({ kind: 'rate', label: '7 dias', percent: 91, resetsAt: Date.UTC(2026, 9, 22, 2, 40) }, -180, now)).toBe('⚠ Limite de 7 dias em 91% · renova em 21/10 às 23:40')
-    expect(limitText({ kind: 'rate', label: '5 h', percent: 86, resetsAt: Date.UTC(2026, 9, 20, 2, 40) }, -180, now)).toBe('⚠ Limite de 5 h em 86% · renova às 23:40')
+    expect(limitText({ kind: 'rate', window: 'seven_day', percent: 91, resetsAt: Date.UTC(2026, 9, 22, 2, 40) }, -180, now)).toBe('⚠ Limite de 7 dias em 91% · renova em 21/10 às 23:40')
+    expect(limitText({ kind: 'rate', window: 'five_hour', percent: 86, resetsAt: Date.UTC(2026, 9, 20, 2, 40) }, -180, now)).toBe('⚠ Limite de 5 h em 86% · renova às 23:40')
   })
 
   test('the context warns from 90%, the windows from 80%', () => {
@@ -859,7 +860,7 @@ describe('usage limit', () => {
   })
 
   test('hiding one warning does not hide another source at the same step', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engine(on)
     on('session.measure', ($, e) => ({ changed: e.changed }))
@@ -871,7 +872,7 @@ describe('usage limit', () => {
   })
 
   test('while Claude works, the plan bar comes before the limit', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engine(on)
     on('session.measure', ($, e) => ({ changed: e.changed }))
@@ -882,7 +883,7 @@ describe('usage limit', () => {
   })
 
   test('the band shows it, hides it, and shows it again past the next step', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on, { now: Date.UTC(2026, 9, 20, 2, 0) })
     engine(on)
     startStandIns(on)
@@ -900,7 +901,7 @@ describe('usage limit', () => {
   })
 
   test('the usage line names the context and each window', () => {
-    expect(usageLine({ context: 30, windows: [{ label: '5 h', percent: 46 }, { label: '7 dias', percent: 12 }] }).map(s => s.text).join('')).toBe('Contexto 30% · 5 h 46% · 7 dias 12%')
+    expect(usageLine({ context: 30, windows: [{ window: 'five_hour', percent: 46 }, { window: 'seven_day', percent: 12 }] }).map(s => s.text).join('')).toBe('Contexto 30% · 5 h 46% · 7 dias 12%')
     expect(usageLine({ context: null, windows: [] })).toEqual([])
   })
 
@@ -911,7 +912,7 @@ describe('usage limit', () => {
   })
 
   test('the session pane shows the usage once measured', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engine(on)
     on('session.measure', ($, e) => ({ changed: e.changed }))
@@ -922,7 +923,7 @@ describe('usage limit', () => {
   })
 
   test('limite off shows nothing', async ($, on) => {
-    mock.store(on, { flags: { limite: false } })
+    mock.store(on, { ...PT, flags: { limite: false } })
     mock.clock(on)
     engine(on)
     on('session.measure', ($, e) => ({ changed: e.changed }))
@@ -933,7 +934,7 @@ describe('usage limit', () => {
 
 describe('pane links', () => {
   test("a failure's explanation shows under it in the pane, once it arrives", async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     on('tool.call', { tool: 'Bash' }, () => ({ isError: true as const, result: 'Exit code 1\ncat: x: No such file', text: 'Exit code 1\ncat: x: No such file' }))
     engine(on)
@@ -950,7 +951,7 @@ describe('pane links', () => {
   })
 
   test('a touched file opens in the editor, a failure scrolls to its command', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     // The specific tools answer before the engine's catch-all below them.
     on('tool.call', { tool: 'Edit' }, () => ({ result: { filePath: '/a/b/x.ts', structuredPatch: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, lines: ['-a', '+b'] }] } }))
@@ -1026,7 +1027,7 @@ describe('session report', () => {
   })
 
   test('the command shows the report without markdown marks', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engine(on)
     on('ui.copy', () => ({ value: { isCopied: true as const } }))
@@ -1040,7 +1041,7 @@ describe('session report', () => {
   })
 
   test("the report's why follows the erros flag, as the pane does", async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     // The specific tool answers before the engine's catch-all below it.
     on('tool.call', { tool: 'Bash' }, () => ({ isError: true as const, result: 'Exit code 1\ncat: x: No such file', text: 'Exit code 1\ncat: x: No such file' }))
@@ -1063,7 +1064,7 @@ describe('session report', () => {
   })
 
   test('/realce resumo copies the report and shows it', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engine(on)
     const copied: string[] = []
@@ -1080,7 +1081,7 @@ describe('session report', () => {
   })
 
   test('resumo off says how to turn it on', async ($, on) => {
-    mock.store(on, { flags: { resumo: false } })
+    mock.store(on, { ...PT, flags: { resumo: false } })
     const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
     expect((await $.command.run({ ...RUN, args: 'resumo' })).text).toBe('Recurso desligado: Resumo da sessão. /realce resumo on liga.')
   })

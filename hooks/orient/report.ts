@@ -3,6 +3,7 @@ import type { EngineInterface } from 'claude-code'
 
 import type { Failure, FileTouch, TimelineRow } from '../../types'
 import { getFlags } from '../flags'
+import { tr } from '../i18n'
 import { formatClock, formatDuration, plural, testCount } from '../format'
 import { allCommits, explanationFor } from '../screen/notes'
 import { shortPath } from '../screen/toolInfo'
@@ -36,19 +37,23 @@ const inlineCode = (text: string) => {
 
 /** The session in markdown, ready to paste into a PR or a report: turns and their seals, tests, files, git, failures. */
 export function reportText(r: ReportInput): string {
-  if (r.timeline.length + r.files.length + r.commits.length + r.failures.length === 0) return '## Resumo da sessão\n\nNada aconteceu ainda nesta sessão.'
+  const title = tr('## Session summary', '## Resumo da sessão')
+  if (r.timeline.length + r.files.length + r.commits.length + r.failures.length === 0) {
+    return `${title}\n\n${tr('Nothing happened in this session yet.', 'Nada aconteceu ainda nesta sessão.')}`
+  }
   const first = r.timeline[0]
   const last = r.timeline[r.timeline.length - 1]
   const span = first === undefined || last === undefined ? '' : ` (${formatClock(first.at, r.tzOffsetMinutes)}–${formatClock(last.at + (last.durationMs ?? 0), r.tzOffsetMinutes)})`
-  const lines = [`## Resumo da sessão${span}`, '']
+  const lines = [`${title}${span}`, '']
   if (r.timeline.length > 0) {
     const count = (seal: TimelineRow['seal']) => r.timeline.filter(t => t.seal === seal).length
     const seals = [
-      count('proved') > 0 ? `✔ ${plural(count('proved'), 'provado', 'provados')}` : null,
-      count('unproved') > 0 ? `⚠ ${count('unproved')} sem prova` : null,
-      count('failing') > 0 ? `✖ ${count('failing')} com testes falhando` : null,
+      count('proved') > 0 ? `✔ ${plural(count('proved'), tr('proved', 'provado'), tr('proved', 'provados'))}` : null,
+      count('unproved') > 0 ? `⚠ ${count('unproved')} ${tr('without proof', 'sem prova')}` : null,
+      count('failing') > 0 ? `✖ ${count('failing')} ${tr('with tests failing', 'com testes falhando')}` : null,
     ].filter((s): s is string => s !== null)
-    lines.push(`- **Turnos:** ${r.isTimelineFull === true ? `os últimos ${r.timeline.length}` : r.timeline.length}${seals.length === 0 ? '' : ` (${seals.join(' · ')})`}`)
+    const turns = r.isTimelineFull === true ? tr(`the last ${r.timeline.length}`, `os últimos ${r.timeline.length}`) : r.timeline.length
+    lines.push(`- **${tr('Turns', 'Turnos')}:** ${turns}${seals.length === 0 ? '' : ` (${seals.join(' · ')})`}`)
     // The last ten prompts, each with its verdict: what was asked, at a glance.
     for (const t of r.timeline.slice(-MAX_TURNS)) {
       const seal = sealLabel(t.seal)
@@ -58,25 +63,27 @@ export function reportText(r: ReportInput): string {
     }
     const tests = [...r.timeline].reverse().find(t => t.tests !== null)?.tests
     if (tests !== undefined && tests !== null) {
-      lines.push(`- **Testes:** último placar ${tests.failed === 0 ? `✔ ${testCount(tests.passed, tests.unit)}` : `✖ ${plural(tests.failed, 'teste falhou', 'testes falharam')}`}`)
+      const score = tests.failed === 0 ? `✔ ${testCount(tests.passed, tests.unit)}` : `✖ ${plural(tests.failed, tr('test failed', 'teste falhou'), tr('tests failed', 'testes falharam'))}`
+      lines.push(`- **${tr('Tests', 'Testes')}:** ${tr('last score', 'último placar')} ${score}`)
     }
   }
   if (r.files.length > 0) {
     const added = r.files.reduce((n, f) => n + f.added, 0)
     const removed = r.files.reduce((n, f) => n + f.removed, 0)
-    lines.push(`- **Arquivos:** ${r.files.length} (+${added} −${removed})`)
+    lines.push(`- **${tr('Files', 'Arquivos')}:** ${r.files.length} (+${added} −${removed})`)
     for (const f of r.files) lines.push(`  - \`${shortPath(f.path, r.cwd)}\` +${f.added} −${f.removed}`)
   }
   if (r.commits.length > 0) lines.push(`- **Git:** ${r.commits.join(' · ')}`)
   if (r.failures.length > 0) {
     const f = r.failures[r.failures.length - 1]!
-    lines.push(`- **Falhas:** ${r.isFailuresFull === true ? `as últimas ${r.failures.length}` : r.failures.length} (última: ${inlineCode(f.command)} → ${f.line.replace(/`/g, 'ˋ')})`)
-    if (r.lastWhy !== undefined) lines.push(`  - Por quê: ${r.lastWhy}`)
+    const count = r.isFailuresFull === true ? tr(`the last ${r.failures.length}`, `as últimas ${r.failures.length}`) : r.failures.length
+    lines.push(`- **${tr('Failures', 'Falhas')}:** ${count} (${tr('last', 'última')}: ${inlineCode(f.command)} → ${f.line.replace(/`/g, 'ˋ')})`)
+    if (r.lastWhy !== undefined) lines.push(`  - ${tr('Why', 'Por quê')}: ${r.lastWhy}`)
   }
   return lines.join('\n')
 }
 
-/** `/realce resumo`: the report shown, and on the clipboard. */
+/** `/realce summary` (`resumo`): the report shown, and on the clipboard. */
 export async function reportCommand($: EngineInterface, cwd: string, tzOffsetMinutes: number): Promise<string> {
   const [timeline, files, failures] = await Promise.all([read($, TIMELINE), read($, FILES), read($, FAILURES)])
   // The why follows the erros flag, as the pane's does.
@@ -89,5 +96,6 @@ export async function reportCommand($: EngineInterface, cwd: string, tzOffsetMin
   const copied = await $.ui.copy({ text })
   // The clipboard takes the markdown; the transcript shows it as text, where the marks would print as written.
   const plain = text.replace(/\*\*/g, '').replace(/`/g, '').replace(/^## /gm, '')
-  return `${copied.isCopied ? 'Resumo copiado em markdown.' : `Não deu para copiar (${copied.reason}).`}\n\n${plain}`
+  const said = copied.isCopied ? tr('Summary copied as markdown.', 'Resumo copiado em markdown.') : tr(`Could not copy (${copied.reason}).`, `Não deu para copiar (${copied.reason}).`)
+  return `${said}\n\n${plain}`
 }

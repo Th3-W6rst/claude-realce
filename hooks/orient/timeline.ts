@@ -4,6 +4,7 @@ import type { Args, EngineInterface, ResultOf } from 'claude-code'
 import type { TimelineRow } from '../../types'
 import { formatClock, formatDuration } from '../format'
 import { sealLabel, turnStatsFor } from '../screen/turns'
+import { tr } from '../i18n'
 
 const TIMELINE = atom({ plugin: 'realce', key: 'timeline' } as const, [])
 
@@ -58,7 +59,9 @@ export async function completeTimeline($: EngineInterface, e: Args<'turn.complet
 
 /** What the person reads when the transcript would not move: the common case in words, any other as the engine said. */
 export function scrollRefusal(deny: string): string {
-  return /person-initiated|none scrolls/.test(deny) ? 'A linha do tempo rola só em tela cheia.' : `Não deu para rolar: ${deny}.`
+  return /person-initiated|none scrolls/.test(deny)
+    ? tr('The timeline scrolls in fullscreen only.', 'A linha do tempo rola só em tela cheia.')
+    : tr(`Could not scroll: ${deny}.`, `Não deu para rolar: ${deny}.`)
 }
 
 /** From a press in the pane: the transcript moves to the row, or the person is told why it cannot. */

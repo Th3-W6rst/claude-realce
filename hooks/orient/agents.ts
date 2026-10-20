@@ -27,6 +27,6 @@ export async function refreshAgents($: EngineInterface): Promise<void> {
     await update($, AGENTS, current => rowsOf(list, current, now))
   } catch (error) {
     // A timer has no dispatch to fail: the failure is reported, never swallowed.
-    $.ui.log(`realce: agentes falhou: ${error instanceof Error ? error.message : String(error)}`)
+    $.ui.log(`realce: agents failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 }

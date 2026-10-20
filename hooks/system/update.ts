@@ -1,6 +1,7 @@
 import type { Args, EngineInterface } from 'claude-code'
 
 import { getFlags } from '../flags'
+import { tr } from '../i18n'
 
 const REMOTE = 'https://raw.githubusercontent.com/Th3-W6rst/claude-realce/main/.claude-plugin/plugin.json'
 const CHANGELOG = 'https://github.com/Th3-W6rst/claude-realce/blob/main/CHANGELOG.md'
@@ -51,33 +52,35 @@ const marketplaceOf = (root: string) => /\/plugins\/cache\/([^/]+)\//.exec(root)
 async function runCheck($: EngineInterface): Promise<void> {
   const local = await localVersion($)
   if (local === null) {
-    lastStatus = 'Atualização: não verificada (versão instalada não lida).'
+    lastStatus = tr('Update: not checked (the installed version was not read).', 'Atualização: não verificada (versão instalada não lida).')
     return
   }
   let remote: string | null
   try {
     const response = await $.http.fetch(REMOTE)
     if (!response.ok) {
-      lastStatus = `Atualização: não verificada (GitHub respondeu ${response.status}).`
+      lastStatus = tr(`Update: not checked (GitHub answered ${response.status}).`, `Atualização: não verificada (GitHub respondeu ${response.status}).`)
       return
     }
     remote = versionOf(response.text)
   } catch (error) {
-    lastStatus = `Atualização: não verificada (${error instanceof Error ? error.message : String(error)}).`
+    const why = error instanceof Error ? error.message : String(error)
+    lastStatus = tr(`Update: not checked (${why}).`, `Atualização: não verificada (${why}).`)
     return
   }
   if (remote === null || remote === '') {
-    lastStatus = 'Atualização: não verificada (versão no GitHub não lida).'
+    lastStatus = tr("Update: not checked (GitHub's version was not read).", 'Atualização: não verificada (versão no GitHub não lida).')
     return
   }
   await $.store.set('updateCheckedAt', await $.clock.now())
   if (compareVersions(remote, local) <= 0) {
-    lastStatus = `Atualização: em dia (${local}).`
+    lastStatus = tr(`Update: up to date (${local}).`, `Atualização: em dia (${local}).`)
     return
   }
-  lastStatus = `Atualização: ${remote} disponível (instalada ${local}). Novidades: ${CHANGELOG}`
+  lastStatus = tr(`Update: ${remote} is out (installed ${local}). What's new: ${CHANGELOG}`, `Atualização: ${remote} disponível (instalada ${local}). Novidades: ${CHANGELOG}`)
   const marketplace = marketplaceOf($.plugin.root)
-  $.ui.toast(`realce ${remote} disponível: claude plugin marketplace update ${marketplace} e claude plugin update realce@${marketplace}`)
+  const how = `claude plugin marketplace update ${marketplace} ${tr('and', 'e')} claude plugin update realce@${marketplace}`
+  $.ui.toast(tr(`realce ${remote} is out: ${how}`, `realce ${remote} disponível: ${how}`))
 }
 
 /** At most once a day, in an interactive session, off its start: is there a newer realce on GitHub? */

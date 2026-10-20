@@ -6,6 +6,7 @@ import { findDeltas, parseNumber } from '../hooks/text/deltas'
 import { humanizeAmount } from '../hooks/format'
 import { parseInline, toPlainMarkdown } from '../hooks/text/inline'
 import { cellWidth, fitColumns, isNumericColumn, parseTable } from '../hooks/text/table'
+import { PT } from './lang'
 
 const kindsOf = (line: string) => parseInline(line).map(s => [s.text, s.kinds.join('+')])
 
@@ -81,7 +82,7 @@ const REPLY = '**O conserto:** agora {+passa+}.\n\n```ts\nconst a = 1\n```'
 
 describe('reply', () => {
   test('the terminal draws the reply colored by kind', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'AssistantMessage', props: { text: REPLY, isFirstOfReply: true } })
     // `find` matches by inclusion, outermost first: the span is the Text holding exactly that run.
     const paintOf = async (text: string) => (await ui.findAll({ type: 'Text', text })).find(el => el.text === text)?.props
@@ -91,7 +92,7 @@ describe('reply', () => {
   })
 
   test('other surfaces get the marks as plain bold', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     let drawn = ''
     // Stands for the engine's own drawing, which reads the text the plugin handed down.
     on('ui.render', { component: 'AssistantMessage' }, ($, e) => {
@@ -109,7 +110,7 @@ type Mount = { text: string; columns?: number; flags?: Record<string, boolean>; 
 
 // Draws one reply through the mod on the terminal, the engine's own drawing beneath it.
 async function draw($: Engine, on: On, m: Mount) {
-  mock.store(on, { ...(m.flags ? { flags: m.flags } : {}), ...(m.master === undefined ? {} : { master: m.master }) })
+  mock.store(on, { ...PT, ...(m.flags ? { flags: m.flags } : {}), ...(m.master === undefined ? {} : { master: m.master }) })
   on('ui.render', { component: 'AssistantMessage' }, ($, e) => {
     const { Text } = $.ui.resolve(e)
     return <Text>engine</Text>
@@ -396,20 +397,20 @@ describe('breathing room', () => {
   })
 
   test('long items get a blank line between them, short ones stay compact', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const ui = await mountList($, `- curto\n- outro curto\n- ${LONG}\n- curto de novo`)
     const gap = async (n: number) => (await ui.find({ key: `block-${n}` }))?.props.marginTop
     expect([await gap(1), await gap(2), await gap(3)]).toEqual([0, 1, 1])
   })
 
   test('an item never breathes before the sub-items it opens', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const ui = await mountList($, `- ${LONG}\n  - sub-item`)
     expect((await ui.find({ key: 'block-1' }))?.props.marginTop).toBe(0)
   })
 
   test('respiro off keeps lists compact', async ($, on) => {
-    mock.store(on, { flags: { respiro: false } })
+    mock.store(on, { ...PT, flags: { respiro: false } })
     const ui = await mountList($, `- ${LONG}\n- ${LONG}`)
     expect((await ui.find({ key: 'block-1' }))?.props.marginTop).toBe(0)
   })

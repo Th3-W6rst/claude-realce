@@ -1,5 +1,6 @@
 import type { TestScore } from '../../types'
 import { formatDecimal, formatDuration } from '../format'
+import { tr } from '../i18n'
 
 // A runner's summary and where it ends in the output: the one ending last is the run's own.
 type Found = { score: TestScore; at: number }
@@ -158,15 +159,16 @@ export function parseTestSummary(output: string): TestScore | null {
 
 export function formatSeconds(seconds: number): string {
   if (seconds >= 60) return formatDuration(seconds * 1000)
-  return `${formatDecimal(seconds, seconds < 10 ? 2 : 1).replace(/,?0+$/, '')}s`
+  // Trailing zeros go, the mark with them when nothing is left after it: "2,50" → "2,5", "20.0" → "20".
+  return `${formatDecimal(seconds, seconds < 10 ? 2 : 1).replace(/[.,]?0+$/, '')}s`
 }
 
-/** '✔ 426 passaram · ✖ 2 falharam · ⏭ 3 pulados · ⏱ 12,3s': skipped and time only when there are. */
+/** '✔ 426 passed · ✖ 2 failed · ⏭ 3 skipped · ⏱ 12.3s' (or in Portuguese): skipped and time only when there are. */
 export function formatScore(s: TestScore): string {
-  const noun = (n: number) => (s.unit === 'pacotes' ? (n === 1 ? 'pacote ' : 'pacotes ') : '')
+  const noun = (n: number) => (s.unit === 'pacotes' ? `${n === 1 ? tr('package', 'pacote') : tr('packages', 'pacotes')} ` : '')
   const verb = (n: number, one: string, many: string) => `${n} ${noun(n)}${n === 1 ? one : many}`
-  const parts = [`✔ ${verb(s.passed, 'passou', 'passaram')}`, `✖ ${verb(s.failed, 'falhou', 'falharam')}`]
-  if (s.skipped > 0) parts.push(`⏭ ${verb(s.skipped, 'pulado', 'pulados')}`)
+  const parts = [`✔ ${verb(s.passed, tr('passed', 'passou'), tr('passed', 'passaram'))}`, `✖ ${verb(s.failed, tr('failed', 'falhou'), tr('failed', 'falharam'))}`]
+  if (s.skipped > 0) parts.push(`⏭ ${verb(s.skipped, tr('skipped', 'pulado'), tr('skipped', 'pulados'))}`)
   if (s.seconds !== undefined) parts.push(`⏱ ${formatSeconds(s.seconds)}`)
   return parts.join(' · ')
 }

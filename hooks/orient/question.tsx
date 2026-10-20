@@ -5,15 +5,16 @@ import { plural } from '../format'
 import { SCREEN } from '../palette'
 import { timed } from '../perf'
 import { asRecord, str } from '../screen/toolInfo'
+import { tr } from '../i18n'
 
 const RECOMMENDED = /\s*\((?:Recomendad[oa]|Recommended)\)\s*$/i
 
-/** '◆ O Claude precisa de você · 2 perguntas · recomendada: Público': the line above the engine's dialog. */
+/** '◆ Claude needs you · 2 questions · recommended: Public' (or in Portuguese): the line above the engine's dialog. */
 export function questionHeader(questions: readonly unknown[]): string {
-  const parts = ['◆ O Claude precisa de você', plural(questions.length, 'pergunta', 'perguntas')]
+  const parts = [tr('◆ Claude needs you', '◆ O Claude precisa de você'), plural(questions.length, tr('question', 'pergunta'), tr('questions', 'perguntas'))]
   const labels = questions.flatMap(q => (Array.isArray(asRecord(q).options) ? (asRecord(q).options as unknown[]) : [])).map(o => str(asRecord(o).label) ?? '')
   const recommended = labels.find(l => RECOMMENDED.test(l))
-  if (recommended !== undefined) parts.push(`recomendada: ${recommended.replace(RECOMMENDED, '')}`)
+  if (recommended !== undefined) parts.push(`${tr('recommended', 'recomendada')}: ${recommended.replace(RECOMMENDED, '')}`)
   return parts.join(' · ')
 }
 

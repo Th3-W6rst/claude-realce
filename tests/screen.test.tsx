@@ -12,6 +12,7 @@ import { cardText, commitCards } from '../hooks/screen/commit'
 import { claimsDone, sealOf } from '../hooks/screen/seal'
 import { turnRule } from '../hooks/screen/turns'
 import type { AgentRow } from '../types'
+import { PT } from './lang'
 
 // Stands for the engine's own drawing of a component beneath the plugin.
 function engineRow(on: On, component: 'ToolUse' | 'ToolGroup' | 'ToolResult' | 'TurnDuration' | 'UserMessage' | 'Spinner'): void {
@@ -102,7 +103,7 @@ describe('tools by kind', () => {
   })
 
   test('an edit row shows icon, verb and colored counts', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'ToolUse')
     const ui = await $.ui.mount({
       plugin: 'realce',
@@ -118,7 +119,7 @@ describe('tools by kind', () => {
   })
 
   test('a remembered row is drawn again when its call settles', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'ToolUse')
     const input = { file_path: '/a/b/x.ts', old_string: 'a', new_string: 'a\nb\nc' }
     const running = { tool_use_id: 'm1', tool: 'Edit', input, isRunning: true, isErrored: false, isInterrupted: false }
@@ -134,7 +135,7 @@ describe('tools by kind', () => {
 
   test('a call with its result is settled, whatever isRunning says', async ($, on) => {
     // Seen live: a pytest that wrote files kept isRunning true on every draw after its result came back.
-    mock.store(on)
+    mock.store(on, PT)
     on('ui.invalidate', () => ({ value: undefined }))
     engineRow(on, 'ToolUse')
     engineRow(on, 'ToolGroup')
@@ -149,7 +150,7 @@ describe('tools by kind', () => {
   })
 
   test('a Bash row draws its command highlighted, two lines at most', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'ToolUse')
     const ui = await $.ui.mount({
       plugin: 'realce',
@@ -165,7 +166,7 @@ describe('tools by kind', () => {
   })
 
   test('running, errored and interrupted rows', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'ToolUse')
     const row = (state: { isRunning: boolean; isErrored: boolean; isInterrupted: boolean }) =>
       $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolUse', props: { tool_use_id: 't1', tool: 'Read', input: { file_path: '/x.ts' }, ...state } })
@@ -177,7 +178,7 @@ describe('tools by kind', () => {
   })
 
   test('a folded group draws one dim line; expanded is the engine', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'ToolGroup')
     const calls = [
       { tool: 'Read', input: { file_path: '/x.ts' }, isRunning: false, isErrored: false, isInterrupted: false },
@@ -190,7 +191,7 @@ describe('tools by kind', () => {
   })
 
   test('ferramentas off draws the engine rows, and unknown tools are the engine', async ($, on) => {
-    mock.store(on, { flags: { ferramentas: false } })
+    mock.store(on, { ...PT, flags: { ferramentas: false } })
     engineRow(on, 'ToolUse')
     const ui = await $.ui.mount({
       plugin: 'realce',
@@ -256,7 +257,7 @@ describe('test score', () => {
   })
 
   test('a Bash row carries its test score under the command', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'ToolUse')
     const ui = await $.ui.mount(bashRow({ output: BASH_OK('===== 426 passed, 2 failed, 3 skipped in 12.30s ====='), isErrored: false }))
     const score = await ui.find({ key: 'realce-score' })
@@ -266,14 +267,14 @@ describe('test score', () => {
   })
 
   test('an errored run reads the text the model read', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'ToolUse')
     const ui = await $.ui.mount(bashRow({ output: 'Exit code 1\n 15 pass\n 1 fail\nRan 16 tests across 1 file. [0.62s]', isErrored: true }))
     expect((await ui.find({ key: 'realce-score' }))?.text).toBe('  ✔ 15 passaram · ✖ 1 falhou · ⏱ 0,62s')
   })
 
   test('placar off, or no summary, leaves the row without a score', async ($, on) => {
-    mock.store(on, { flags: { placar: false } })
+    mock.store(on, { ...PT, flags: { placar: false } })
     engineRow(on, 'ToolUse')
     const off = await $.ui.mount(bashRow({ output: BASH_OK('===== 1 passed in 0.10s ====='), isErrored: false }))
     expect(await off.find({ key: 'realce-score' })).toBeUndefined()
@@ -298,7 +299,7 @@ describe('turn rule', () => {
   })
 
   test('a turn closes with its stats', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on, { now: Date.UTC(2026, 9, 19, 18, 35) })
     engineEvents(on)
     engineRow(on, 'TurnDuration')
@@ -316,7 +317,7 @@ describe('turn rule', () => {
   })
 
   test('a subagent turn and a call into a running turn leave the main stats alone', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engineEvents(on)
     engineRow(on, 'TurnDuration')
@@ -333,7 +334,7 @@ describe('turn rule', () => {
 
   test('a turn no prompt.submit opened still gets its stats', async ($, on) => {
     // The mod's own prompt (the demo) skips the mod's own prompt.submit hook.
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engineEvents(on)
     const written = watchState(on)
@@ -352,7 +353,7 @@ describe('turn rule', () => {
   })
 
   test('a count of nothing stays off the rule', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engineEvents(on)
     engineRow(on, 'TurnDuration')
@@ -370,14 +371,14 @@ describe('turn rule', () => {
   })
 
   test("the person's prompt stays the engine's own row", async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'UserMessage')
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'UserMessage', props: { text: 'oi', origin: { kind: 'composer' }, isExpanded: false } })
     expect(await ui.find({ text: 'engine' })).toBeDefined()
   })
 
   test('separador off draws the engine', async ($, on) => {
-    mock.store(on, { flags: { separador: false } })
+    mock.store(on, { ...PT, flags: { separador: false } })
     engineRow(on, 'TurnDuration')
     engineRow(on, 'UserMessage')
     const end = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'TurnDuration', props: { word: 'Baked', durationMs: 5_000 } })
@@ -414,20 +415,20 @@ describe('commit card', () => {
   const OUTPUT = { stdout: GIT_STDOUT, stderr: '', interrupted: false, gitOperation: { commit: { sha: '9cd805a1b2c3', kind: 'committed', branch: 'main' } } }
 
   test('a Bash row with a git operation draws the card', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'ToolUse')
     const ui = await $.ui.mount(gitRow(OUTPUT))
     expect(await drawnText(ui, 'realce-tool')).toBe('● commit 9cd805a · main · realce 0.3.0: tudo · 8 arquivos +120 −3')
   })
 
   test('without a git operation, or with commits off, the command row', async ($, on) => {
-    mock.store(on, { flags: { commits: false } })
+    mock.store(on, { ...PT, flags: { commits: false } })
     engineRow(on, 'ToolUse')
     expect(await drawnText(await $.ui.mount(gitRow(OUTPUT)), 'realce-tool')).toMatch(/^▶ git commit/)
   })
 
   test('a folded group names the commit it holds', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engineRow(on, 'ToolGroup')
     on('tool.call', { tool: 'Bash' }, () => ({ result: OUTPUT }))
@@ -441,7 +442,7 @@ describe('commit card', () => {
   })
 
   test('a group draw reads no state once the cards are known', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engineRow(on, 'ToolGroup')
     let reads = 0
@@ -460,7 +461,7 @@ describe('commit card', () => {
   })
 
   test('the card fits 40 columns on one line', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'ToolUse')
     const ui = await $.ui.mount(gitRow(OUTPUT, 40))
     const card = (await ui.findAll({ type: 'Text' })).find(t => t.text.startsWith('● commit'))
@@ -502,7 +503,7 @@ describe('error explained', () => {
 
   test('the model is told who ran the command, and how short to be', async ($, on) => {
     // Seen live: "O comando falhou porque você tentou ler…", to a person who ran nothing, cut mid-sentence at 200 chars.
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
     await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
@@ -514,7 +515,7 @@ describe('error explained', () => {
   })
 
   test('a failed command gets one sentence', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
@@ -532,7 +533,7 @@ describe('error explained', () => {
   })
 
   test('a folded group shows the sentence of its failed command', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     engineRow(on, 'ToolGroup')
     explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
@@ -544,7 +545,7 @@ describe('error explained', () => {
   })
 
   test('a long answer is cut to two lines', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     explainWorld(on, () => ({ isAnswered: true, text: `O comando falhou ${'porque sim '.repeat(40)}`, usage: USAGE }))
@@ -556,7 +557,7 @@ describe('error explained', () => {
   })
 
   test('an explanation a reload cut short says so', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engineRow(on, 'ToolUse')
     explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
@@ -570,7 +571,7 @@ describe('error explained', () => {
   })
 
   test('the same error is explained once', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
     await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
@@ -580,7 +581,7 @@ describe('error explained', () => {
   })
 
   test('status counts the explanations sent', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
     on('prompt.compose', () => ({ sections: [] }))
@@ -592,7 +593,7 @@ describe('error explained', () => {
   })
 
   test('the 21st error is not sent', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
     for (let i = 0; i < 21; i++) await $.tool.call({ tool: 'Bash', command: `cat f${i}`, tool_use_id: `b${i}` })
@@ -601,7 +602,7 @@ describe('error explained', () => {
   })
 
   test('a model failure says why, once', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     const asked = explainWorld(on, () => ({ isAnswered: false, reason: 'api-error', status: 529, error: { kind: 'overloaded' }, usage: USAGE }))
@@ -612,7 +613,7 @@ describe('error explained', () => {
   })
 
   test('a call that throws says why', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     explainWorld(on, () => ({ deny: 'sem rede' }))
@@ -622,7 +623,7 @@ describe('error explained', () => {
   })
 
   test('answer-style failures are not explained', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
     for (const [i, command] of ['grep foo x.ts', 'test -f a && echo sim', 'quiet', 'stopped'].entries()) await $.tool.call({ tool: 'Bash', command, tool_use_id: `q${i}` })
@@ -641,7 +642,7 @@ describe('error explained', () => {
   })
 
   test('a grep that could not read its file is explained', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
     await $.tool.call({ tool: 'Bash', command: 'grep x sumiu.txt', tool_use_id: 'g2' })
@@ -650,7 +651,7 @@ describe('error explained', () => {
   })
 
   test('erros off sends nothing', async ($, on) => {
-    mock.store(on, { flags: { erros: false } })
+    mock.store(on, { ...PT, flags: { erros: false } })
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
     await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
@@ -670,7 +671,7 @@ describe('focus mode', () => {
   const isHidden = async (ui: { find: (q: { key: string }) => Promise<unknown> }) => (await ui.find({ key: 'realce-hidden' })) !== undefined
 
   test('foco hides a finished row and its result, keeps a running or failed one', async ($, on) => {
-    mock.store(on, { flags: { foco: true } })
+    mock.store(on, { ...PT, flags: { foco: true } })
     engineRow(on, 'ToolUse')
     engineRow(on, 'ToolResult')
     expect(await isHidden(await $.ui.mount(row('Read', { file_path: '/a/b/x.ts' }, {}, 'r1')))).toBe(true)
@@ -685,7 +686,7 @@ describe('focus mode', () => {
   })
 
   test('foco hides a grep with no match, row and result', async ($, on) => {
-    mock.store(on, { flags: { foco: true } })
+    mock.store(on, { ...PT, flags: { foco: true } })
     mock.clock(on)
     engineRow(on, 'ToolUse')
     engineRow(on, 'ToolResult')
@@ -699,7 +700,7 @@ describe('focus mode', () => {
 
   test('foco after a reload hides an answered row and its result alike', async ($, on) => {
     // From the review: with no tool.call seen (a reload, a resumed session) the row was hidden by its text, the result kept.
-    mock.store(on, { flags: { foco: true } })
+    mock.store(on, { ...PT, flags: { foco: true } })
     engineRow(on, 'ToolUse')
     engineRow(on, 'ToolResult')
     const answered = row('Bash', { command: 'grep -q TODO y.ts' }, { isErrored: true }, 'g9')
@@ -709,14 +710,14 @@ describe('focus mode', () => {
   })
 
   test('foco keeps an interrupted row', async ($, on) => {
-    mock.store(on, { flags: { foco: true } })
+    mock.store(on, { ...PT, flags: { foco: true } })
     engineRow(on, 'ToolUse')
     const ui = await $.ui.mount({ ...row('Bash', { command: 'sleep 9' }, {}, 'i1'), props: { ...row('Bash', { command: 'sleep 9' }, {}, 'i1').props, isInterrupted: true } })
     expect(await isHidden(ui)).toBe(false)
   })
 
   test('foco hides a finished group, keeps one with an error', async ($, on) => {
-    mock.store(on, { flags: { foco: true } })
+    mock.store(on, { ...PT, flags: { foco: true } })
     engineRow(on, 'ToolGroup')
     const calls = [{ tool: 'Read', input: { file_path: '/x.ts' }, isRunning: false, isErrored: false, isInterrupted: false }]
     expect(await isHidden(await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } }))).toBe(true)
@@ -725,13 +726,13 @@ describe('focus mode', () => {
   })
 
   test('foco off draws as before', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'ToolUse')
     expect(await isHidden(await $.ui.mount(row('Read', { file_path: '/a/b/x.ts' })))).toBe(false)
   })
 
   test('/realce foco toggles the mode', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
     on('ui.invalidate', () => ({ value: undefined }))
     expect((await $.command.run({ ...RUN, args: 'foco' })).text).toBe('Modo foco ligado.')
@@ -760,7 +761,7 @@ describe('proof seal', () => {
   })
 
   async function turnWith($: Engine, on: On, calls: readonly object[], answer: string, flags: Record<string, boolean> = {}, columns = 100) {
-    mock.store(on, { flags })
+    mock.store(on, { ...PT, flags })
     mock.clock(on)
     engineEvents(on)
     engineRow(on, 'TurnDuration')
@@ -824,7 +825,7 @@ describe('proof seal', () => {
 
 describe('session tracking', () => {
   test('edits and failed commands reach the session lists', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on, { now: 1_000 })
     engineEvents(on)
     const written = watchState(on)
@@ -839,7 +840,7 @@ describe('session tracking', () => {
   })
 
   test('a command whose exit code is an answer, or one cut short, is no failure', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on, { now: 1_000 })
     on('tool.call', { tool: 'Bash' }, ($, e) => {
       const command = String(e.command)
@@ -856,7 +857,7 @@ describe('session tracking', () => {
   })
 
   test('a no-match row reads as an answer, not an error', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'ToolUse')
     engineRow(on, 'ToolGroup')
     const call = { tool_use_id: 'n1', tool: 'Bash', input: { command: 'grep -q TODO hooks/flags.ts' }, isRunning: false, isErrored: true, isInterrupted: false, output: 'Exit code 1' }
@@ -870,7 +871,7 @@ describe('session tracking', () => {
 
   test('a folded group without outputs still counts a real grep error', async ($, on) => {
     // Seen live: the group's calls came without output, and a grep that exited 2 lost its "com erro".
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     engineRow(on, 'ToolGroup')
     on('tool.call', { tool: 'Bash' }, ($, e) =>
@@ -889,7 +890,7 @@ describe('session tracking', () => {
   })
 
   test('the master switch off tracks nothing', async ($, on) => {
-    mock.store(on, { master: false })
+    mock.store(on, { ...PT, master: false })
     mock.clock(on)
     engineEvents(on)
     const written = watchState(on)
@@ -928,7 +929,7 @@ describe('agent cards', () => {
   })
 
   test('the card sums the run', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'UserMessage')
     const ui = await $.ui.mount({
       plugin: 'realce',
@@ -944,7 +945,7 @@ describe('agent cards', () => {
   })
 
   test('a summary-only row takes its status and time from the task', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'UserMessage')
     const ui = await $.ui.mount({
       plugin: 'realce',
@@ -956,7 +957,7 @@ describe('agent cards', () => {
   })
 
   test('the agent list names the card by the task id', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'UserMessage')
     // The agent list is the orientation area's to write: here it stands beneath the plugin.
     const rows: AgentRow[] = [{ id: TASK.id, type: 'opus-medium', description: 'Revisar', status: 'completed', firstSeenAt: 0 }]
@@ -971,7 +972,7 @@ describe('agent cards', () => {
   })
 
   test('expanded, unknown text and agentes off draw the engine', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     engineRow(on, 'UserMessage')
     const mount = (props: { text: string; isExpanded: boolean; task?: typeof TASK }) =>
       $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'UserMessage', props: { origin: { kind: 'task-notification' as const }, ...props } })
@@ -997,9 +998,9 @@ describe('spinner', () => {
   }
 
   test('the spinner word follows the mode in Portuguese', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     expect(await spinner($, on, { mode: 'thinking', message: null })).toEqual({ word: 'Pensando', message: null })
-    expect(SPINNER_WORDS['tool-use']).toBe('Executando')
+    expect(SPINNER_WORDS['tool-use']).toEqual({ en: 'Running', pt: 'Executando' })
   })
 
   test('known messages are translated, others kept', async ($, on) => {
@@ -1007,12 +1008,12 @@ describe('spinner', () => {
     expect(translateSpinnerMessage('Waiting for 3 background agents to finish…')).toBe('Esperando 3 agentes em segundo plano…')
     expect(translateSpinnerMessage('Compacting conversation')).toBe('Compactando a conversa')
     expect(translateSpinnerMessage('Doing something else')).toBe('Doing something else')
-    mock.store(on)
+    mock.store(on, PT)
     expect((await spinner($, on, { mode: 'tool-use', message: 'Compacting conversation' })).message).toBe('Compactando a conversa')
   })
 
   test('spinner off keeps the engine word', async ($, on) => {
-    mock.store(on, { flags: { spinner: false } })
+    mock.store(on, { ...PT, flags: { spinner: false } })
     expect((await spinner($, on, { mode: 'thinking', message: null })).word).toBe('Sauteing')
   })
 
@@ -1102,7 +1103,7 @@ describe('spinner', () => {
   })
 
   test('while a call runs the spinner names it, and goes back after', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     let release = () => {}
     const held = new Promise<void>(resolve => (release = resolve))
     on('tool.call', async () => {
@@ -1135,7 +1136,7 @@ describe('spinner', () => {
   })
 
   test('a test run says how long the same command took last time', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     // The first call settles at once; each later one waits for its own release.
     let calls = 0
@@ -1174,7 +1175,7 @@ describe('spinner', () => {
 
   test('a call whose end never came is dropped when the turn ends', async ($, on) => {
     // A reload cancels the old module's pending work: its finally never runs, and the entry would outlive the turn.
-    mock.store(on)
+    mock.store(on, PT)
     on('tool.call', () => new Promise(() => {}))
     on('turn.complete', () => ({ text: '' }))
     let word = ''
@@ -1194,7 +1195,7 @@ describe('spinner', () => {
   })
 
   test('a subagent\'s call leaves the spinner word alone', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     let release = () => {}
     const held = new Promise<void>(resolve => (release = resolve))
     on('tool.call', async () => {

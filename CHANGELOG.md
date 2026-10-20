@@ -1,167 +1,185 @@
-# Novidades do realce
+# What's new in realce
 
-Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
+Versions from October 19 to 20, 2026. Those that only changed internals are left out.
+
+## 0.5.1
+- The first system prompt of a session is already in your language (it was built before the language was read).
+- `/realce language` alone says the language in force and where it comes from; so does `/realce status`.
+- Limit warnings, commit cards and cut-short explanations switch language with the interface; a limit you hid stays
+  hidden across a switch. An open session pane takes the new title.
+- `pt_BR` reads as Portuguese.
+
+## 0.5.0
+- The interface speaks English, or Portuguese for whoever set Claude Code to Portuguese: it follows Claude Code's
+  `language` setting, and `/realce language en|pt|auto` picks one.
+- Every command and flag has an English name (`/realce help`, `/realce focus`, `/realce column off`); the Portuguese
+  names keep working.
+- Claude is taught the callout tags and the change phrase of your language (`[!DECISION]`, "from X to Y"); both
+  languages' tags and phrases are read.
+- The Haiku explains errors and selections in the interface's language; decimals use a dot in English.
+- The README, CHANGELOG and CONTRIBUTING are in English; the repository has a license: MIT.
 
 ## 0.4.40
-- `/realce status` diz sempre a versão instalada (bom para reportar um problema).
-- README: quando uma seta ganha diferença.
+- `/realce status` always says the installed version (handy when reporting a problem).
+- README: when an arrow gets a difference.
 
 ## 0.4.39
-- "(última: …)" reconhece o mesmo teste com `CI=1`, `timeout 120` ou a saída redirecionada (`> saida.log`).
-- O porquê no `/realce resumo` some com a flag `erros` desligada, como no painel.
+- "(last: …)" knows the same test run under `CI=1`, `timeout 120` or with its output redirected (`> out.log`).
+- The why in `/realce summary` goes away with the `errors` flag off, as in the pane.
 
 ## 0.4.38
-- README: o painel da sessão mostra o porquê de cada falha, e o resumo a duração de cada turno.
+- README: the session pane shows each failure's why, and the summary each turn's duration.
 
 ## 0.4.37
-- Uma seta entre números soltos ("testa 4 → 8") não ganha mais uma diferença falsa: é entrada → saída. A seta
-  com unidade ("22 ms → 9 ms") e o "de X para Y" continuam ganhando.
+- An arrow between bare numbers ("tests 4 → 8") no longer gets a false difference: it is an input → output. An arrow
+  with a unit ("22 ms → 9 ms") and "from X to Y" still do.
 
 ## 0.4.36
-- `/realce resumo` leva a explicação da última falha, quando o Haiku já respondeu.
+- `/realce summary` carries the last failure's explanation, once the Haiku has answered.
 
 ## 0.4.35
-- O painel da sessão mostra, sob cada falha, a explicação do Haiku assim que ela chega.
+- The session pane shows the Haiku's explanation under each failure as soon as it arrives.
 
 ## 0.4.34
-- Duas ferramentas diferentes em paralelo viram uma frase no spinner: "Lendo e buscando".
-- Nomes longos no spinner são cortados sem partir emoji.
+- Two different tools running at once read as one phrase in the spinner: "Reading and searching".
+- Long names in the spinner are cut without splitting an emoji.
 
 ## 0.4.33
-- "Rodando os testes (última: …)" reconhece o mesmo teste com outro filtro (`pytest -q | tail -1` e
+- "Running the tests (last: …)" knows the same test behind another filter (`pytest -q | tail -1` and
   `cd . && pytest -q 2>&1 | tail -3`).
 
 ## 0.4.32
-- `/realce resumo` mostra quanto durou cada turno.
-- A régua do turno da demo mostra a hora, como as outras.
+- `/realce summary` shows how long each turn took.
+- The demo turn's rule shows the time, as the others do.
 
 ## 0.4.31
-- Um `grep` no fim de uma cadeia (`npm run build && grep -q ok`) não esconde mais uma falha real do build: só conta
-  como resposta quando nada mais no comando pode falhar.
-- Saída sem código de erro (tempo esgotado, recusa) não conta como resposta.
-- O spinner ignora o corpo de heredocs e comentários `#`, e entende `PYTHONPATH=./src pytest` e `2>&1`.
-- Modo foco: depois de recarregar o mod, a linha e o resultado de um `grep` sem resultado somem juntos.
+- A `grep` at the end of a chain (`npm run build && grep -q ok`) no longer hides a real build failure: it only counts
+  as an answer when nothing else in the command can fail.
+- Output with no exit code (a timeout, a refusal) does not count as an answer.
+- The spinner skips heredoc bodies and `#` comments, and reads `PYTHONPATH=./src pytest` and `2>&1`.
+- Focus mode: after the mod reloads, the row and the result of a `grep` with no match go away together.
 
 ## 0.4.30
-- Correção da 0.4.29: num grupo dobrado, um `grep` com erro de verdade volta a contar "com erro".
+- Fix for 0.4.29: in a folded group, a `grep` with a real error counts as "failed" again.
 
 ## 0.4.29
-- Um `grep` sem resultado, um `test -f` falso ou um `which` que não achou aparecem como resposta ("sem resultado"),
-  não como erro, e ficam fora de "Falhas"; com saída 2 (arquivo que não existe) continuam erro.
-- Um comando interrompido não conta como falha.
-- O spinner nomeia skills ("Carregando a skill …"), a atualização do plano e as ferramentas MCP.
+- A `grep` with no match, a false `test -f` or a `which` that found nothing show as an answer ("no match"), not as
+  an error, and stay out of "Failures"; with exit code 2 (a file that does not exist) they stay errors.
+- An interrupted command does not count as a failure.
+- The spinner names skills ("Loading the skill …"), plan updates and MCP tools.
 
 ## 0.4.28
-- `/realce demo`: o exemplo em amarelo se lê como exemplo ("aprovar o deploy (exemplo)") e a resposta diz que ele
-  sobe para a faixa acima do prompt; imagens do README atualizadas.
+- `/realce demo`: the yellow example reads as an example ("approve the deploy (example)"), and the reply says it goes
+  up to the band above the prompt; the README pictures are redrawn.
 
 ## 0.4.27
-- Enquanto os testes rodam, o spinner diz quanto o mesmo comando levou da última vez: "Rodando os testes (última: 6,2s)".
+- While the tests run, the spinner says how long the same command took last time: "Running the tests (last: 6.2s)".
 
 ## 0.4.26
-- A linha do tempo mostra o pedido de um plugin (como o `/realce demo`) pelas palavras dele, sem a moldura em inglês.
+- The timeline shows a plugin's prompt (such as `/realce demo`'s) by its own words, without Claude Code's frame.
 
 ## 0.4.25
-- A régua do turno não mostra "0 arquivos" nem "0 ferramentas".
-- A explicação de um erro fala do comando, não de "você", em uma frase curta.
-- O spinner reconhece mais comandos de teste (`npm --prefix app test`, `yarn test:unit`, `.venv/bin/python -m pytest`,
-  `pnpm vitest run`) e não confunde um commit cuja mensagem cita testes.
+- The turn's rule no longer shows "0 files" or "0 tools".
+- An error's explanation speaks of the command, not of "you", in one short sentence.
+- The spinner knows more test commands (`npm --prefix app test`, `yarn test:unit`, `.venv/bin/python -m pytest`,
+  `pnpm vitest run`) and no longer mistakes a commit whose message mentions tests.
 
 ## 0.4.24
-- "Precisa de você" mantém o código citado no pedido (`@pytest.mark.slow` sumia).
-- A explicação de um erro longo quebra recuada, sob ela mesma.
+- "Needs you" keeps the code quoted in what is asked (`@pytest.mark.slow` went missing).
+- A long error explanation wraps indented, under itself.
 
 ## 0.4.23
-- Um comando que termina mexendo em arquivos (um pytest que grava caches) não fica mais com o ícone de "rodando".
-- O Claude aprende as marcas de cor com exemplos reais e não escreve mais `{!attention!}` como etiqueta.
+- A command that ends by touching files (a pytest writing caches) no longer keeps the "running" icon.
+- Claude learns the color marks from real examples and no longer writes `{!attention!}` as a tag.
 
 ## 0.4.22
-- O spinner diz o que roda agora: "Rodando os testes", "Editando render.tsx", "Lendo 3 arquivos",
-  "Delegando: Revisar o diff".
+- The spinner says what runs now: "Running the tests", "Editing render.tsx", "Reading 3 files",
+  "Delegating: Review the diff".
 
 ## 0.4.21
-- Selo de prova mais rígido: um documento que cita "12 examples, 0 failures" ou um título "# tests 3" não conta
-  mais como teste; o Deno é reconhecido com testes filtrados, passos e tempo em minutos.
-- `/realce print` no tema ANSI sai nas cores do tema claro ou escuro.
-- `/realce resumo`: avisa quando mostra só os últimos 50 turnos ou as últimas 20 falhas; comandos de várias linhas
-  não quebram o markdown; na conversa aparece sem as marcas de markdown.
-- O contexto no painel fica amarelo a partir de 90%, como o aviso.
-- Rolagem recusada diz o motivo real.
+- A stricter proof seal: a document quoting "12 examples, 0 failures" or a "# tests 3" heading no longer counts as a
+  test run; Deno is read with filtered tests, steps and times in minutes.
+- `/realce print` on an ANSI theme comes out in the light or dark theme's colors.
+- `/realce summary`: says when it shows only the last 50 turns or the last 20 failures; multi-line commands do not
+  break the markdown; in the conversation it shows without the markdown marks.
+- The context in the pane turns yellow from 90%, as its warning does.
+- A refused scroll says the real reason.
 
 ## 0.4.20
-- `/realce diagnostico` confere o que a máquina dá ao realce (versão do Claude Code, cor de 24 bits, macOS, tela
-  cheia, editor, mermaid-cli, Chrome headless) e diz o que falta instalar.
+- `/realce doctor` checks what the machine gives realce (Claude Code's version, 24-bit color, macOS, fullscreen,
+  editor, mermaid-cli, headless Chrome) and says what to install.
 
 ## 0.4.19
-- `/realce explica <texto>` explica o texto escrito, sem precisar selecionar (útil fora da tela cheia).
-- O `/realce resumo` lista os últimos dez turnos, cada um com o seu selo.
+- `/realce explain <text>` explains the text written, with no selection needed (useful outside fullscreen).
+- `/realce summary` lists the last ten turns, each with its seal.
 
 ## 0.4.18
-- "1 teste" no singular no resumo e na faixa "Enquanto você estava fora".
+- "1 test" in the singular in the summary and in the "While you were away" band.
 
 ## 0.4.17
-- Respostas longas ganham um botão "Copiar resposta"; `/realce copiar` copia a última resposta.
-- `/realce resumo` mostra e copia um resumo da sessão em markdown (turnos e selos, testes, arquivos, git, falhas),
-  pronto para colar num PR ou num relatório.
+- Long replies get a "Copy reply" button; `/realce copy` copies the last reply.
+- `/realce summary` shows and copies a summary of the session in markdown (turns and seals, tests, files, git,
+  failures), ready to paste into a PR or a report.
 
 ## 0.4.16
-- README reorganizado para quem acabou de instalar: requisitos, custo dos recursos que usam o Haiku, como pausar e
-  remover, primeiros passos com um exemplo concreto. O guia de desenvolvimento foi para o [CONTRIBUTING](CONTRIBUTING.md).
+- The README is laid out for someone who just installed it: requirements, the cost of the features that use the
+  Haiku, how to pause and remove it, first steps with a concrete example. The development guide moved to
+  [CONTRIBUTING](CONTRIBUTING.md).
 
 ## 0.4.15
-- Painel de flags com um botão para ligar e desligar o realce inteiro.
-- A explicação do `/realce explica` fecha pelo próprio painel.
-- `/realce status` conta quantos erros já foram explicados pelo Haiku na sessão (no máximo 20).
+- The flags pane has a button that turns the whole of realce on and off.
+- `/realce explain`'s explanation closes from the pane itself.
+- `/realce status` counts how many errors the Haiku explained this session (at most 20).
 
 ## 0.4.14
-- Painel da sessão: cada arquivo tocado abre no editor e cada falha rola até o seu comando na conversa.
+- Session pane: each touched file opens in the editor, and each failure scrolls to its command in the conversation.
 
 ## 0.4.13
-- Temas ANSI: as cores seguem as 16 cores do terminal (antes saíam em tons fixos).
+- ANSI themes: the colors follow the terminal's 16 colors (they used to be fixed shades).
 
 ## 0.4.12
-- Placar e selo de prova também entendem `node --test`, RSpec e Deno.
+- The test score and the proof seal also read `node --test`, RSpec and Deno.
 
 ## 0.4.11
-- O Claude sabe que a régua sela o turno pelos testes, e roda os testes antes de dizer que terminou.
-- A dica de boas-vindas cita o `/realce ajuda`.
+- Claude knows the rule seals the turn by its tests, and runs the tests before saying it is done.
+- The welcome hint names `/realce help`.
 
 ## 0.4.10
-- Painel da sessão com uma linha de uso: contexto e janelas de 5 h e de 7 dias, coloridas pelo quanto já foi usado.
+- The session pane has a usage line: the context and the 5-hour and 7-day windows, colored by how much is used.
 
 ## 0.4.9
-- Alerta de limite: o contexto avisa a partir de 90%; a renovação a mais de um dia diz a data; enquanto o Claude
-  trabalha, a barra do plano vem antes.
-- O aviso pelo macOS nunca atrasa a pergunta do Claude.
-- Print: a altura certa mesmo com um diagrama que não virou imagem.
+- Limit warning: the context warns from 90%; a reset more than a day away says its date; while Claude works, the plan
+  bar comes first.
+- The macOS notice never delays Claude's question.
+- Print: the right height even with a diagram that did not become a picture.
 
 ## 0.4.8
-- `/realce ajuda` lista os comandos; o status de atualização aponta para este CHANGELOG.
+- `/realce help` lists the commands; the update status points to this CHANGELOG.
 
 ## 0.4.7
-- `/realce status` diz se a tela cheia está ligada e o que depende dela.
-- `/realce print` funciona com espaços no caminho.
+- `/realce status` says whether fullscreen is on and what depends on it.
+- `/realce print` works with spaces in the path.
 
 ## 0.4.6
-- Tema claro: as palavras trocadas do diff com contraste certo.
+- Light theme: the diff's changed words with the right contrast.
 
 ## 0.4.4
-- Aviso de fim de turno pelo banner do macOS quando o terminal não tem canal de notificação (tmux, Terminal.app).
-- Painel de flags com uma linha por flag.
-- Alerta de limite (flag `limite`): faixa quando a janela de 5 h ou de 7 dias, ou o contexto, se aproxima do fim.
-- Números humanos também com a unidade antes do número ("tokens: 73201").
+- End-of-turn notice through the macOS banner when the terminal has no notification channel (tmux, Terminal.app).
+- The flags pane shows one line per flag.
+- Limit warning (flag `limits`): a band when the 5-hour or 7-day window, or the context, nears its end.
+- Human numbers also with the unit before the number ("tokens: 73201").
 
 ## 0.4.1
-16 recursos novos, cada um com a sua flag:
-- **Tema:** cores para fundo claro, daltônicos e ANSI, seguindo o tema do Claude Code.
-- **Clareza:** selo de prova na régua do turno, diff por palavra, cartão de commit, erro de comando explicado (Haiku).
-- **Atenção:** aviso quando um turno longo termina ou o Claude pergunta, som opcional, "Enquanto você estava fora",
-  linha do tempo dos turnos no painel, cabeçalho nas perguntas.
-- **Leitura:** números humanos, `/realce explica`, `/realce fixar`, `/realce foco`.
-- **Sistema:** `/realce print`, `/realce demo`, aviso de atualização.
+16 new features, each with its own flag:
+- **Theme:** colors for light backgrounds, color blindness and ANSI, following Claude Code's theme.
+- **Clarity:** the proof seal on the turn's rule, word diffs, commit cards, explained command errors (Haiku).
+- **Attention:** a notice when a long turn ends or Claude asks something, an optional sound, "While you were away",
+  the turns' timeline in the pane, a header on questions.
+- **Reading:** human numbers, `/realce explain`, `/realce pin`, `/realce focus`.
+- **System:** `/realce print`, `/realce demo`, the update notice.
 
 ## 0.3.1
-- O Claude passa a ser instruído a desenhar diagramas desde a primeira mensagem.
+- Claude is taught to draw diagrams from the first message on.
 
 ## 0.3.0
-- Todas as flags ligadas por padrão (o modo foco e o som entraram depois, desligados); instalação pelo GitHub.
+- Every flag on by default (focus mode and the sound came later, off); install from GitHub.

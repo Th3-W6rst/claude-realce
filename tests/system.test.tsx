@@ -3,10 +3,13 @@ import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 
 import { PALETTES } from '../hooks/palettes'
-import { DEMO_TEXT } from '../hooks/system/demo'
+import { DEMO_TEXTS } from '../hooks/system/demo'
+
+const DEMO_TEXT = DEMO_TEXTS.pt
 import { extractPending } from '../hooks/orient/pending'
 import { compareVersions } from '../hooks/system/update'
 import { estimateHeight, fileUrl, replyHtml } from '../hooks/system/printHtml'
+import { PT } from './lang'
 
 const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
 const CHROME = '/Users/u/.cache/puppeteer/chrome-headless-shell/mac_arm-154/chrome-headless-shell-mac-arm64/chrome-headless-shell'
@@ -90,7 +93,7 @@ describe('/realce print', () => {
   }
 
   test('without Chrome the HTML is kept and said', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on, { now: Date.UTC(2026, 9, 19, 23, 43) })
     const { writes } = printWorld(on, { chrome: false })
     expect((await $.command.run({ ...RUN, args: 'print' })).text).toBe('PNG precisa do Chrome headless; HTML salvo em /Users/u/Desktop/realce-19-10_20-43.html.')
@@ -98,7 +101,7 @@ describe('/realce print', () => {
   })
 
   test('with Chrome it shoots the PNG', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on, { now: Date.UTC(2026, 9, 19, 23, 43) })
     const { runs } = printWorld(on)
     expect((await $.command.run({ ...RUN, args: 'print' })).text).toBe('Print salvo em /Users/u/Desktop/realce-19-10_20-43.png.')
@@ -111,28 +114,28 @@ describe('/realce print', () => {
   })
 
   test('a Chrome that fails says so and keeps the HTML', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on, { now: Date.UTC(2026, 9, 19, 23, 43) })
     printWorld(on, { chromeExit: 1 })
     expect((await $.command.run({ ...RUN, args: 'print' })).text).toBe('O Chrome não gerou o PNG (crashed); HTML salvo em /Users/u/Desktop/realce-19-10_20-43.html.')
   })
 
   test('no reply yet, or no Desktop', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on, { now: Date.UTC(2026, 9, 19, 23, 43) })
     printWorld(on, { reply: null })
     expect((await $.command.run({ ...RUN, args: 'print' })).text).toBe('Nenhuma resposta para imprimir ainda.')
   })
 
   test('without a Desktop it saves in the home', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on, { now: Date.UTC(2026, 9, 19, 23, 43) })
     printWorld(on, { desktop: false })
     expect((await $.command.run({ ...RUN, args: 'print' })).text).toBe('Print salvo em /Users/u/realce-19-10_20-43.png.')
   })
 
   test('print off says how to turn it on', async ($, on) => {
-    mock.store(on, { flags: { print: false } })
+    mock.store(on, { ...PT, flags: { print: false } })
     expect((await $.command.run({ ...RUN, args: 'print' })).text).toBe('Recurso desligado: Print bonito. /realce print on liga.')
   })
 })
@@ -168,7 +171,7 @@ describe('/realce demo', () => {
   }
 
   test('the demo is answered without the model', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const world = demoWorld(on)
     expect(await $.command.run({ ...RUN, args: 'demo' })).toEqual({})
@@ -182,7 +185,7 @@ describe('/realce demo', () => {
 
   test('the demo opens its turn, so its rule gets its stats', async ($, on) => {
     // Seen live: the mod's own submit skips its own prompt.submit hook, and the demo's rule had no time of day.
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     demoWorld(on)
     const written: Record<string, unknown> = {}
@@ -199,7 +202,7 @@ describe('/realce demo', () => {
   })
 
   test('a step with no demo armed goes to the model', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const world = demoWorld(on)
     expect((await readStep($)).texts.join('')).toBe('modelo')
     expect(world.wasModelAsked()).toBe(true)
@@ -213,7 +216,7 @@ describe('/realce demo', () => {
   })
 
   test('a submit that fails disarms the demo and says why', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const logs: string[] = []
     on('ui.log', ($, e) => {
@@ -225,11 +228,11 @@ describe('/realce demo', () => {
     await clock.settle()
     expect((await readStep($)).texts.join('')).toBe('modelo')
     expect(world.wasModelAsked()).toBe(true)
-    expect(logs.some(l => l.startsWith('realce: demo não enviada'))).toBe(true)
+    expect(logs.some(l => l.startsWith('realce: demo not sent'))).toBe(true)
   })
 
   test('only the first step of a turn is the demo', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const world = demoWorld(on)
     await $.command.run({ ...RUN, args: 'demo' })
@@ -241,7 +244,7 @@ describe('/realce demo', () => {
   })
 
   test('demo off says how to turn it on', async ($, on) => {
-    mock.store(on, { flags: { demo: false } })
+    mock.store(on, { ...PT, flags: { demo: false } })
     expect((await $.command.run({ ...RUN, args: 'demo' })).text).toBe('Recurso desligado: Demonstração. /realce demo on liga.')
   })
 })
@@ -267,7 +270,7 @@ describe('welcome hint', () => {
   }
 
   test('the first interactive session hints once', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     const toasts = startWorld(on)
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
@@ -276,7 +279,7 @@ describe('welcome hint', () => {
   })
 
   test('a -p run gets no hint', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     const toasts = startWorld(on)
     await $.session.start({ cwd: '/a/b', surface: null, isInteractive: false })
@@ -330,7 +333,7 @@ describe('update notice', () => {
   })
 
   test('a remote plugin.json without a version is not "em dia"', async ($, on) => {
-    mock.store(on, { demoHintShown: true })
+    mock.store(on, { ...PT, demoHintShown: true })
     const clock = mock.clock(on)
     updateWorld(on, { ok: true, version: '' })
     await start($)
@@ -339,7 +342,7 @@ describe('update notice', () => {
   })
 
   test('a newer version on GitHub is announced', async ($, on) => {
-    mock.store(on, { demoHintShown: true })
+    mock.store(on, { ...PT, demoHintShown: true })
     const clock = mock.clock(on)
     const { toasts, fetched } = updateWorld(on, { ok: true, version: '0.4.1' })
     await start($)
@@ -350,7 +353,7 @@ describe('update notice', () => {
   })
 
   test('the same version says nothing but the status', async ($, on) => {
-    mock.store(on, { demoHintShown: true })
+    mock.store(on, { ...PT, demoHintShown: true })
     const clock = mock.clock(on)
     const { toasts } = updateWorld(on, { ok: true, version: '0.4.0' })
     await start($)
@@ -361,7 +364,7 @@ describe('update notice', () => {
 
   test('a check in the last day is not repeated', async ($, on) => {
     const now = Date.UTC(2026, 9, 20, 12, 0)
-    mock.store(on, { demoHintShown: true, updateCheckedAt: now - 3_600_000 })
+    mock.store(on, { ...PT, demoHintShown: true, updateCheckedAt: now - 3_600_000 })
     const clock = mock.clock(on, { now })
     const { fetched } = updateWorld(on, { ok: true, version: '0.4.1' })
     await start($)
@@ -372,7 +375,7 @@ describe('update notice', () => {
   })
 
   test('a network failure shows only in status', async ($, on) => {
-    mock.store(on, { demoHintShown: true })
+    mock.store(on, { ...PT, demoHintShown: true })
     const clock = mock.clock(on)
     const { toasts } = updateWorld(on, 'deny')
     await start($)
@@ -382,7 +385,7 @@ describe('update notice', () => {
   })
 
   test('atualizacao off or a -p run fetches nothing', async ($, on) => {
-    mock.store(on, { demoHintShown: true, flags: { atualizacao: false } })
+    mock.store(on, { ...PT, demoHintShown: true, flags: { atualizacao: false } })
     const clock = mock.clock(on)
     const { fetched } = updateWorld(on, { ok: true, version: '0.4.1' })
     await start($)

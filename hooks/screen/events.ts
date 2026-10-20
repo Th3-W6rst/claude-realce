@@ -4,7 +4,7 @@ import type { Args, EngineInterface, ResultOf } from 'claude-code'
 import type { Failure, FileTouch, TurnStats } from '../../types'
 import { getFlags, isMasterOn } from '../flags'
 import { parseTestSummary } from './score'
-import { commitCards, shortCardText } from './commit'
+import { commitCards } from './commit'
 import { loadNotes, setCommit } from './notes'
 import { isAnswerExit, maybeExplain, rememberAnswer } from './explainError'
 import { sealOf } from './seal'
@@ -89,7 +89,7 @@ export async function screenToolCall($: EngineInterface, e: Args<'tool.call'>, r
   if (isSubagent) return
   if (e.tool === 'Bash' && !isError && (await getFlags($)).commits) {
     const cards = commitCards(result.result)
-    if (cards.length > 0) await setCommit($, e.tool_use_id, cards.map(shortCardText).join(' · '))
+    if (cards.length > 0) await setCommit($, e.tool_use_id, cards)
   }
 
   // The session pane's lists follow the master switch alone: the pane opens by command whatever the flags.

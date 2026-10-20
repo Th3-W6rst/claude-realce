@@ -3,6 +3,7 @@ import type { Args, EngineInterface, On } from 'claude-code'
 import type { TurnStats } from '../../types'
 import { getFlags } from '../flags'
 import { formatDuration } from '../format'
+import { tr } from '../i18n'
 import { sealLabel, testsLabel, turnStatsFor } from '../screen/turns'
 import { asRecord, str } from '../screen/toolInfo'
 
@@ -20,7 +21,7 @@ export const lastNotifyFailure = () => lastFailure
 /** True when the last notice went out as the macOS banner, the terminal giving Claude Code no channel. */
 export const lastNotifyWasBanner = () => wasBanner
 
-/** '6m 25s · ✔ testes · ✔ provado': what the finished turn did, the parts it has. */
+/** '6m 25s · ✔ tests · ✔ proved': what the finished turn did, the parts it has. */
 export function finishText(durationMs: number, stats: TurnStats | null): string {
   const parts = [formatDuration(durationMs)]
   if (stats !== null) {
@@ -41,9 +42,9 @@ export async function noteTurnStart($: EngineInterface, e: Args<'prompt.submit'>
 async function playSound($: EngineInterface, file: string): Promise<void> {
   try {
     const run = await $.process.run(['afplay', file])
-    if (run.exitCode !== 0) $.ui.log(`realce: som não tocou (${run.stderr.trim() || `afplay saiu com ${run.exitCode}`})`)
+    if (run.exitCode !== 0) $.ui.log(`realce: the sound did not play (${run.stderr.trim() || `afplay exited with ${run.exitCode}`})`)
   } catch (error) {
-    $.ui.log(`realce: som não tocou (${error instanceof Error ? error.message : String(error)})`)
+    $.ui.log(`realce: the sound did not play (${error instanceof Error ? error.message : String(error)})`)
   }
 }
 
@@ -55,7 +56,7 @@ async function systemBanner($: EngineInterface, text: string, title: string): Pr
       ['osascript', '-e', 'on run argv', '-e', 'display notification (item 1 of argv) with title (item 2 of argv)', '-e', 'end run', '--', text, title],
       { timeoutMs: 5000 },
     )
-    return run.exitCode === 0 ? null : run.stderr.trim() || `osascript saiu com ${run.exitCode}`
+    return run.exitCode === 0 ? null : run.stderr.trim() || tr(`osascript exited with ${run.exitCode}`, `osascript saiu com ${run.exitCode}`)
   } catch (error) {
     return error instanceof Error ? error.message : String(error)
   }
@@ -64,7 +65,7 @@ async function systemBanner($: EngineInterface, text: string, title: string): Pr
 async function bannerInstead($: EngineInterface, text: string, title: string, reason: string): Promise<void> {
   const failed = await systemBanner($, text, title)
   wasBanner = failed === null
-  lastFailure = failed === null ? null : `${reason}; banner do macOS: ${failed}`
+  lastFailure = failed === null ? null : tr(`${reason}; macOS banner: ${failed}`, `${reason}; banner do macOS: ${failed}`)
 }
 
 async function send($: EngineInterface, text: string, title: string, sound: string): Promise<void> {
@@ -83,7 +84,7 @@ async function send($: EngineInterface, text: string, title: string, sound: stri
 export async function notifyFinish($: EngineInterface, e: Args<'turn.complete'>): Promise<void> {
   if (e.agentId !== undefined || e.isAborted || e.durationMs < LONG_MS) return
   if (!(await getFlags($)).avisos) return
-  await send($, finishText(e.durationMs, turnStatsFor(e.durationMs)), 'Claude terminou', SOUNDS.done)
+  await send($, finishText(e.durationMs, turnStatsFor(e.durationMs)), tr('Claude is done', 'Claude terminou'), SOUNDS.done)
 }
 
 export function registerNotify(on: On): void {
@@ -92,11 +93,11 @@ export function registerNotify(on: On): void {
     try {
       if (e.agentId === undefined && turnStartedAt !== null && (await getFlags($)).avisos && (await $.clock.now()) - turnStartedAt >= LONG_MS) {
         const first = asRecord(Array.isArray(e.questions) ? e.questions[0] : undefined)
-        await send($, str(first.question) ?? 'O Claude tem uma pergunta.', 'Claude precisa de você', SOUNDS.question)
+        await send($, str(first.question) ?? tr('Claude has a question.', 'O Claude tem uma pergunta.'), tr('Claude needs you', 'Claude precisa de você'), SOUNDS.question)
       }
     } catch (error) {
       // The question is the person's: a notice that failed is said, and the dialog opens all the same.
-      $.ui.log(`realce: aviso de pergunta falhou: ${error instanceof Error ? error.message : String(error)}`)
+      $.ui.log(`realce: the question notice failed: ${error instanceof Error ? error.message : String(error)}`)
     }
     return next(e)
   })

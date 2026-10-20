@@ -5,6 +5,7 @@ import type { Diagram } from '../../types'
 import { CELL_ASPECT, CELL_PX, DIAGRAM_SCALE, MERMAID } from '../palette'
 import { parseBlocks } from '../text/blocks'
 import { currentTheme } from '../theme'
+import { tr } from '../i18n'
 
 const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
 
@@ -79,12 +80,12 @@ export async function generateDiagram($: EngineInterface, source: string, hash: 
     const run = await $.process.run([mmdc, '-i', input, '-o', png, '-c', config, '-b', String(MERMAID.config.themeVariables.background), '-s', String(DIAGRAM_SCALE), '-q'])
     if (run.exitCode !== 0) {
       const line = run.stderr.split('\n').map(l => l.trim()).find(l => l !== '')
-      // mmdc leads with `Error: `, which the block's own "Diagrama inválido:" already says.
-      return { status: 'failed', error: line?.replace(/^Error:\s*/, '') ?? `O mmdc saiu com o código ${run.exitCode}.` }
+      // mmdc leads with `Error: `, which the block's own "Invalid diagram:" already says.
+      return { status: 'failed', error: line?.replace(/^Error:\s*/, '') ?? tr(`mmdc exited with code ${run.exitCode}.`, `O mmdc saiu com o código ${run.exitCode}.`) }
     }
   }
   const size = pngSize((await $.fs.read(png, { as: 'bytes' })).base64)
-  return size === null ? { status: 'failed', error: 'O mmdc não gerou um PNG legível.' } : { status: 'ready', file: png, ...size }
+  return size === null ? { status: 'failed', error: tr('mmdc wrote no readable PNG.', 'O mmdc não gerou um PNG legível.') } : { status: 'ready', file: png, ...size }
 }
 
 /** Runs off the append's dispatch; whatever stops the run is shown on the block, never dropped. */

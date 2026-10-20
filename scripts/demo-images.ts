@@ -1,4 +1,5 @@
-// Draws the README's demo pictures (images/demo.png, images/demo-claro.png) from DEMO_TEXT, as /realce print does.
+// Draws the README's demo pictures (images/demo.png, images/demo-light.png) from the English demo text, as
+// /realce print does.
 // bun --preload ./scripts/bun-stub.ts scripts/demo-images.ts   (needs mmdc and the Chrome headless mermaid-cli installs)
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -6,7 +7,10 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { PALETTES } from '../hooks/palettes'
-import { DEMO_TEXT } from '../hooks/system/demo'
+import { DEMO_TEXTS } from '../hooks/system/demo'
+
+// The README is in English: so are its pictures.
+const DEMO_TEXT = DEMO_TEXTS.en
 import { estimateHeight, replyHtml } from '../hooks/system/printHtml'
 import { parseBlocks } from '../hooks/text/blocks'
 
@@ -23,7 +27,7 @@ const chrome = findChrome()
 const diagram = parseBlocks(DEMO_TEXT).find(b => b.type === 'code' && b.language === 'mermaid')
 if (diagram?.type !== 'code') throw new Error('DEMO_TEXT has no mermaid block')
 
-for (const [kind, name] of [['dark', 'demo'], ['light', 'demo-claro']] as const) {
+for (const [kind, name] of [['dark', 'demo'], ['light', 'demo-light']] as const) {
   const set = PALETTES[kind]
   writeFileSync(join(work, `${kind}.json`), JSON.stringify(set.MERMAID))
   writeFileSync(join(work, 'diagram.mmd'), diagram.source)

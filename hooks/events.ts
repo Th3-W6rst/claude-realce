@@ -10,6 +10,8 @@ import { screenAppend, screenPromptSubmit, screenSessionStart, screenToolCall, s
 import { clearRunning, spinnerToolEnd, spinnerToolStart } from './screen/spinner'
 import { welcomeHint } from './system/demo'
 import { checkUpdate } from './system/update'
+import { refreshLanguage } from './i18n'
+import { retitleSessionPane } from './orient/paneToggle'
 import { refreshTheme } from './theme'
 
 // The engine takes one hook per event without a matcher in a module, and follows $ only into declared
@@ -20,24 +22,26 @@ async function guard($: EngineInterface, event: string, run: () => Promise<void>
   try {
     await run()
   } catch (error) {
-    $.ui.log(`realce: ${event} falhou: ${error instanceof Error ? error.message : String(error)}`)
+    $.ui.log(`realce: ${event} failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 
 export function registerEvents(on: On): void {
   on('session.start', async ($, e, next) => {
     // First: every drawing after this one paints in the person's theme.
-    await guard($, 'session.start (tema)', () => refreshTheme($))
-    await guard($, 'session.start (ambiente)', () => recordEnv($, e))
-    await guard($, 'session.start (comando)', () => registerRealceCommand($))
+    await guard($, 'session.start (theme)', () => refreshTheme($))
+    // Before the command registers: its description speaks the language.
+    await guard($, 'session.start (language)', async () => void (await refreshLanguage($)))
+    await guard($, 'session.start (env)', () => recordEnv($, e))
+    await guard($, 'session.start (command)', () => registerRealceCommand($))
     await guard($, 'session.start (prompt)', async () => refreshPromptSection($))
-    await guard($, 'session.start (medição)', () => startPerfLog($))
-    await guard($, 'session.start (código)', () => codeSessionStart($, e))
-    await guard($, 'session.start (tela)', () => screenSessionStart($, e))
+    await guard($, 'session.start (perf)', () => startPerfLog($))
+    await guard($, 'session.start (code)', () => codeSessionStart($, e))
+    await guard($, 'session.start (screen)', () => screenSessionStart($, e))
     await guard($, 'session.start (spinner)', () => clearRunning($))
-    await guard($, 'session.start (orientação)', () => orientSessionStart($, e))
-    await guard($, 'session.start (boas-vindas)', () => welcomeHint($, e))
-    await guard($, 'session.start (atualização)', () => checkUpdate($, e))
+    await guard($, 'session.start (guide)', () => orientSessionStart($, e))
+    await guard($, 'session.start (welcome)', () => welcomeHint($, e))
+    await guard($, 'session.start (updates)', () => checkUpdate($, e))
     return next(e)
   })
 
@@ -46,16 +50,29 @@ export function registerEvents(on: On): void {
     const result = await next(e)
     if (result.deny === undefined && typeof result.value === 'string') {
       const value = result.value
-      await guard($, 'config.set (tema)', () => refreshTheme($, value))
-      await guard($, 'config.set (diagramas)', () => queueTranscriptDiagrams($))
+      await guard($, 'config.set (theme)', () => refreshTheme($, value))
+      await guard($, 'config.set (diagrams)', () => queueTranscriptDiagrams($))
+    }
+    return result
+  })
+
+  on('config.set', { key: 'language' }, async ($, e, next) => {
+    const result = await next(e)
+    if (result.deny === undefined) {
+      const value = result.value
+      await guard($, 'config.set (language)', async () => {
+        if (!(await refreshLanguage($, value))) return
+        await registerRealceCommand($)
+        await retitleSessionPane($)
+      })
     }
     return result
   })
 
   on('prompt.submit', async ($, e, next) => {
-    await guard($, 'prompt.submit (código)', () => codePromptSubmit($, e))
-    await guard($, 'prompt.submit (tela)', () => screenPromptSubmit($, e))
-    await guard($, 'prompt.submit (orientação)', () => orientPromptSubmit($, e))
+    await guard($, 'prompt.submit (code)', () => codePromptSubmit($, e))
+    await guard($, 'prompt.submit (screen)', () => screenPromptSubmit($, e))
+    await guard($, 'prompt.submit (guide)', () => orientPromptSubmit($, e))
     return next(e)
   })
 
@@ -67,26 +84,26 @@ export function registerEvents(on: On): void {
     } finally {
       await guard($, 'tool.call (spinner)', () => spinnerToolEnd($, e))
     }
-    await guard($, 'tool.call (código)', () => codeToolCall($, e, result))
-    await guard($, 'tool.call (tela)', () => screenToolCall($, e, result))
-    await guard($, 'tool.call (orientação)', () => orientToolCall($, e, result))
+    await guard($, 'tool.call (code)', () => codeToolCall($, e, result))
+    await guard($, 'tool.call (screen)', () => screenToolCall($, e, result))
+    await guard($, 'tool.call (guide)', () => orientToolCall($, e, result))
     return result
   })
 
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
-    await guard($, 'turn.complete (código)', () => codeTurnComplete($, e))
-    await guard($, 'turn.complete (tela)', () => screenTurnComplete($, e))
+    await guard($, 'turn.complete (code)', () => codeTurnComplete($, e))
+    await guard($, 'turn.complete (screen)', () => screenTurnComplete($, e))
     await guard($, 'turn.complete (spinner)', () => clearRunning($, e.agentId))
-    await guard($, 'turn.complete (orientação)', () => orientTurnComplete($, e))
+    await guard($, 'turn.complete (guide)', () => orientTurnComplete($, e))
     return result
   })
 
   on('session.append', async ($, e, next) => {
     const stored = await next(e)
-    await guard($, 'session.append (código)', () => codeAppend($, e, stored))
-    await guard($, 'session.append (tela)', () => screenAppend($, e, stored))
-    await guard($, 'session.append (orientação)', () => orientAppend($, e, stored))
+    await guard($, 'session.append (code)', () => codeAppend($, e, stored))
+    await guard($, 'session.append (screen)', () => screenAppend($, e, stored))
+    await guard($, 'session.append (guide)', () => orientAppend($, e, stored))
     return stored
   })
 }

@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
+import { PT } from './lang'
 
 const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
 
@@ -28,7 +29,7 @@ function machine(on: On, m: { version: string; colorterm?: string; uname: string
 
 describe('/realce diagnostico', () => {
   test('a ready machine passes every check', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     machine(on, { version: '2.1.304', colorterm: 'truecolor', uname: 'Darwin', mmdc: true, chrome: true, cursor: true })
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
@@ -45,7 +46,7 @@ describe('/realce diagnostico', () => {
   })
 
   test('a bare machine says what to install', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     machine(on, { version: '2.1.200', uname: 'Linux', mmdc: false, chrome: false, cursor: false })
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })

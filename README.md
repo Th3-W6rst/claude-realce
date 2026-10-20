@@ -1,180 +1,189 @@
 # realce
 
-Plugin (mod) do Claude Code que deixa a tela mais fácil de ler. Cada recurso tem a sua flag e liga ou desliga na hora:
+A Claude Code plugin (mod) that makes the screen easier to read. Every feature has its own flag and turns on or off
+at once:
 
-- cores por sentido nas respostas, tabelas, caixas de decisão e risco, diagramas como imagem;
-- código com highlighter próprio e diffs com destaque por palavra;
-- ferramentas legíveis num relance e um **selo de prova** que diz se o que o Claude afirmou foi testado;
-- um spinner que diz o que está rodando ("Rodando os testes (última: 25s)") e o porquê de cada erro de comando;
-- avisos quando ele termina ou pergunta, e um painel com o uso, a linha do tempo e os arquivos da sessão.
+- colors by meaning in the replies, tables, decision and risk boxes, diagrams as pictures;
+- code with its own highlighter, and diffs with word highlights;
+- tools readable at a glance, and a **proof seal** that says whether what Claude claimed was tested;
+- a spinner that says what is running ("Running the tests (last: 25s)") and why each failed command failed;
+- notices when Claude is done or asks something, and a pane with the session's usage, timeline and files.
 
-![Demonstração do realce](images/demo.png)
+The interface follows Claude Code's language: English, or Portuguese for whoever set Claude Code to Portuguese
+(`/realce language en|pt|auto` picks one).
 
-*Gerada pelo próprio mod: `/realce demo` e depois `/realce print`; os números da tabela são só de exemplo. No tema
-claro: [demo-claro.png](images/demo-claro.png).*
+![realce's demo](images/demo.png)
 
-Versão atual: 0.4.40 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
-[Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (dúvidas e problemas em *Issues*).
+*Drawn by the mod itself, as `/realce print` draws a reply (`/realce demo` shows it in the terminal); the table's
+numbers are just an example. On a light theme: [demo-light.png](images/demo-light.png).*
 
-## Requisitos
+Current version: 0.5.1 · what's new in the [CHANGELOG](CHANGELOG.md) · repository:
+[Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (questions and problems in *Issues*).
 
-- **Claude Code 2.1.304 ou mais novo** (`claude --version`), no terminal. No app desktop e no celular o mod só troca
-  as marcas do Claude por negrito comum.
-- **macOS** para os avisos, o som, o print e os caminhos que abrem no editor. O resto funciona em qualquer sistema.
-- **Terminal com cor de 24 bits** (Ghostty, iTerm2, WezTerm, Kitty): `echo $COLORTERM` deve responder `truecolor`.
-- **Opcional:** o mermaid-cli, para diagramas e para o PNG do `/realce print` (veja [Diagramas](#diagramas)).
+## Requirements
 
-## Instalação
+- **Claude Code 2.1.304 or newer** (`claude --version`), in the terminal. In the desktop and mobile apps the mod only
+  turns Claude's marks into plain bold.
+- **macOS** for the notices, the sound, the print and the paths that open in the editor. The rest works on any system.
+- **A terminal with 24-bit color** (Ghostty, iTerm2, WezTerm, Kitty): `echo $COLORTERM` should answer `truecolor`.
+- **Optional:** mermaid-cli, for diagrams and for the PNG of `/realce print` (see [Diagrams](#diagrams)).
 
-No prompt de uma sessão do Claude Code:
+## Install
+
+At the prompt of a Claude Code session:
 
 ```
 /plugin install realce --marketplace Th3-W6rst/claude-realce
 ```
 
-Responda `y` para adicionar o marketplace e dê Enter no escopo de usuário. Pelo shell, o mesmo:
-`claude plugin install realce --marketplace Th3-W6rst/claude-realce`. No app desktop: + ao lado da caixa do prompt,
-Plugins, Add marketplace com `Th3-W6rst/claude-realce`, Add plugin.
+Answer `y` to add the marketplace and press Enter on the user scope. From the shell, the same:
+`claude plugin install realce --marketplace Th3-W6rst/claude-realce`. In the desktop app: + beside the prompt box,
+Plugins, Add marketplace with `Th3-W6rst/claude-realce`, Add plugin.
 
-**Depois de instalar, feche e abra o Claude Code.** Os desenhos já valem na sessão em que você instalou, mas o Claude
-só aprende as marcas coloridas na sessão seguinte.
+**Once installed, close and reopen Claude Code.** The drawings already work in the session you installed it from,
+but Claude only learns the colored marks in the next session.
 
-Bom saber antes de usar:
+Good to know before using it:
 
-- Vem tudo ligado, menos o modo foco e o som.
-- O mod acrescenta ao system prompt um parágrafo curto com as marcas (só as dos recursos ligados).
-- Dois recursos usam o Haiku pela sua conta, cerca de mil a dois mil tokens por vez: `erros` (explica um comando que
-  falhou, no máximo 20 por sessão) e `explica` (só quando você pede). Desligue com `/realce erros off`.
-- `/realce off` pausa tudo; `claude plugin uninstall realce` remove.
+- Everything comes on, except focus mode and the sound.
+- The mod adds a short paragraph with the marks to the system prompt (only those of the features that are on).
+- Two features call Haiku on your account, about one to two thousand tokens each time: `errors` (explains a command
+  that failed, at most 20 per session) and `explain` (only when you ask). Turn them off with `/realce errors off`.
+- `/realce off` pauses everything; `claude plugin uninstall realce` removes it.
 
-Para atualizar: `claude plugin marketplace update claude-realce`, depois `claude plugin update realce@claude-realce`,
-e reabra o Claude Code. O `/realce status` avisa quando há versão nova.
+To update: `claude plugin marketplace update claude-realce`, then `claude plugin update realce@claude-realce`, and
+reopen Claude Code. `/realce status` says when a new version is out.
 
-## Primeiros passos
+## First steps
 
-1. Rode `/realce diagnostico` para ver o que a sua máquina já tem e o que falta, e `/realce demo` para uma resposta
-   com todos os recursos, sem chamar o modelo.
-2. `/realce` abre o **painel de flags**. `/realce painel` abre o **painel da sessão**, que também abre sozinho num
-   terminal com 144 colunas ou mais.
-3. Peça ao Claude: *crie soma.py com uma função soma e um teste pytest, e rode o teste*. Enquanto o teste roda, o
-   spinner diz "Rodando os testes" (e, da segunda vez, quanto levou na anterior). A linha que fecha o turno (a
-   **régua**: hora, duração, ferramentas) ganha o selo `✔ provado`. Se ele editar e disser que terminou sem testar,
-   o selo é `⚠ sem prova`.
-4. `/realce ajuda` lista os comandos; `/realce status` mostra o que está ligado.
+1. Run `/realce doctor` to see what your machine already has and what is missing, and `/realce demo` for a reply with
+   every feature, without calling the model.
+2. `/realce` opens the **flags pane**. `/realce pane` opens the **session pane**, which also opens by itself in a
+   terminal 144 columns wide or more.
+3. Ask Claude: *create sum.py with a sum function and a pytest test, and run the test*. While the test runs, the
+   spinner says "Running the tests" (and, the second time, how long the last run took). The line that closes the turn
+   (the **rule**: time, duration, tools) gets the seal `✔ proved`. If Claude edits and says it is done without
+   testing, the seal is `⚠ no proof`.
+4. `/realce help` lists the commands; `/realce status` shows what is on.
 
-Um **turno** é uma mensagem sua e tudo o que o Claude faz até responder.
+A **turn** is one message of yours and everything Claude does until it answers.
 
-## Comandos
+## Commands
 
-| Comando | O que faz |
+| Command | What it does |
 |---|---|
-| `/realce` | Abre o painel de flags: cada recurso tem uma tecla (letra ou número), os últimos só por Tab e Enter; Esc fecha |
-| `/realce ajuda` | Lista os comandos |
-| `/realce diagnostico` | Confere o que a sua máquina dá ao realce (versão, cores, macOS, tela cheia, editor, mermaid, Chrome) e o que falta |
-| `/realce on` · `/realce off` | Liga ou desliga o mod inteiro, sem perder a escolha de cada flag |
-| `/realce <flag> on` · `off` | Liga ou desliga um recurso, por exemplo `/realce coluna off` |
-| `/realce painel` | Abre ou fecha o painel da sessão (uso, plano, linha do tempo, fixadas, arquivos, falhas com o porquê, agentes) |
-| `/realce copiar` | Copia a última resposta do Claude (as marcas viram markdown comum) |
-| `/realce resumo` | Mostra e copia um resumo da sessão em markdown: turnos (hora, duração, selo), testes, arquivos, git, falhas |
-| `/realce foco` | Alterna o modo foco, que esconde as ferramentas concluídas sem erro |
-| `/realce explica [texto]` | Explica no painel da sessão o texto que você escreveu, ou o trecho selecionado na conversa |
-| `/realce fixar` | Fixa no painel a resposta selecionada, ou a última; de novo, desafixa |
-| `/realce print` | Salva a última resposta como HTML e PNG no Desktop, nas cores do seu tema |
-| `/realce demo` | Mostra uma resposta com todos os recursos, sem chamar o modelo |
-| `/realce status` | O que está desligado, tema, tela cheia, avisos, atualização e o custo de cada desenho |
+| `/realce` | Opens the flags pane: each feature has a key (a letter or digit), the last ones only Tab and Enter; Esc closes |
+| `/realce help` | Lists the commands |
+| `/realce doctor` | Checks what your machine gives realce (version, colors, macOS, fullscreen, editor, mermaid, Chrome) and what is missing |
+| `/realce on` · `/realce off` | Turns the whole mod on or off, keeping each flag's choice |
+| `/realce <flag> on` · `off` | Turns one feature on or off, for example `/realce column off` |
+| `/realce pane` | Opens or closes the session pane (usage, plan, timeline, pinned replies, files, failures with their why, agents) |
+| `/realce copy` | Copies Claude's last reply (the marks become plain markdown) |
+| `/realce summary` | Shows and copies a summary of the session in markdown: turns (time, duration, seal), tests, files, git, failures |
+| `/realce focus` | Toggles focus mode, which hides the tools that finished without error |
+| `/realce explain [text]` | Explains, in the session pane, the text you wrote, or the text selected in the conversation |
+| `/realce pin` | Pins the selected reply, or the last one, in the pane; again, unpins it |
+| `/realce print` | Saves the last reply as HTML and PNG on the Desktop, in your theme's colors |
+| `/realce demo` | Shows a reply with every feature, without calling the model |
+| `/realce status` | What is off, language, theme, fullscreen, notices, updates and the cost of each drawing |
+| `/realce language en` · `pt` · `auto` | The interface's language; `auto` follows Claude Code's |
 
-`foco`, `fixar`, `explica`, `print` e `demo` também são flags: `/realce foco` alterna o modo, e `/realce explica off`
-desliga o recurso (o comando passa a dizer como religar).
+`focus`, `pin`, `explain`, `print` and `demo` are flags too: `/realce focus` toggles the mode, and
+`/realce explain off` turns the feature off (the command then says how to turn it back on). Every command and flag
+also answers to its Portuguese name (`/realce ajuda`, `/realce foco`, `/realce coluna off`).
 
-## Recursos e flags
+## Features and flags
 
-| Grupo | Flag | Recurso | O que faz | Padrão |
+| Group | Flag | Feature | What it does | Default |
 |---|---|---|---|---|
-| Texto | `enfase` | Ênfase colorida | Marcas do Claude e cores automáticas para números, caminhos e status | ligado |
-| Texto | `coluna` | Coluna de leitura | Prosa limitada a 100 colunas | ligado |
-| Texto | `callouts` | Callouts | Caixas para decisão, risco, feito, resumo, nota e dica | ligado |
-| Texto | `tabelas` | Tabelas coloridas | Cabeçalho em destaque, linhas alternadas, números à direita | ligado |
-| Texto | `deltas` | Deltas automáticos | "de 87 para 106" ganha (+19) | ligado |
-| Texto | `respiro` | Respiro entre itens | Linha em branco entre itens de lista que quebram linha | ligado |
-| Texto | `numeros` | Números humanos | "102761 ms" ganha "(1m 42s)" ao lado | ligado |
-| Código | `highlight` | Highlighter próprio | Cores neon em ts, py, sh, json, yaml, swift, sql e diff | ligado |
-| Código | `copiar` | Copiar com um clique | Botão copiar em cada bloco de código e nas respostas longas | ligado |
-| Código | `dobrar` | Dobrar o que é longo | Blocos com mais de 25 linhas aparecem dobrados | ligado |
-| Código | `caminhos` | Caminhos clicáveis | Caminhos abrem no editor, na linha | ligado |
-| Código | `diagramas` | Diagramas | Blocos mermaid viram imagem | ligado |
-| Ferramentas | `ferramentas` | Ferramentas por categoria | Ícone e cor por tipo; leituras esmaecidas | ligado |
-| Ferramentas | `placar` | Placar de testes | Resumo dos testes acima da saída do Bash | ligado |
-| Ferramentas | `separador` | Separador de turno | Régua com hora, duração e números do turno | ligado |
-| Ferramentas | `agentes` | Cartões de agente | Agente em segundo plano termina num cartão compacto | ligado |
-| Ferramentas | `selo` | Selo de prova | A régua do turno diz se o que o Claude afirmou foi testado | ligado |
-| Ferramentas | `diff` | Diff legível | Edições com destaque por palavra e números de linha | ligado |
-| Ferramentas | `erros` | Erro explicado | Comando que falhou ganha uma frase dizendo por quê (Haiku) | ligado |
-| Ferramentas | `commits` | Cartão de commit | Commit, push e PR viram um cartão de uma linha | ligado |
-| Ferramentas | `foco` | Modo foco | Esconde as ferramentas concluídas sem erro | desligado |
-| Orientação | `pendencias` | Precisa de você | Faixa acima do prompt com o que pede sua decisão | ligado |
-| Orientação | `plano` | Progresso do plano | Barra com as tarefas enquanto o Claude trabalha | ligado |
-| Orientação | `painel` | Painel ao iniciar | Abre o painel lateral da sessão sozinho | ligado |
-| Orientação | `spinner` | Spinner em português | "Pensando", "Escrevendo" e o que roda agora ("Rodando os testes", "Editando x.ts") | ligado |
-| Orientação | `avisos` | Aviso quando termina | Notificação do macOS no fim de um turno longo ou numa pergunta | ligado |
-| Orientação | `som` | Som nos avisos | Um som curto junto da notificação | desligado |
-| Orientação | `ausencia` | Enquanto você estava fora | Resumo do que aconteceu quando você volta a digitar | ligado |
-| Orientação | `linha` | Linha do tempo | Os turnos no painel, com clique para rolar até cada um | ligado |
-| Orientação | `perguntas` | Cabeçalho de pergunta | Uma linha colorida acima das perguntas do Claude | ligado |
-| Orientação | `fixar` | Fixar respostas | /realce fixar guarda uma resposta no painel | ligado |
-| Orientação | `explica` | Explica isso | /realce explica explica o trecho selecionado (Haiku) | ligado |
-| Orientação | `limite` | Uso e limites | Uso no painel; faixa quando um limite ou o contexto se aproxima do fim | ligado |
-| Sistema | `tema` | Segue o tema | Cores para fundo claro, daltônicos e ANSI, pelo tema do Claude Code | ligado |
-| Sistema | `print` | Print bonito | /realce print salva a última resposta como imagem | ligado |
-| Sistema | `demo` | Demonstração | /realce demo mostra tudo o que o mod faz | ligado |
-| Sistema | `atualizacao` | Aviso de atualização | Avisa quando sair versão nova no GitHub | ligado |
-| Sistema | `resumo` | Resumo da sessão | /realce resumo copia um resumo da sessão em markdown | ligado |
+| Text | `emphasis` (`enfase`) | Colored emphasis | Claude's marks and automatic colors for numbers, paths and status | on |
+| Text | `column` (`coluna`) | Reading column | Prose kept to 100 columns | on |
+| Text | `callouts` | Callouts | Boxes for decision, risk, done, summary, note and tip | on |
+| Text | `tables` (`tabelas`) | Colored tables | Highlighted header, striped rows, numbers on the right | on |
+| Text | `deltas` | Automatic deltas | "from 87 to 106" gets (+19) | on |
+| Text | `spacing` (`respiro`) | Room between items | A blank line between list items that wrap | on |
+| Text | `numbers` (`numeros`) | Human numbers | "102761 ms" gets "(1m 42s)" beside it | on |
+| Code | `highlight` | Own highlighter | Neon colors for ts, py, sh, json, yaml, swift, sql and diff | on |
+| Code | `copy` (`copiar`) | One-click copy | A copy button on every code block and on long replies | on |
+| Code | `fold` (`dobrar`) | Fold what is long | Blocks over 25 lines start folded | on |
+| Code | `paths` (`caminhos`) | Clickable paths | Paths open in the editor, at the line | on |
+| Code | `diagrams` (`diagramas`) | Diagrams | Mermaid blocks become pictures | on |
+| Tools | `tools` (`ferramentas`) | Tools by kind | An icon and a color per kind; reads dimmed | on |
+| Tools | `score` (`placar`) | Test score | The test summary above the Bash output | on |
+| Tools | `rule` (`separador`) | Turn rule | A rule with the turn's time, duration and numbers | on |
+| Tools | `agents` (`agentes`) | Agent cards | A background agent ends in a compact card | on |
+| Tools | `seal` (`selo`) | Proof seal | The turn's rule says whether what Claude claimed was tested | on |
+| Tools | `diff` | Readable diff | Edits with word highlights and line numbers | on |
+| Tools | `errors` (`erros`) | Explained errors | A failed command gets one sentence saying why (Haiku) | on |
+| Tools | `commits` | Commit cards | Commit, push and PR become a one-line card | on |
+| Tools | `focus` (`foco`) | Focus mode | Hides the tools that finished without error | off |
+| Guidance | `pending` (`pendencias`) | Needs you | A band above the prompt with what asks for your decision | on |
+| Guidance | `plan` (`plano`) | Plan progress | A bar with the tasks while Claude works | on |
+| Guidance | `pane` (`painel`) | Pane at start | Opens the session's side pane by itself | on |
+| Guidance | `spinner` | Spinner that says what runs | "Thinking", "Writing" and what runs now ("Running the tests", "Editing x.ts") | on |
+| Guidance | `notify` (`avisos`) | Notify when done | A macOS notification at the end of a long turn or on a question | on |
+| Guidance | `sound` (`som`) | Notification sound | A short sound with the notification | off |
+| Guidance | `away` (`ausencia`) | While you were away | What happened, once you start typing again | on |
+| Guidance | `timeline` (`linha`) | Timeline | The turns in the pane, a click scrolls to each | on |
+| Guidance | `questions` (`perguntas`) | Question header | A colored line above Claude's questions | on |
+| Guidance | `pin` (`fixar`) | Pin replies | /realce pin keeps a reply in the pane | on |
+| Guidance | `explain` (`explica`) | Explain this | /realce explain explains the selected text (Haiku) | on |
+| Guidance | `limits` (`limite`) | Usage and limits | Usage in the pane; a band when a limit or the context nears its end | on |
+| System | `theme` (`tema`) | Follow the theme | Colors for light backgrounds, color blindness and ANSI, from Claude Code's theme | on |
+| System | `print` | Pretty print | /realce print saves the last reply as a picture | on |
+| System | `demo` | Demo | /realce demo shows everything the mod does | on |
+| System | `updates` (`atualizacao`) | Update notice | Says when a new version is out on GitHub | on |
+| System | `summary` (`resumo`) | Session summary | /realce summary copies a summary of the session in markdown | on |
 
-## Marcas que o Claude passa a usar
+## Marks Claude starts to use
 
-| Marca | Sentido | Cor |
+| Mark | Meaning | Color |
 |---|---|---|
-| `**Rótulo:**` no começo da linha | Subtópico | vermelho |
-| `**termo**` no meio da frase | Termo-chave | magenta |
-| `==fato==` | O fato mais importante da resposta | marca-texto amarelo |
-| `{+texto+}` | Deu certo | verde |
-| `{-texto-}` | Deu errado | vermelho sobre vinho |
-| `{!texto!}` | Precisa da sua atenção ou decisão; também sobe para a faixa "Precisa de você" acima do prompt | amarelo |
-| `> [!DECISÃO] …` | Caixa de decisão (também `RISCO`, `FEITO`, `RESUMO`, `NOTA`, `DICA`) | cor do tipo |
+| `**Label:**` opening a line | Subtopic | red |
+| `**term**` mid-sentence | Key term | magenta |
+| `==fact==` | The most important fact of the reply | yellow highlighter |
+| `{+text+}` | Went well | green |
+| `{-text-}` | Went wrong | red on wine |
+| `{!text!}` | Needs your attention or decision; also goes up to the "Needs you" band above the prompt | yellow |
+| `> [!DECISION] …` | Decision box (also `RISK`, `DONE`, `SUMMARY`, `NOTE`, `TIP`; the Portuguese tags work too) | the kind's color |
 
-Com o selo ligado, o Claude também sabe que a régua mostra se ele rodou os testes antes de dizer que terminou. Com o
-mod desligado, as marcas aparecem como negrito comum. As cores seguem o tema do Claude Code (`/config`): escuro,
-claro, daltônico e ANSI, inclusive temas `custom:` pelo campo `base`.
+With the seal on, Claude also knows the rule shows whether it ran the tests before saying it was done. With the mod
+off, the marks show as plain bold. The colors follow Claude Code's theme (`/config`): dark, light, color-blind and
+ANSI, `custom:` themes included through their `base` field.
 
-## Diagramas
+## Diagrams
 
-Opcional. Precisam do mermaid-cli e do navegador headless que ele usa:
+Optional. They need mermaid-cli and the headless browser it uses:
 
 ```sh
 brew install mermaid-cli
 npx -y @puppeteer/browsers install chrome-headless-shell@154.0.8037.57 --path ~/.cache/puppeteer
 ```
 
-A versão do navegador é a que o mermaid-cli 12 pede; se o `mmdc` reclamar de outra, instale a que ele disser. Sem o
-`mmdc`, o recurso fica quieto: o Claude não é instruído a desenhar diagramas e os blocos mermaid aparecem como código.
-O mesmo navegador gera o PNG do `/realce print`.
+The browser version is the one mermaid-cli 12 asks for; if `mmdc` complains about another, install the one it names.
+Without `mmdc` the feature stays quiet: Claude is not taught to draw diagrams, and mermaid blocks show as code. The
+same browser makes the PNG of `/realce print`.
 
-## Limitações conhecidas
+## Known limitations
 
-- **Tela cheia** (`"tui": "fullscreen"` no `~/.claude/settings.json`): rolar até um turno ou uma resposta fixada e
-  selecionar um trecho para o `/realce explica` só funcionam com ela; fora dela, o mod avisa.
-- **Aviso quando termina:** o Claude Code não diz se a janela está em foco; o aviso sai para turnos de mais de 1
-  minuto e perguntas feitas depois de 1 minuto de trabalho. Sem canal de notificação no terminal (tmux,
-  Terminal.app), sai pelo banner do macOS.
-- **Selo de prova:** testes de um comando em segundo plano não contam; o selo fica em "⚠ sem prova". Entende pytest,
-  jest, vitest, bun, mocha, cargo, go test, XCTest, Swift Testing, `node --test`, RSpec e Deno.
-- **Régua depois de um agente em segundo plano:** o Claude Code mede o turno que a notificação do agente abre desde o
-  seu último prompt, e não só esse turno; a régua dele fica com a duração apenas.
-- **Deltas:** "de 87 para 106" e uma seta com unidade ("22 ms → 9 ms") ganham a diferença; uma seta entre números
-  soltos ("4 → 8") não, porque costuma ser entrada → saída.
-- **Diagrama durante a resposta:** enquanto ela ainda está sendo escrita, o bloco mermaid aparece como código.
-- **Pergunta:** o Claude Code não deixa redesenhar o diálogo de pergunta; o mod só põe uma linha acima dele.
-- **Cartão de agente:** depende do texto da notificação; num formato que o mod não reconhece, fica o desenho do
-  Claude Code.
+- **Fullscreen** (`"tui": "fullscreen"` in `~/.claude/settings.json`): scrolling to a turn or a pinned reply, and
+  selecting text for `/realce explain`, only work with it; without it, the mod says so.
+- **Notify when done:** Claude Code does not say whether the window has focus; the notice goes out for turns longer
+  than 1 minute and for questions asked after 1 minute of work. With no notification channel in the terminal (tmux,
+  Terminal.app), it goes out as the macOS banner.
+- **Proof seal:** tests run by a command in the background do not count; the seal stays at "⚠ no proof". It reads
+  pytest, jest, vitest, bun, mocha, cargo, go test, XCTest, Swift Testing, `node --test`, RSpec and Deno.
+- **Rule after a background agent:** Claude Code measures the turn an agent's notice opens from your last prompt, not
+  that turn alone; its rule keeps the duration only.
+- **Deltas:** "from 87 to 106" and an arrow with a unit ("22 ms → 9 ms") get their difference; an arrow between bare
+  numbers ("4 → 8") does not, since it is usually an input → output.
+- **A diagram while the reply streams:** until the reply is done, the mermaid block shows as code.
+- **Questions:** Claude Code does not let the question dialog be redrawn; the mod only adds a line above it.
+- **Agent card:** it depends on the notice's text; in a format the mod does not know, Claude Code's drawing stays.
 
-Desempenho: com o mod ligado, digitar e rolar levam o mesmo tempo que com `/realce off`. Para desenvolver, veja
+Performance: with the mod on, typing and scrolling take as long as with `/realce off`. To work on the mod, see
 [CONTRIBUTING](CONTRIBUTING.md).
+
+## License
+
+[MIT](LICENSE).

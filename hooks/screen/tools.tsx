@@ -3,6 +3,7 @@ import type { Elements, On, RenderElement } from 'claude-code'
 import { highlight } from '../code/highlight'
 import { cachedEnv } from '../env'
 import { flagsVersion, getFlags } from '../flags'
+import { lang, pick, tr, type Text } from '../i18n'
 import { memo } from '../memo'
 import { CODE, SCREEN, type ScreenTone } from '../palette'
 import type { Explanation, TestScore } from '../../types'
@@ -19,9 +20,20 @@ export type ToolKind = 'read' | 'edit' | 'run' | 'agent' | 'web' | 'plan' | 'mcp
 
 export type ToolSummary = { kind: ToolKind; icon: string; verb: string; target: string; added?: number; removed?: number; isNew?: boolean }
 
-const READ_VERBS: Record<string, string> = { Read: 'Leu', NotebookRead: 'Leu', Grep: 'Buscou', Glob: 'Procurou', LS: 'Listou' }
+const READ_VERBS: Record<string, Text> = {
+  Read: { en: 'Read', pt: 'Leu' },
+  NotebookRead: { en: 'Read', pt: 'Leu' },
+  Grep: { en: 'Searched', pt: 'Buscou' },
+  Glob: { en: 'Looked for', pt: 'Procurou' },
+  LS: { en: 'Listed', pt: 'Listou' },
+}
 
-const TASK_STATUS: Record<string, string> = { pending: 'pendente', in_progress: 'em andamento', completed: 'concluída', deleted: 'removida' }
+const TASK_STATUS: Record<string, Text> = {
+  pending: { en: 'pending', pt: 'pendente' },
+  in_progress: { en: 'in progress', pt: 'em andamento' },
+  completed: { en: 'done', pt: 'concluída' },
+  deleted: { en: 'removed', pt: 'removida' },
+}
 
 /** A tool call as one row of its kind; null for a tool this mod leaves to the engine. */
 export function summarizeTool(tool: string, input: unknown, cwd: string | null, output?: unknown): ToolSummary | null {
@@ -29,53 +41,54 @@ export function summarizeTool(tool: string, input: unknown, cwd: string | null, 
   const path = (key: string) => shortPath(str(inp[key]) ?? '', cwd)
   if (tool in READ_VERBS) {
     const target = tool === 'Grep' || tool === 'Glob' ? str(inp.pattern) ?? '' : path(tool === 'NotebookRead' ? 'notebook_path' : tool === 'LS' ? 'path' : 'file_path')
-    return { kind: 'read', icon: '◇', verb: READ_VERBS[tool]!, target }
+    return { kind: 'read', icon: '◇', verb: pick(READ_VERBS[tool]!), target }
   }
   if (EDIT_TOOLS.has(tool)) {
     const { added, removed, isNew } = editCounts(tool, input, output)
-    return { kind: 'edit', icon: '✎', verb: tool === 'Write' ? 'Escreveu' : 'Editou', target: shortPath(editedPath(input) ?? '', cwd), added, removed, isNew }
+    return { kind: 'edit', icon: '✎', verb: tool === 'Write' ? tr('Wrote', 'Escreveu') : tr('Edited', 'Editou'), target: shortPath(editedPath(input) ?? '', cwd), added, removed, isNew }
   }
   if (tool === 'Bash') return { kind: 'run', icon: '▶', verb: '', target: str(inp.command) ?? '' }
-  if (tool === 'BashOutput') return { kind: 'run', icon: '▶', verb: 'Saída de', target: str(inp.bash_id) ?? '' }
-  if (tool === 'KillShell') return { kind: 'run', icon: '▶', verb: 'Encerrou', target: str(inp.shell_id) ?? '' }
+  if (tool === 'BashOutput') return { kind: 'run', icon: '▶', verb: tr('Output of', 'Saída de'), target: str(inp.bash_id) ?? '' }
+  if (tool === 'KillShell') return { kind: 'run', icon: '▶', verb: tr('Stopped', 'Encerrou'), target: str(inp.shell_id) ?? '' }
   if (tool === 'Agent' || tool === 'Task') {
     const type = str(inp.subagent_type)
-    return { kind: 'agent', icon: '◆', verb: type ? `Agente ${type}:` : 'Agente:', target: str(inp.description) ?? '' }
+    return { kind: 'agent', icon: '◆', verb: type ? tr(`Agent ${type}:`, `Agente ${type}:`) : tr('Agent:', 'Agente:'), target: str(inp.description) ?? '' }
   }
-  if (tool === 'WebSearch') return { kind: 'web', icon: '◎', verb: 'Buscou:', target: str(inp.query) ?? '' }
-  if (tool === 'WebFetch') return { kind: 'web', icon: '◎', verb: 'Abriu:', target: str(inp.url) ?? '' }
+  if (tool === 'WebSearch') return { kind: 'web', icon: '◎', verb: tr('Searched:', 'Buscou:'), target: str(inp.query) ?? '' }
+  if (tool === 'WebFetch') return { kind: 'web', icon: '◎', verb: tr('Opened:', 'Abriu:'), target: str(inp.url) ?? '' }
   if (tool === 'TodoWrite') {
     const todos = Array.isArray(inp.todos) ? inp.todos.map(asRecord) : []
-    return { kind: 'plan', icon: '☰', verb: 'Plano:', target: `${todos.filter(t => t.status === 'completed').length}/${todos.length}` }
+    return { kind: 'plan', icon: '☰', verb: tr('Plan:', 'Plano:'), target: `${todos.filter(t => t.status === 'completed').length}/${todos.length}` }
   }
-  if (tool === 'TaskCreate') return { kind: 'plan', icon: '☰', verb: 'Plano:', target: `+ ${str(inp.subject) ?? ''}` }
+  if (tool === 'TaskCreate') return { kind: 'plan', icon: '☰', verb: tr('Plan:', 'Plano:'), target: `+ ${str(inp.subject) ?? ''}` }
   if (tool === 'TaskUpdate') {
     const status = str(inp.status)
-    return { kind: 'plan', icon: '☰', verb: 'Plano:', target: `#${str(inp.taskId) ?? '?'} ${status !== null ? (TASK_STATUS[status] ?? status) : 'atualizada'}` }
+    return { kind: 'plan', icon: '☰', verb: tr('Plan:', 'Plano:'), target: `#${str(inp.taskId) ?? '?'} ${status !== null ? (TASK_STATUS[status] === undefined ? status : pick(TASK_STATUS[status])) : tr('updated', 'atualizada')}` }
   }
-  if (tool === 'TaskList') return { kind: 'plan', icon: '☰', verb: 'Plano:', target: 'lista' }
-  if (tool === 'TaskGet') return { kind: 'plan', icon: '☰', verb: 'Plano:', target: `#${str(inp.taskId) ?? '?'}` }
+  if (tool === 'TaskList') return { kind: 'plan', icon: '☰', verb: tr('Plan:', 'Plano:'), target: tr('list', 'lista') }
+  if (tool === 'TaskGet') return { kind: 'plan', icon: '☰', verb: tr('Plan:', 'Plano:'), target: `#${str(inp.taskId) ?? '?'}` }
   const mcp = /^mcp__(.+?)__(.+)$/.exec(tool)
   if (mcp !== null) return { kind: 'mcp', icon: '⬡', verb: '', target: `${mcp[1]} · ${mcp[2]}` }
   return null
 }
 
 // A folded group's words per tool: verb, one, many.
-const GROUP_WORDS: Record<string, readonly [string, string, string]> = {
-  Read: ['leu', 'arquivo', 'arquivos'],
-  NotebookRead: ['leu', 'arquivo', 'arquivos'],
-  Grep: ['buscou', 'vez', 'vezes'],
-  Glob: ['procurou', 'padrão', 'padrões'],
-  LS: ['listou', 'pasta', 'pastas'],
-  Bash: ['rodou', 'comando', 'comandos'],
+type GroupWords = readonly [string, string, string]
+const GROUP_WORDS: Record<string, { en: GroupWords; pt: GroupWords }> = {
+  Read: { en: ['read', 'file', 'files'], pt: ['leu', 'arquivo', 'arquivos'] },
+  NotebookRead: { en: ['read', 'file', 'files'], pt: ['leu', 'arquivo', 'arquivos'] },
+  Grep: { en: ['searched', 'time', 'times'], pt: ['buscou', 'vez', 'vezes'] },
+  Glob: { en: ['looked for', 'pattern', 'patterns'], pt: ['procurou', 'padrão', 'padrões'] },
+  LS: { en: ['listed', 'folder', 'folders'], pt: ['listou', 'pasta', 'pastas'] },
+  Bash: { en: ['ran', 'command', 'commands'], pt: ['rodou', 'comando', 'comandos'] },
 }
-const OTHER_WORDS = ['usou', 'outra ferramenta', 'outras ferramentas'] as const
+const OTHER_WORDS: { en: GroupWords; pt: GroupWords } = { en: ['used', 'other tool', 'other tools'], pt: ['usou', 'outra ferramenta', 'outras ferramentas'] }
 
-/** 'Leu 6 arquivos · buscou 3 vezes': what a folded group did, in the order it did it. */
+/** 'Read 6 files · searched 3 times' ('Leu 6 arquivos · buscou 3 vezes'): what a folded group did, in its order. */
 export function summarizeGroup(calls: readonly { tool: string; input: unknown }[]): string {
-  const counts = new Map<readonly [string, string, string], number>()
+  const counts = new Map<GroupWords, number>()
   for (const call of calls) {
-    const words = GROUP_WORDS[call.tool] ?? OTHER_WORDS
+    const words = (GROUP_WORDS[call.tool] ?? OTHER_WORDS)[lang()]
     // Read and NotebookRead share one count.
     const key = [...counts.keys()].find(k => k[0] === words[0] && k[1] === words[1]) ?? words
     counts.set(key, (counts.get(key) ?? 0) + 1)
@@ -143,11 +156,13 @@ function whyLine(t: T, why: Explanation): RenderElement {
   return (
     <Box key="realce-why" paddingLeft={2}>
       {why.status === 'pending' ? (
-        <Text color={SCREEN.dim}>↳ Explicando…</Text>
+        <Text color={SCREEN.dim}>{tr('↳ Explaining…', '↳ Explicando…')}</Text>
       ) : why.status === 'failed' ? (
-        <Text color={SCREEN.dim} wrap="truncate-end">{`↳ Sem explicação: ${why.reason}`}</Text>
+        <Text color={SCREEN.dim} wrap="truncate-end">{tr(`↳ No explanation: ${why.reason}`, `↳ Sem explicação: ${why.reason}`)}</Text>
+      ) : why.status === 'cut' ? (
+        <Text color={SCREEN.dim} wrap="truncate-end">{tr('↳ No explanation: cut short when the mod reloaded', '↳ Sem explicação: interrompida ao recarregar o mod')}</Text>
       ) : (
-        <Text color={SCREEN.warn}>{`↳ Por quê: ${why.text}`}</Text>
+        <Text color={SCREEN.warn}>{tr(`↳ Why: ${why.text}`, `↳ Por quê: ${why.text}`)}</Text>
       )}
     </Box>
   )
@@ -157,7 +172,7 @@ function toolRow(t: T, s: ToolSummary, state: RowState, score: TestScore | null 
   const { Box, Text } = t
   const icon = state.isRunning ? '◌' : state.isErrored ? '✖' : s.icon
   const head = s.verb === '' ? `${icon} ` : `${icon} ${s.verb} `
-  const tail = state.isInterrupted ? <Text color={SCREEN.dim}> · interrompida</Text> : state.isAnswer ? <Text color={SCREEN.dim}> · sem resultado</Text> : null
+  const tail = state.isInterrupted ? <Text color={SCREEN.dim}>{tr(' · interrupted', ' · interrompida')}</Text> : state.isAnswer ? <Text color={SCREEN.dim}>{tr(' · no match', ' · sem resultado')}</Text> : null
   if (s.kind === 'run') {
     const lines = s.target.split('\n')
     const more = lines.length > 2 ? ' …' : ''
@@ -200,7 +215,7 @@ function toolRow(t: T, s: ToolSummary, state: RowState, score: TestScore | null 
           {s.target}
           {hasCounts && '  '}
           {hasCounts && <Text color={SCREEN.ok}>{`+${s.added ?? 0}`}</Text>}
-          {hasCounts && (s.isNew ? <Text color={SCREEN.dim}> (novo)</Text> : ' ')}
+          {hasCounts && (s.isNew ? <Text color={SCREEN.dim}>{tr(' (new)', ' (novo)')}</Text> : ' ')}
           {hasCounts && !s.isNew && <Text color={SCREEN.bad}>{`−${s.removed ?? 0}`}</Text>}
           {tail}
         </Text>
@@ -275,7 +290,7 @@ export function registerTools(on: On): void {
           <Text color={SCREEN.dim} wrap="truncate-end">
             {`${icon} ${summarizeGroup(calls)}`}
             {cards.length > 0 && <Text color={SCREEN.ok}>{` · ${cards.join(' · ')}`}</Text>}
-            {errored > 0 && <Text color={SCREEN.bad}>{` · ${errored} com erro`}</Text>}
+            {errored > 0 && <Text color={SCREEN.bad}>{tr(` · ${errored} failed`, ` · ${errored} com erro`)}</Text>}
           </Text>
           {why !== null && whyLine(t, why)}
         </Box>

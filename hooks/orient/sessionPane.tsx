@@ -1,6 +1,7 @@
 import { atom, read } from 'claude-code'
 import type { On } from 'claude-code'
 
+import { pick, tr, type Text } from '../i18n'
 import type { AgentRow, Explanation, ExplainPanel, FileTouch, Pin, PlanItem, TimelineRow, UsageReading } from '../../types'
 import { usageLine } from './limits'
 import { closeExplanation } from './explain'
@@ -39,14 +40,14 @@ const PLAN_MARK: Record<PlanItem['status'], { glyph: string; tone: ScreenTone }>
   pending: { glyph: '○', tone: 'dim' },
 }
 
-const AGENT_STATUS: Record<string, { label: string; tone: ScreenTone }> = {
-  running: { label: 'Rodando', tone: 'run' },
-  pending: { label: 'Na fila', tone: 'dim' },
-  waiting: { label: 'Aguardando', tone: 'warn' },
-  idle: { label: 'Ocioso', tone: 'dim' },
-  completed: { label: 'Concluído', tone: 'ok' },
-  failed: { label: 'Falhou', tone: 'bad' },
-  killed: { label: 'Parado', tone: 'warn' },
+const AGENT_STATUS: Record<string, { label: Text; tone: ScreenTone }> = {
+  running: { label: { en: 'Running', pt: 'Rodando' }, tone: 'run' },
+  pending: { label: { en: 'Queued', pt: 'Na fila' }, tone: 'dim' },
+  waiting: { label: { en: 'Waiting', pt: 'Aguardando' }, tone: 'warn' },
+  idle: { label: { en: 'Idle', pt: 'Ocioso' }, tone: 'dim' },
+  completed: { label: { en: 'Done', pt: 'Concluído' }, tone: 'ok' },
+  failed: { label: { en: 'Failed', pt: 'Falhou' }, tone: 'bad' },
+  killed: { label: { en: 'Stopped', pt: 'Parado' }, tone: 'warn' },
 }
 
 const relative = (path: string, cwd: string | undefined) =>
@@ -64,7 +65,8 @@ function fileSegments(f: FileTouch, cwd: string | undefined, cols: number): Segm
 }
 
 function agentSegments(a: AgentRow, tzOffsetMinutes: number | undefined): Segment[] {
-  const status = AGENT_STATUS[a.status] ?? { label: a.status, tone: 'dim' }
+  const known = AGENT_STATUS[a.status]
+  const status = known === undefined ? { label: a.status, tone: 'dim' as const } : { label: pick(known.label), tone: known.tone }
   const segments: Segment[] = [
     { text: '◆ ', color: SCREEN.agent },
     { text: a.description },
@@ -96,7 +98,7 @@ export function registerSessionPane(on: On): void {
     ])
     const items = pending?.items ?? []
     if (plan.length + items.length + files.length + failures.length + agents.length + timeline.length + pins.length === 0 && explain === null && usage === null) {
-      return <Text dimColor>Nada por aqui ainda.</Text>
+      return <Text dimColor>{tr('Nothing here yet.', 'Nada por aqui ainda.')}</Text>
     }
     const row = (segments: readonly Segment[]) => (
       <Text wrap="truncate-end">
@@ -110,23 +112,23 @@ export function registerSessionPane(on: On): void {
       <Box flexDirection="column" width={cols}>
         {usage !== null && usageLine(usage).length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            {heading('Uso')}
+            {heading(tr('Usage', 'Uso'))}
             {row(usageLine(usage))}
           </Box>
         )}
         {explain !== null && (
           <Box flexDirection="column" marginBottom={1}>
             <Box flexDirection="row" width={cols}>
-              <Box flexGrow={1}>{heading('Explicação')}</Box>
+              <Box flexGrow={1}>{heading(tr('Explanation', 'Explicação'))}</Box>
               <Button plain key="close-explain" dimColor onPress={() => void closeExplanation($)}>
-                Fechar
+                {tr('Close', 'Fechar')}
               </Button>
             </Box>
             <Text dimColor wrap="truncate-end">{fitEnd(`“${explain.excerpt.replace(/\s+/g, ' ')}”`, cols)}</Text>
             {explain.status === 'pending' ? (
-              <Text dimColor>Explicando…</Text>
+              <Text dimColor>{tr('Explaining…', 'Explicando…')}</Text>
             ) : explain.status === 'failed' ? (
-              <Text dimColor>{`Sem explicação: ${explain.text}`}</Text>
+              <Text dimColor>{tr(`No explanation: ${explain.text}`, `Sem explicação: ${explain.text}`)}</Text>
             ) : (
               <Text>{explain.text}</Text>
             )}
@@ -134,7 +136,7 @@ export function registerSessionPane(on: On): void {
         )}
         {plan.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            {heading(`Plano ${done}/${plan.length}`)}
+            {heading(`${tr('Plan', 'Plano')} ${done}/${plan.length}`)}
             {plan.map(p => {
               const mark = PLAN_MARK[p.status]
               const text = p.status === 'in_progress' ? (p.activeForm ?? p.text) : p.text
@@ -144,13 +146,13 @@ export function registerSessionPane(on: On): void {
         )}
         {items.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            {heading('Precisa de você')}
+            {heading(tr('Needs you', 'Precisa de você'))}
             {items.map(item => row([{ text: `• ${item}`, color: SCREEN.warn }]))}
           </Box>
         )}
         {pins.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            {heading(`Fixadas (${pins.length})`)}
+            {heading(`${tr('Pinned', 'Fixadas')} (${pins.length})`)}
             {[...pins].reverse().map(p => (
               <Button plain key={`pin-${p.requestId}`} dimColor onPress={() => void scrollToRow($, p.requestId)}>
                 {fitEnd(env === null ? p.preview : `${formatClock(p.at, env.tzOffsetMinutes)} · ${p.preview}`, cols)}
@@ -160,7 +162,7 @@ export function registerSessionPane(on: On): void {
         )}
         {timeline.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            {heading(`Turnos (${timeline.length})`)}
+            {heading(`${tr('Turns', 'Turnos')} (${timeline.length})`)}
             {timeline
               .slice(-MAX_TURNS)
               .reverse()
@@ -173,7 +175,7 @@ export function registerSessionPane(on: On): void {
         )}
         {files.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            {heading(`Arquivos (${files.length})`)}
+            {heading(`${tr('Files', 'Arquivos')} (${files.length})`)}
             {files
               .slice(-MAX_FILES)
               .reverse()
@@ -182,7 +184,7 @@ export function registerSessionPane(on: On): void {
         )}
         {failures.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            {heading(`Falhas (${failures.length})`)}
+            {heading(`${tr('Failures', 'Falhas')} (${failures.length})`)}
             {failures.slice(-MAX_FAILURES).reverse().map(f => {
               const why = f.toolUseId === undefined ? undefined : explanations[f.toolUseId]
               return (
@@ -214,7 +216,7 @@ export function registerSessionPane(on: On): void {
         )}
         {agents.length > 0 && (
           <Box flexDirection="column">
-            {heading(`Agentes (${agents.length})`)}
+            {heading(`${tr('Agents', 'Agentes')} (${agents.length})`)}
             {sorted.map(a => row(agentSegments(a, env?.tzOffsetMinutes)))}
           </Box>
         )}

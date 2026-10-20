@@ -3,6 +3,7 @@ import type { Args, EngineInterface, On, RenderPropsOf } from 'claude-code'
 
 import type { Activity, RunningCall } from '../../types'
 import { getFlags, isMasterOn } from '../flags'
+import { lang, pick, tr, type Text } from '../i18n'
 import { timed } from '../perf'
 import { formatSeconds } from './score'
 import { asRecord, EDIT_TOOLS, editedPath, shellCommands, str } from './toolInfo'
@@ -10,12 +11,12 @@ import { asRecord, EDIT_TOOLS, editedPath, shellCommands, str } from './toolInfo
 // The main loop's calls still running, by tool_use_id: the one row that reads it is the spinner.
 const RUNNING = atom({ plugin: 'realce', key: 'running' } as const, {})
 
-export const SPINNER_WORDS: Record<RenderPropsOf['Spinner']['mode'], string> = {
-  requesting: 'Conectando',
-  responding: 'Escrevendo',
-  thinking: 'Pensando',
-  'tool-input': 'Preparando',
-  'tool-use': 'Executando',
+export const SPINNER_WORDS: Record<RenderPropsOf['Spinner']['mode'], Text> = {
+  requesting: { en: 'Connecting', pt: 'Conectando' },
+  responding: { en: 'Writing', pt: 'Escrevendo' },
+  thinking: { en: 'Thinking', pt: 'Pensando' },
+  'tool-input': { en: 'Preparing', pt: 'Preparando' },
+  'tool-use': { en: 'Running', pt: 'Executando' },
 }
 
 // The engine's own spinner messages this mod knows; any other passes as the engine wrote it.
@@ -25,6 +26,8 @@ const MESSAGES: readonly [RegExp, (m: RegExpExecArray) => string][] = [
 ]
 
 export function translateSpinnerMessage(message: string): string {
+  // The engine already speaks English.
+  if (lang() === 'en') return message
   for (const [re, say] of MESSAGES) {
     const m = re.exec(message)
     if (m !== null) return say(m)
@@ -166,7 +169,7 @@ export function activityOf(call: { tool: string } & Record<string, unknown>): Om
     const activity = bashActivity(command)
     const key = activity === 'test' ? testKey(command) : null
     const last = key === null ? undefined : lastTestSeconds.get(key)
-    return { activity, target: last === undefined ? null : `última: ${formatSeconds(last)}` }
+    return { activity, target: last === undefined ? null : tr(`last: ${formatSeconds(last)}`, `última: ${formatSeconds(last)}`) }
   }
   if (call.tool === 'Grep' || call.tool === 'Glob') {
     const pattern = str(input.pattern)
@@ -190,16 +193,27 @@ export function activityOf(call: { tool: string } & Record<string, unknown>): Om
 
 const PLAN_TOOLS: ReadonlySet<string> = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate'])
 
-const DOING: Record<Activity, string> = {
-  read: 'Lendo', edit: 'Editando', search: 'Buscando', web: 'Pesquisando', agent: 'Delegando', skill: 'Carregando a skill',
-  plan: 'Atualizando o plano', test: 'Rodando os testes', commit: 'Fazendo o commit', push: 'Fazendo o push', other: 'Executando',
+const DOING_TEXT: Record<Activity, Text> = {
+  read: { en: 'Reading', pt: 'Lendo' },
+  edit: { en: 'Editing', pt: 'Editando' },
+  search: { en: 'Searching', pt: 'Buscando' },
+  web: { en: 'Browsing', pt: 'Pesquisando' },
+  agent: { en: 'Delegating', pt: 'Delegando' },
+  skill: { en: 'Loading the skill', pt: 'Carregando a skill' },
+  plan: { en: 'Updating the plan', pt: 'Atualizando o plano' },
+  test: { en: 'Running the tests', pt: 'Rodando os testes' },
+  commit: { en: 'Committing', pt: 'Fazendo o commit' },
+  push: { en: 'Pushing', pt: 'Fazendo o push' },
+  other: { en: 'Running', pt: 'Executando' },
 }
+
+const doing = (activity: Activity): string => pick(DOING_TEXT[activity])
 
 // Several calls of one kind: the count says more than any one name.
 const MANY: Partial<Record<Activity, (n: number) => string>> = {
-  read: n => `Lendo ${n} arquivos`,
-  edit: n => `Editando ${n} arquivos`,
-  agent: n => `Delegando a ${n} agentes`,
+  read: n => tr(`Reading ${n} files`, `Lendo ${n} arquivos`),
+  edit: n => tr(`Editing ${n} files`, `Editando ${n} arquivos`),
+  agent: n => tr(`Delegating to ${n} agents`, `Delegando a ${n} agentes`),
 }
 
 /** The spinner's word for the calls running now; null when none is. */
@@ -208,14 +222,17 @@ export function runningWord(calls: readonly Omit<RunningCall, 'id'>[]): string |
   if (first === undefined) return null
   const kinds = [...new Set(calls.map(c => c.activity))]
   // Two kinds at once read as one phrase ("Lendo e buscando"); more is a count.
-  if (kinds.length === 2) return `${DOING[kinds[0]!]} e ${DOING[kinds[1]!].charAt(0).toLowerCase()}${DOING[kinds[1]!].slice(1)}`
-  if (kinds.length > 2) return `Executando ${calls.length} ferramentas`
-  if (calls.length > 1) return MANY[first.activity]?.(calls.length) ?? DOING[first.activity]
-  if (first.target === null) return DOING[first.activity]
+  if (kinds.length === 2) {
+    const second = doing(kinds[1]!)
+    return `${doing(kinds[0]!)} ${tr('and', 'e')} ${second.charAt(0).toLowerCase()}${second.slice(1)}`
+  }
+  if (kinds.length > 2) return tr(`Running ${calls.length} tools`, `Executando ${calls.length} ferramentas`)
+  if (calls.length > 1) return MANY[first.activity]?.(calls.length) ?? doing(first.activity)
+  if (first.target === null) return doing(first.activity)
   // A task is a phrase of its own ("Revisar o diff"), not an object of the verb; a test run's is its last time.
-  if (first.activity === 'agent') return `Delegando: ${first.target}`
-  if (first.activity === 'test') return `${DOING.test} (${first.target})`
-  return `${DOING[first.activity]} ${first.target}`
+  if (first.activity === 'agent') return `${doing('agent')}: ${first.target}`
+  if (first.activity === 'test') return `${doing('test')} (${first.target})`
+  return `${doing(first.activity)} ${first.target}`
 }
 
 /** Before a main-loop call runs: the spinner names it. Subagents' calls run under their own row. */
@@ -251,6 +268,6 @@ export function registerSpinner(on: On): void {
     if (!flags.spinner || e.surface !== 'terminal') return next(e)
     const message = e.props.message === null ? null : translateSpinnerMessage(e.props.message)
     const running = e.props.mode === 'tool-use' ? runningWord(Object.values(await read($, RUNNING))) : null
-    return next({ ...e, props: { ...e.props, word: running ?? SPINNER_WORDS[e.props.mode], message } })
+    return next({ ...e, props: { ...e.props, word: running ?? pick(SPINNER_WORDS[e.props.mode]), message } })
   }))
 }

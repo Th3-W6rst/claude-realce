@@ -44,7 +44,7 @@ async function customBase($: EngineInterface, name: string): Promise<string> {
   const home = (await $.env.get('HOME')) ?? ''
   const parsed: unknown = JSON.parse(await $.fs.read(`${home}/.claude/themes/${name}.json`))
   const base = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>).base : undefined
-  if (typeof base !== 'string') throw new Error('sem campo "base"')
+  if (typeof base !== 'string') throw new Error('no "base" field')
   return base
 }
 
@@ -66,7 +66,7 @@ export async function resolveTheme($: EngineInterface, value?: string): Promise<
   try {
     return await classOf($, theme)
   } catch (error) {
-    $.ui.log(`realce: tema ${theme} não lido (${error instanceof Error ? error.message : String(error)}); usando o escuro`)
+    $.ui.log(`realce: theme ${theme} not read (${error instanceof Error ? error.message : String(error)}); using the dark one`)
     return 'dark'
   }
 }

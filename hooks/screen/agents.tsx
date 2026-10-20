@@ -2,6 +2,7 @@ import type { Elements, RenderElement, RenderPropsOf } from 'claude-code'
 
 import type { AgentRow } from '../../types'
 import { formatDuration, plural } from '../format'
+import { pick, tr, type Text } from '../i18n'
 import { SCREEN, type ScreenTone } from '../palette'
 
 type T = Pick<Elements['terminal'], 'Box' | 'Text'>
@@ -53,11 +54,11 @@ export function noticeOf(props: RenderPropsOf['UserMessage']): TaskNotice | null
   return { status, name, result: null, ...(props.task?.durationMs !== undefined ? { durationMs: props.task.durationMs } : {}) }
 }
 
-const STATUS: Record<string, { label: string; tone: ScreenTone }> = {
-  completed: { label: 'Concluído', tone: 'ok' },
-  failed: { label: 'Falhou', tone: 'bad' },
-  killed: { label: 'Parado', tone: 'warn' },
-  stopped: { label: 'Parado', tone: 'warn' },
+const STATUS: Record<string, { label: Text; tone: ScreenTone }> = {
+  completed: { label: { en: 'Done', pt: 'Concluído' }, tone: 'ok' },
+  failed: { label: { en: 'Failed', pt: 'Falhou' }, tone: 'bad' },
+  killed: { label: { en: 'Stopped', pt: 'Parado' }, tone: 'warn' },
+  stopped: { label: { en: 'Stopped', pt: 'Parado' }, tone: 'warn' },
 }
 
 const formatTokens = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k tokens` : plural(n, 'token', 'tokens'))
@@ -67,12 +68,13 @@ export function agentCard(t: T, notice: TaskNotice, agent: AgentRow | null, task
   const { Box, Text } = t
   const name = notice.name ?? agent?.description ?? ''
   const title = agent !== null && agent.type !== '' ? `${agent.type}: ${name}` : name
-  const status = STATUS[notice.status] ?? { label: notice.status, tone: 'dim' as const }
+  const known = STATUS[notice.status]
+  const status = known === undefined ? { label: notice.status, tone: 'dim' as const } : { label: pick(known.label), tone: known.tone }
   const statusColor = SCREEN[status.tone]
   const durationMs = notice.durationMs ?? taskDurationMs
   const facts = [
     durationMs !== undefined ? formatDuration(durationMs) : null,
-    notice.toolUses !== undefined ? plural(notice.toolUses, 'ferramenta', 'ferramentas') : null,
+    notice.toolUses !== undefined ? plural(notice.toolUses, tr('tool', 'ferramenta'), tr('tools', 'ferramentas')) : null,
     notice.tokens !== undefined ? formatTokens(notice.tokens) : null,
   ].filter((f): f is string => f !== null)
   return (
@@ -90,7 +92,7 @@ export function agentCard(t: T, notice: TaskNotice, agent: AgentRow | null, task
           <Text color={SCREEN.dim} wrap="truncate-end">{notice.result}</Text>
         </Box>
       )}
-      <Text color={SCREEN.dim}>ctrl+o para ver tudo</Text>
+      <Text color={SCREEN.dim}>{tr('ctrl+o to see it all', 'ctrl+o para ver tudo')}</Text>
     </Box>
   )
 }

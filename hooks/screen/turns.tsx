@@ -5,6 +5,7 @@ import type { Seal, TurnStats } from '../../types'
 import { flagsVersion, getFlags } from '../flags'
 import { memo } from '../memo'
 import { formatClock, formatDuration, plural } from '../format'
+import { tr } from '../i18n'
 import { SCREEN } from '../palette'
 import { timed } from '../perf'
 import { cachedEnv } from '../env'
@@ -21,15 +22,18 @@ export const ruleWidth = (columns: number | undefined) => Math.max(10, (columns 
 export function testsLabel(stats: TurnStats): Span | null {
   const tests = stats.tests
   if (tests === null) return null
-  if (tests.failed === 0) return { text: '✔ testes', color: SCREEN.ok }
-  const noun = tests.unit === 'pacotes' ? ['pacote falhou', 'pacotes falharam'] : ['teste falhou', 'testes falharam']
+  if (tests.failed === 0) return { text: tr('✔ tests', '✔ testes'), color: SCREEN.ok }
+  const noun =
+    tests.unit === 'pacotes'
+      ? [tr('package failed', 'pacote falhou'), tr('packages failed', 'pacotes falharam')]
+      : [tr('test failed', 'teste falhou'), tr('tests failed', 'testes falharam')]
   return { text: `✖ ${plural(tests.failed, noun[0]!, noun[1]!)}`, color: SCREEN.bad }
 }
 
 export function sealLabel(seal: Seal | null | undefined): Span | null {
-  if (seal === 'proved') return { text: '✔ provado', color: SCREEN.ok }
-  if (seal === 'failing') return { text: '✖ afirmou com testes falhando', color: SCREEN.bad }
-  if (seal === 'unproved') return { text: '⚠ sem prova', color: SCREEN.warn }
+  if (seal === 'proved') return { text: tr('✔ proved', '✔ provado'), color: SCREEN.ok }
+  if (seal === 'failing') return { text: tr('✖ claimed with tests failing', '✖ afirmou com testes falhando'), color: SCREEN.bad }
+  if (seal === 'unproved') return { text: tr('⚠ no proof', '⚠ sem prova'), color: SCREEN.warn }
   return null
 }
 
@@ -71,10 +75,10 @@ function ruleSpans(stats: TurnStats | null, durationMs: number, width: number, t
   labels.push({ text: formatDuration(durationMs), color: SCREEN.dim })
   if (stats !== null) {
     const seal = sealLabel(stats.seal)
-    if (seal !== null) labels.push({ ...seal, ...(stats.seal === 'failing' ? { short: '✖ falhando' } : {}) })
+    if (seal !== null) labels.push({ ...seal, ...(stats.seal === 'failing' ? { short: tr('✖ failing', '✖ falhando') } : {}) })
     // A count of nothing says nothing: a turn that only answered draws its time alone.
-    if (stats.tools > 0) labels.push({ text: plural(stats.tools, 'ferramenta', 'ferramentas'), color: SCREEN.dim, drop: 2 })
-    if (stats.files > 0) labels.push({ text: plural(stats.files, 'arquivo', 'arquivos'), color: SCREEN.dim, drop: 1 })
+    if (stats.tools > 0) labels.push({ text: plural(stats.tools, tr('tool', 'ferramenta'), tr('tools', 'ferramentas')), color: SCREEN.dim, drop: 2 })
+    if (stats.files > 0) labels.push({ text: plural(stats.files, tr('file', 'arquivo'), tr('files', 'arquivos')), color: SCREEN.dim, drop: 1 })
     const tests = testsLabel(stats)
     if (tests !== null) labels.push({ ...tests, drop: 4 })
   }

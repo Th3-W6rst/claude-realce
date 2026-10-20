@@ -6,6 +6,7 @@ import type { Block } from './blocks'
 import type { RenderCtx } from './ctx'
 import { parseInline, plainText, toPlainMarkdown, type InlineOpts, type Span } from './inline'
 import { parseTable, renderTable } from './table'
+import { tr } from '../i18n'
 
 // With enfase off these draw as the engine draws `**x**`: the one place this mod uses bold.
 const MARKS: ReadonlySet<ProseKind> = new Set(['label', 'strong', 'highlight', 'good', 'bad', 'warn'])
@@ -45,7 +46,7 @@ export function renderReply(ctx: RenderCtx, blocks: readonly Block[]): RenderEle
       {isLong && (
         <Box marginTop={1}>
           <Button plain key="copy-reply" dimColor onPress={() => ctx.onCopy(toPlainMarkdown(ctx.text))}>
-            Copiar resposta
+            {tr('Copy reply', 'Copiar resposta')}
           </Button>
         </Box>
       )}

@@ -6,6 +6,7 @@ import { hashSource, imageCells, pngSize } from '../hooks/code/diagram'
 import { highlight } from '../hooks/code/highlight'
 import { pathHref } from '../hooks/code/links'
 import { MERMAID as MERMAID_PALETTE } from '../hooks/palette'
+import { PT } from './lang'
 
 describe('code', () => {
   const kinds = (src: string, lang: string) => highlight(src, lang).flat().filter(t => t.kind).map(t => [t.text, t.kind])
@@ -50,7 +51,7 @@ describe('links', () => {
   })
 
   test('a path in a reply is a link to the editor', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const session = sessionWorld(on, {})
     await startSession($)
     const ui = await mountReply($, 'Mudei hooks/x.ts:12 hoje.')
@@ -59,7 +60,7 @@ describe('links', () => {
   })
 
   test('caminhos off draws no link', async ($, on) => {
-    mock.store(on, { flags: { caminhos: false } })
+    mock.store(on, { ...PT, flags: { caminhos: false } })
     sessionWorld(on, {})
     await startSession($)
     const ui = await mountReply($, 'Mudei hooks/x.ts:12 hoje.')
@@ -71,7 +72,7 @@ const numbered = (count: number) => Array.from({ length: count }, (_, n) => `con
 
 describe('copy and fold', () => {
   test('a long reply can be copied whole, its marks as plain markdown', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const copied: string[] = []
     on('ui.copy', ($, e) => {
       copied.push(e.text)
@@ -87,7 +88,7 @@ describe('copy and fold', () => {
   })
 
   test('copy puts the block source on the clipboard', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const copied: string[] = []
     const toasts: string[] = []
     on('ui.copy', ($, e) => {
@@ -106,7 +107,7 @@ describe('copy and fold', () => {
   })
 
   test('the header names the language beside the copy button', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const ui = await mountReply($, '```ts\nconst a = 1\n```')
     const label = (await ui.findAll({ type: 'Text', text: 'ts' })).find(el => el.text === 'ts')
     expect(label?.props).toMatchObject({ color: '#6E6A86' })
@@ -114,7 +115,7 @@ describe('copy and fold', () => {
   })
 
   test('a 40-line block shows 8 lines and opens', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const ui = await mountReply($, '```ts\n' + numbered(40) + '\n```')
     expect((await ui.find({ key: 'fold-0' }))?.text).toBe('▸ Mostrar mais 32 linhas')
     expect(await ui.find({ text: 'line8' })).toBeDefined()
@@ -127,14 +128,14 @@ describe('copy and fold', () => {
   })
 
   test('a 25-line block stays whole', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const ui = await mountReply($, '```ts\n' + numbered(25) + '\n```')
     expect(await ui.find({ key: 'fold-0' })).toBeUndefined()
     expect(await ui.find({ text: 'line25' })).toBeDefined()
   })
 
   test('a 2000-line block draws folded and fast', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     // The kit's mount has its own cost, which a loaded machine stretches: the block's is the long one over a short one.
     const t0 = performance.now()
     await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'AssistantMessage', requestId: 'short', props: { text: '```ts\n' + numbered(30) + '\n```', isFirstOfReply: true }, viewport: { columns: 120, rows: 40 } })
@@ -148,7 +149,7 @@ describe('copy and fold', () => {
   })
 
   test('the engine highlighter keeps the header and the fold', async ($, on) => {
-    mock.store(on, { flags: { highlight: false } })
+    mock.store(on, { ...PT, flags: { highlight: false } })
     const ui = await mountReply($, '```ts\n' + numbered(30) + '\n```')
     const code = await ui.find({ type: 'Code' })
     expect(code?.props).toMatchObject({ language: 'ts', source: numbered(8) })
@@ -158,21 +159,21 @@ describe('copy and fold', () => {
   })
 
   test('a language without a grammar folds through the engine highlighter', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const ui = await mountReply($, '```elixir\n' + numbered(30) + '\n```')
     expect((await ui.find({ type: 'Code' }))?.props).toMatchObject({ language: 'elixir', source: numbered(8) })
     expect((await ui.find({ key: 'fold-0' }))?.text).toBe('▸ Mostrar mais 22 linhas')
   })
 
   test('copiar and dobrar off draw no controls', async ($, on) => {
-    mock.store(on, { flags: { copiar: false, dobrar: false } })
+    mock.store(on, { ...PT, flags: { copiar: false, dobrar: false } })
     const ui = await mountReply($, '```ts\n' + numbered(40) + '\n```')
     expect(await ui.findAll({ type: 'Button' })).toEqual([])
     expect(await ui.find({ text: 'line40' })).toBeDefined()
   })
 
   test('with every code aid off the block is the engine Code alone', async ($, on) => {
-    mock.store(on, { flags: { copiar: false, dobrar: false, highlight: false } })
+    mock.store(on, { ...PT, flags: { copiar: false, dobrar: false, highlight: false } })
     const ui = await mountReply($, '```\n' + numbered(40) + '\n```')
     const code = await ui.find({ type: 'Code' })
     expect(code?.props).toEqual({ source: numbered(40) })
@@ -273,7 +274,7 @@ describe('diagram sizes', () => {
 
 describe('diagram generation', () => {
   test('generation writes, runs mmdc and reads the size', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const world = sessionWorld(on, {})
     const hash = hashSource(MERMAID)
@@ -290,7 +291,7 @@ describe('diagram generation', () => {
   })
 
   test('an existing picture is ready without running mmdc', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const world = sessionWorld(on, { existing: [`${DIR}/${hashSource(MERMAID)}.png`] })
     await startSession($)
@@ -301,7 +302,7 @@ describe('diagram generation', () => {
   })
 
   test('a picture that is no PNG is failed', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     sessionWorld(on, { png: 'R0lGODlhAQABAAAAACw=' })
     await startSession($)
@@ -311,7 +312,7 @@ describe('diagram generation', () => {
   })
 
   test('mmdc that cannot start is failed with the reason', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     sessionWorld(on, { mmdcThrows: 'spawn mmdc ENOENT' })
     await startSession($)
@@ -323,7 +324,7 @@ describe('diagram generation', () => {
 
 describe('diagram drawing', () => {
   test('an appended reply renders its diagram', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const world = sessionWorld(on, {})
     await startSession($)
@@ -348,7 +349,7 @@ describe('diagram drawing', () => {
   })
 
   test('a rejected diagram shows its code and the error', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     sessionWorld(on, { mmdcResult: { exitCode: 1, stderr: '\nError: Parse error on line 2:\ngraph TD  A-->\n    at #evaluate (file:///x.js:1:1)\n' } })
     await startSession($)
@@ -360,7 +361,7 @@ describe('diagram drawing', () => {
   })
 
   test('a reply still being written shows its code until it is stored', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     sessionWorld(on, {})
     await startSession($)
     const ui = await mountReply($, DIAGRAM_REPLY)
@@ -369,7 +370,7 @@ describe('diagram drawing', () => {
   })
 
   test('a reply already in the transcript gets its diagram when the session starts', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const world = sessionWorld(on, { transcript: ['Sem diagrama.', DIAGRAM_REPLY] })
     await startSession($)
@@ -379,7 +380,7 @@ describe('diagram drawing', () => {
   })
 
   test('user rows are not diagrams', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const world = sessionWorld(on, {})
     await startSession($)
@@ -389,7 +390,7 @@ describe('diagram drawing', () => {
   })
 
   test('diagramas off draws the code block and generates nothing', async ($, on) => {
-    mock.store(on, { flags: { diagramas: false } })
+    mock.store(on, { ...PT, flags: { diagramas: false } })
     const clock = mock.clock(on)
     const world = sessionWorld(on, {})
     await startSession($)
@@ -402,7 +403,7 @@ describe('diagram drawing', () => {
   })
 
   test('without mmdc the block is plain code', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     const clock = mock.clock(on)
     const world = sessionWorld(on, { mmdc: null })
     await startSession($)

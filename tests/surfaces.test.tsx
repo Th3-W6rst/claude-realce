@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
+import { PT } from './lang'
 
 // Every drawing the mod hooks, on every surface it may meet: the engine must take each tree (a refused one throws in
 // mount), and off the terminal the mod mostly steps aside.
@@ -47,7 +48,7 @@ async function drawAll($: Engine, surface: (typeof SURFACES)[number], columns = 
 describe('every surface takes every drawing', () => {
   for (const surface of SURFACES) {
     test(`${surface}`, async ($, on) => {
-      mock.store(on)
+      mock.store(on, PT)
       mock.clock(on)
       engineBelow(on)
       on('prompt.compose', () => ({ sections: [] }))
@@ -56,7 +57,7 @@ describe('every surface takes every drawing', () => {
     })
 
     test(`${surface} at 30 columns`, async ($, on) => {
-      mock.store(on)
+      mock.store(on, PT)
       mock.clock(on)
       engineBelow(on)
       on('prompt.compose', () => ({ sections: [] }))
@@ -65,7 +66,7 @@ describe('every surface takes every drawing', () => {
     })
 
     test(`${surface} with every flag off`, async ($, on) => {
-      mock.store(on, { master: false })
+      mock.store(on, { ...PT, master: false })
       mock.clock(on)
       engineBelow(on)
       on('prompt.compose', () => ({ sections: [] }))
@@ -75,7 +76,7 @@ describe('every surface takes every drawing', () => {
   }
 
   test('off the terminal a reply is the engine\'s, its marks as plain bold', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     let drawn = ''
     on('ui.render', { component: 'AssistantMessage' }, ($, e) => {
       drawn = e.props.text

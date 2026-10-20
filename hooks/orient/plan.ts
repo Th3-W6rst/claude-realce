@@ -1,4 +1,5 @@
 import type { PlanItem } from '../../types'
+import { tr } from '../i18n'
 
 export type { PlanItem }
 
@@ -65,11 +66,11 @@ export function planProgress(plan: readonly PlanItem[]): PlanProgress | null {
 
 export const planBar = (filled: number) => ({ filled: '▰'.repeat(filled), empty: '▱'.repeat(BAR_CELLS - filled) })
 
-/** 'Plano ▰▰▰▰▰▱▱▱▱▱ 1/2 · Agora: Escrevendo testes'; null while nothing is open. */
+/** 'Plan ▰▰▰▰▰▱▱▱▱▱ 1/2 · Now: Writing tests' (or in Portuguese); null while nothing is open. */
 export function planRow(plan: readonly PlanItem[]): string | null {
   const p = planProgress(plan)
   if (p === null) return null
   const bar = planBar(p.filled)
-  const row = `Plano ${bar.filled}${bar.empty} ${p.done}/${p.total}`
-  return p.now === null ? row : `${row} · Agora: ${p.now}`
+  const row = `${tr('Plan', 'Plano')} ${bar.filled}${bar.empty} ${p.done}/${p.total}`
+  return p.now === null ? row : `${row} · ${tr('Now', 'Agora')}: ${p.now}`
 }

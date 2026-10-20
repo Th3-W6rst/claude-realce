@@ -6,6 +6,7 @@ import { flagsVersion } from '../hooks/flags'
 import { PROSE, SCREEN } from '../hooks/palette'
 import { applyTheme, classifyTheme } from '../hooks/theme'
 import { diagramHash, hashSource } from '../hooks/code/diagram'
+import { PT } from './lang'
 
 const ENGINE = { plugin: 'engine', tier: 'core' as const }
 const themeRow = (value: string) => ({ key: 'theme', label: 'Theme', kind: 'choice' as const, value, options: ['dark', 'light'], provider: ENGINE, isLocked: false })
@@ -71,7 +72,7 @@ describe('theme', () => {
   })
 
   test('a light theme draws a reply in light colors', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     world(on, 'light')
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
@@ -79,7 +80,7 @@ describe('theme', () => {
   })
 
   test('a custom theme follows its base', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     world(on, 'custom:zero-bone-ansi', { '/Users/u/.claude/themes/zero-bone-ansi.json': '{"name":"Zero Bone","base":"light-ansi"}' })
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
@@ -87,7 +88,7 @@ describe('theme', () => {
   })
 
   test('auto follows macOS', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     world(on, 'auto', {}, null)
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
@@ -95,16 +96,16 @@ describe('theme', () => {
   })
 
   test('a custom theme that cannot be read is said, and stays dark', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     const { logs } = world(on, 'custom:sumiu')
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
-    expect(logs.some(l => /^realce: tema custom:sumiu não lido \(.+\); usando o escuro$/.test(l))).toBe(true)
+    expect(logs.some(l => /^realce: theme custom:sumiu not read \(.+\); using the dark one$/.test(l))).toBe(true)
     expect(await goodColor(await mountGood($))).toBe('#00FF41')
   })
 
   test('tema off keeps the neon', async ($, on) => {
-    mock.store(on, { flags: { tema: false } })
+    mock.store(on, { ...PT, flags: { tema: false } })
     mock.clock(on)
     world(on, 'light')
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
@@ -112,7 +113,7 @@ describe('theme', () => {
   })
 
   test('turning tema off and on repaints at once', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     world(on, 'light')
     const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
@@ -124,7 +125,7 @@ describe('theme', () => {
   })
 
   test('/realce status names the palette in force', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     world(on, 'light')
     on('prompt.compose', () => ({ sections: [] }))
@@ -141,7 +142,7 @@ describe('theme', () => {
   })
 
   test('a theme picked in /config repaints', async ($, on) => {
-    mock.store(on)
+    mock.store(on, PT)
     mock.clock(on)
     world(on, 'dark')
     on('config.set', ($, e) => ({ value: e.value }))

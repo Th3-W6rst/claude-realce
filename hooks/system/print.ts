@@ -8,6 +8,7 @@ import { parseBlocks } from '../text/blocks'
 import { getFlags } from '../flags'
 import { currentTheme } from '../theme'
 import { estimateHeight, fileUrl, replyHtml, type Picture } from './printHtml'
+import { tr } from '../i18n'
 
 const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
 
@@ -30,7 +31,7 @@ export async function findChrome($: EngineInterface, home: string): Promise<stri
 /** `/realce print`: the last reply as a page beside its PNG, on the Desktop (or in the home without one). */
 export async function printCommand($: EngineInterface): Promise<string> {
   const reply = [...(await $.session.messages())].reverse().find(m => m.role === 'assistant' && m.text.trim() !== '')
-  if (reply === undefined) return 'Nenhuma resposta para imprimir ainda.'
+  if (reply === undefined) return tr('No reply to print yet.', 'Nenhuma resposta para imprimir ainda.')
   const home = (await $.env.get('HOME')) ?? ''
   const desktop = `${home}/Desktop`
   const dir = (await $.fs.exists(desktop)) ? desktop : home
@@ -45,7 +46,7 @@ export async function printCommand($: EngineInterface): Promise<string> {
   const flags = await getFlags($)
   await $.fs.write(`${base}.html`, replyHtml(reply.text, PALETTES[currentTheme()], picture, { enfase: flags.enfase, deltas: flags.deltas, numeros: flags.numeros }))
   const chrome = await findChrome($, home)
-  if (chrome === null) return `PNG precisa do Chrome headless; HTML salvo em ${base}.html.`
+  if (chrome === null) return tr(`The PNG needs headless Chrome; HTML saved at ${base}.html.`, `PNG precisa do Chrome headless; HTML salvo em ${base}.html.`)
   const pictures = parseBlocks(reply.text).flatMap(b => (b.type === 'code' ? [picture(b.source)] : [])).filter((p): p is Picture => p !== null)
   const height = estimateHeight(reply.text, pictures, source => picture(source) !== null)
   const run = await $.process.run(
@@ -53,8 +54,8 @@ export async function printCommand($: EngineInterface): Promise<string> {
     { timeoutMs: 30_000 },
   )
   if (run.exitCode !== 0) {
-    const why = run.stderr.split('\n').map(l => l.trim()).find(Boolean) ?? `saiu com ${run.exitCode}`
-    return `O Chrome não gerou o PNG (${why}); HTML salvo em ${base}.html.`
+    const why = run.stderr.split('\n').map(l => l.trim()).find(Boolean) ?? tr(`exited with ${run.exitCode}`, `saiu com ${run.exitCode}`)
+    return tr(`Chrome wrote no PNG (${why}); HTML saved at ${base}.html.`, `O Chrome não gerou o PNG (${why}); HTML salvo em ${base}.html.`)
   }
-  return `Print salvo em ${base}.png.`
+  return tr(`Print saved at ${base}.png.`, `Print salvo em ${base}.png.`)
 }

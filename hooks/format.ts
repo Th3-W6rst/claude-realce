@@ -1,3 +1,5 @@
+import { lang, tr } from './i18n'
+
 // Shared wording of numbers, durations and times, as the engine's own lines spell them ("6m 25s").
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -16,19 +18,25 @@ export function formatClock(epochMs: number, tzOffsetMinutes: number): string {
   return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
 }
 
-/** 'DD/MM' at the session's offset from UTC. */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** 'DD/MM' ('Oct 21' in English) at the session's offset from UTC. */
 export function formatDayMonth(epochMs: number, tzOffsetMinutes: number): string {
   const d = new Date(epochMs + tzOffsetMinutes * 60_000)
-  return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}`
+  return tr(`${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`, `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}`)
 }
 
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
-/** '1 teste', '159 testes', '1 pacote': a test score's count in its unit. */
-export const testCount = (n: number, unit: 'testes' | 'pacotes') => plural(n, unit === 'pacotes' ? 'pacote' : 'teste', unit)
+/** '1 test', '159 tests', '1 package' ('1 teste', '159 testes', '1 pacote'): a test score's count in its unit. */
+export const testCount = (n: number, unit: 'testes' | 'pacotes') =>
+  unit === 'pacotes' ? plural(n, tr('package', 'pacote'), tr('packages', 'pacotes')) : plural(n, tr('test', 'teste'), tr('tests', 'testes'))
 
-/** A number in PT-BR spelling: comma decimals, as many as asked. */
-export const formatDecimal = (value: number, decimals: number) => value.toFixed(decimals).replace('.', ',')
+/** The decimal mark of the language in force: a comma in Portuguese, a dot in English. */
+export const decimalMark = () => (lang() === 'pt' ? ',' : '.')
+
+/** A number with as many decimals as asked, in the language's spelling. */
+export const formatDecimal = (value: number, decimals: number) => value.toFixed(decimals).replace('.', decimalMark())
 
 /** `date +%z` ("-0300") as minutes east of UTC (-180). */
 export function parseTzOffset(text: string): number {
@@ -53,7 +61,7 @@ export function humanizeAmount(value: number, unit: string): string | null {
   }
   if (unit === 'tokens') {
     if (value < 10_000) return null
-    return value < 1_000_000 ? `${formatDecimal(value / 1000, 1)} mil` : `${formatDecimal(value / 1_000_000, 1)} mi`
+    return value < 1_000_000 ? `${formatDecimal(value / 1000, 1)}${tr('k', ' mil')}` : `${formatDecimal(value / 1_000_000, 1)}${tr('M', ' mi')}`
   }
   return null
 }

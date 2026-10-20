@@ -1,28 +1,30 @@
+import { plural } from '../format'
+import { pick, tr, type Text } from '../i18n'
 import type { ScreenTone } from '../palette'
 import { asRecord, str } from './toolInfo'
 
-export type CommitCard =
-  | { kind: 'commit'; verb: string; sha: string; branch: string | null; message: string | null; stat: { files: number; added: number; removed: number } | null }
-  | { kind: 'push'; branch: string }
-  | { kind: 'pr'; number: number; action: string; url: string | null }
-  | { kind: 'branch'; ref: string; action: string }
+import type { CommitCard } from '../../types'
+
+export type { CommitCard }
 
 const COMMIT_VERB: Record<string, string> = { committed: 'commit', amended: 'amend', 'cherry-picked': 'cherry-pick' }
 
-const PR_ACTION: Record<string, string> = {
-  created: 'criado',
-  edited: 'editado',
-  merged: 'mesclado',
-  commented: 'comentado',
-  closed: 'fechado',
-  reopened: 'reaberto',
-  ready: 'pronto para revisão',
-  draft: 'em rascunho',
-  'auto-merge-enabled': 'com auto-merge',
-  'auto-merge-disabled': 'sem auto-merge',
+const PR_ACTION: Record<string, Text> = {
+  created: { en: 'created', pt: 'criado' },
+  edited: { en: 'edited', pt: 'editado' },
+  merged: { en: 'merged', pt: 'mesclado' },
+  commented: { en: 'commented', pt: 'comentado' },
+  closed: { en: 'closed', pt: 'fechado' },
+  reopened: { en: 'reopened', pt: 'reaberto' },
+  ready: { en: 'ready for review', pt: 'pronto para revisão' },
+  draft: { en: 'in draft', pt: 'em rascunho' },
+  'auto-merge-enabled': { en: 'with auto-merge', pt: 'com auto-merge' },
+  'auto-merge-disabled': { en: 'without auto-merge', pt: 'sem auto-merge' },
 }
 
-const BRANCH_ACTION: Record<string, string> = { merged: 'mesclou', rebased: 'rebase em' }
+const BRANCH_ACTION: Record<string, Text> = { merged: { en: 'merged', pt: 'mesclou' }, rebased: { en: 'rebased onto', pt: 'rebase em' } }
+
+const actionOf = (actions: Record<string, Text>, action: string): string => (actions[action] === undefined ? action : pick(actions[action]!))
 
 export const CARD_TONE: Record<CommitCard['kind'], ScreenTone> = { commit: 'ok', push: 'run', pr: 'web', branch: 'plan' }
 
@@ -73,16 +75,16 @@ export function shortCardText(card: CommitCard): string {
   return cardText(card)
 }
 
-/** '● commit 9cd805a · main · message · 8 arquivos +120 −3', '↑ push main', '⇡ PR #12 criado · <url>', '⎇ mesclou feat/x'. */
+/** '● commit 9cd805a · main · message · 8 files +120 −3', '↑ push main', '⇡ PR #12 created · <url>', '⎇ merged feat/x'. */
 export function cardText(card: CommitCard): string {
   if (card.kind === 'commit') {
     const parts = [`● ${card.verb} ${card.sha}`]
     if (card.branch !== null) parts.push(card.branch)
     if (card.message !== null) parts.push(card.message)
-    if (card.stat !== null) parts.push(`${card.stat.files} ${card.stat.files === 1 ? 'arquivo' : 'arquivos'} +${card.stat.added} −${card.stat.removed}`)
+    if (card.stat !== null) parts.push(`${plural(card.stat.files, tr('file', 'arquivo'), tr('files', 'arquivos'))} +${card.stat.added} −${card.stat.removed}`)
     return parts.join(' · ')
   }
   if (card.kind === 'push') return `↑ push ${card.branch}`
-  if (card.kind === 'pr') return [`⇡ PR #${card.number}${card.action === '' ? '' : ` ${PR_ACTION[card.action] ?? card.action}`}`, ...(card.url === null ? [] : [card.url])].join(' · ')
-  return `⎇ ${BRANCH_ACTION[card.action] ?? card.action} ${card.ref}`
+  if (card.kind === 'pr') return [`⇡ PR #${card.number}${card.action === '' ? '' : ` ${actionOf(PR_ACTION, card.action)}`}`, ...(card.url === null ? [] : [card.url])].join(' · ')
+  return `⎇ ${actionOf(BRANCH_ACTION, card.action)} ${card.ref}`
 }
