@@ -5,8 +5,6 @@ import { BLOCK, CALLOUT, PROSE, READING_WIDTH, type Paint, type ProseKind } from
 import type { Block } from './blocks'
 import type { RenderCtx } from './ctx'
 import { parseInline, plainText, toPlainMarkdown, type InlineOpts, type Span } from './inline'
-
-// From this many lines a reply gets its own copy button: shorter ones are easy to select.
 import { parseTable, renderTable } from './table'
 
 // With enfase off these draw as the engine draws `**x**`: the one place this mod uses bold.
@@ -20,6 +18,7 @@ function paintOf(ctx: RenderCtx, span: Span): Paint & { bold?: boolean } {
 
 export const inlineOpts = (ctx: RenderCtx): InlineOpts => ({ enfase: ctx.flags.enfase, deltas: ctx.flags.deltas, numeros: ctx.flags.numeros })
 
+// From this many lines a reply gets its own copy button: shorter ones are easy to select.
 const COPY_REPLY_LINES = 15
 
 /** One reply block's markdown as a tree of colored rows. */

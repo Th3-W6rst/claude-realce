@@ -189,7 +189,7 @@ export function registerSessionPane(on: On): void {
                   </Text>
                 ) : (
                   <Button plain key={`fail-${f.toolUseId}`} onPress={() => void scrollToRow($, f.toolUseId!)}>
-                    <Text color={SCREEN.bad}>{fitEnd(f.command, cols)}</Text>
+                    <Text color={SCREEN.bad}>{fitEnd(f.command.split('\n')[0] ?? '', cols)}</Text>
                   </Button>
                 )}
                 <Box paddingLeft={2}>

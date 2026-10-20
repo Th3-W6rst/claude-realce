@@ -1,4 +1,4 @@
-import type { Paint, PaletteSet } from '../palettes'
+import { PALETTES, type Paint, type PaletteSet } from '../palettes'
 import { parseBlocks, type Block } from '../text/blocks'
 import { parseInline, type InlineOpts, type Span } from '../text/inline'
 import { parseTable } from '../text/table'
@@ -75,8 +75,12 @@ function blockHtml(b: Block, palette: PaletteSet, picture: (source: string) => P
 }
 
 /** The reply as a standalone page in `palette`: what /realce print shoots. */
-export function replyHtml(text: string, palette: PaletteSet, picture: (source: string) => Picture | null, opts: InlineOpts = {}): string {
+export function replyHtml(text: string, themePalette: PaletteSet, picture: (source: string) => Picture | null, opts: InlineOpts = {}): string {
   pageOpts = opts
+  // An ANSI palette names the theme's keys, which only the terminal resolves: a page takes the hex palette of the
+  // same lightness.
+  const isKeyed = !(themePalette.PROSE.good.color ?? '#').startsWith('#')
+  const palette = isKeyed ? PALETTES[themePalette.BG.page === '#FFFFFF' ? 'light' : 'dark'] : themePalette
   const page = palette.BG.page
   const ink = String(palette.MERMAID.themeVariables.textColor)
   const body = parseBlocks(text)

@@ -12,8 +12,9 @@ import { refreshTheme } from './theme'
 import { toPlainMarkdown } from './text/inline'
 import { cachedEnv, sessionOffset } from './env'
 import { reportCommand } from './orient/report'
+import { doctorCommand } from './system/doctor'
 
-const USAGE = '[ajuda|on|off|status|painel|copiar|resumo|foco|explica|fixar|print|demo|<recurso> on|off]'
+const USAGE = '[ajuda|diagnostico|on|off|status|painel|copiar|resumo|foco|explica|fixar|print|demo|<recurso> on|off]'
 
 const HELP = [
   'Comandos do realce:',
@@ -29,6 +30,7 @@ const HELP = [
   '/realce print — salva a última resposta como imagem no Desktop',
   '/realce demo — mostra tudo o que o mod faz, sem chamar o modelo',
   '/realce status — o que está desligado, tema, tela cheia, avisos e desempenho',
+  '/realce diagnostico — confere o que esta máquina dá ao realce e o que falta instalar',
 ].join('\n')
 
 /** `/realce copiar`: the last reply on the clipboard, its typed marks as plain markdown. */
@@ -60,6 +62,7 @@ export function registerCommands(on: On): void {
       return { text: first === 'on' ? 'Realce ligado.' : 'Realce desligado.' }
     }
     if (words.length === 1 && first === 'ajuda') return { text: HELP }
+    if (words.length === 1 && first === 'diagnostico') return { text: await doctorCommand($, e.presentation.isFullscreen) }
     if (words.length === 1 && first === 'copiar') return { text: await copyLastReply($) }
     if (words.length === 1 && first === 'resumo') {
       return { text: (await getFlags($)).resumo ? await reportCommand($, cachedEnv()?.cwd ?? (await $.session.cwd()), await sessionOffset($)) : featureOff('resumo') }

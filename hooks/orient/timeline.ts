@@ -47,8 +47,13 @@ export async function completeTimeline($: EngineInterface, e: Args<'turn.complet
   await update($, TIMELINE, all => all.map(r => (r === all[all.length - 1] ? { ...r, durationMs: e.durationMs, seal: stats?.seal ?? null, tests: stats?.tests ?? null } : r)))
 }
 
+/** What the person reads when the transcript would not move: the common case in words, any other as the engine said. */
+export function scrollRefusal(deny: string): string {
+  return /person-initiated|none scrolls/.test(deny) ? 'A linha do tempo rola só em tela cheia.' : `Não deu para rolar: ${deny}.`
+}
+
 /** From a press in the pane: the transcript moves to the row, or the person is told why it cannot. */
 export async function scrollToRow($: EngineInterface, requestId: string): Promise<void> {
   const result = await $.ui.scroll({ to: { requestId } })
-  if (result.deny !== undefined) $.ui.toast('A linha do tempo rola só em tela cheia.')
+  if (result.deny !== undefined) $.ui.toast(scrollRefusal(result.deny))
 }

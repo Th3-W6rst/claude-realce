@@ -20,7 +20,7 @@ function stamp(epochMs: number, tzOffsetMinutes: number): string {
 }
 
 /** The headless Chrome mermaid-cli installs, else Google Chrome; null when neither is there. */
-async function findChrome($: EngineInterface, home: string): Promise<string | null> {
+export async function findChrome($: EngineInterface, home: string): Promise<string | null> {
   const found = await $.process.run(['find', `${home}/.cache/puppeteer/chrome-headless-shell`, '-name', 'chrome-headless-shell', '-type', 'f'])
   for (const path of found.stdout.split('\n').map(l => l.trim()).filter(Boolean)) if (await $.fs.exists(path)) return path
   const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'

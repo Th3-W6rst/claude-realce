@@ -34,6 +34,12 @@ describe('print html', () => {
     expect(fileUrl('/Users/u/C# notas/a?.html')).toBe('file:///Users/u/C%23%20notas/a%3F.html')
   })
 
+  test('an ANSI theme prints in its dark or light colors, never as theme keys', () => {
+    const html = replyHtml('Tudo {+ok+}', PALETTES['dark-ansi'], () => null)
+    expect(html).not.toMatch(/color: success/)
+    expect(html).toMatch(/color: #[0-9A-Fa-f]{6}/)
+  })
+
   test('a ready diagram is its picture', () => {
     const html = replyHtml('```mermaid\ngraph TD\n  A-->B\n```', PALETTES.dark, () => ({ file: '/Users/u/.cache/realce/diagrams/x.png', width: 720, height: 724 }))
     expect(html).toContain('<img src="file:///Users/u/.cache/realce/diagrams/x.png"')

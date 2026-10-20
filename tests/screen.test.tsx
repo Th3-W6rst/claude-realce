@@ -202,6 +202,16 @@ describe('test score', () => {
   test('node --test, the TAP spelling', () => expect(score('# tests 3\n# pass 3\n# fail 0\n# skipped 0\n# duration_ms 8.1')).toEqual([3, 0, 0, 0.0081, 'testes']))
   test('rspec', () => expect(score('Finished in 0.5 seconds (files took 0.2 seconds to load)\n12 examples, 1 failure, 2 pending')).toEqual([9, 1, 2, 0.5, 'testes']))
   test('deno', () => expect(score('FAILED | 11 passed | 1 failed | 2 ignored (60ms)')).toEqual([11, 1, 2, 0.06, 'testes']))
+  test('deno with filtered tests, steps and minutes', () => {
+    expect(score('ok | 12 passed | 0 failed | 2 filtered out (12ms)')).toEqual([12, 0, 0, 0.012, 'testes'])
+    expect(score('FAILED | 3 passed (4 steps) | 1 failed (1 step) (40ms)')).toEqual([3, 1, 0, 0.04, 'testes'])
+    expect(score('ok | 9 passed | 0 failed (1m6s)')).toEqual([9, 0, 0, 66, 'testes'])
+  })
+  test('a doc that mentions examples or tests is no score', () => {
+    expect(parseTestSummary('README:\n12 examples, 0 failures\nfim')).toBeNull()
+    expect(parseTestSummary('# tests 3\n\nnotas')).toBeNull()
+    expect(parseTestSummary('ℹ tests 3')).toBeNull()
+  })
   test('XCTest', () => expect(score('Executed 42 tests, with 1 failure (0 unexpected) in 1.234 (1.300) seconds')).toEqual([41, 1, 0, 1.234, 'testes']))
   test('Swift Testing', () => expect(score('✔ Test run with 42 tests in 5 suites passed after 0.123 seconds.')).toEqual([42, 0, 0, 0.123, 'testes']))
 

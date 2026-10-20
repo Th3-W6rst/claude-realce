@@ -12,7 +12,7 @@ Plugin (mod) do Claude Code que deixa a tela mais fácil de ler. Cada recurso te
 *Gerada pelo próprio mod: `/realce demo` e depois `/realce print`; os números da tabela são só de exemplo. No tema
 claro: [demo-claro.png](images/demo-claro.png).*
 
-Versão atual: 0.4.19 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
+Versão atual: 0.4.21 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (dúvidas e problemas em *Issues*).
 
 ## Requisitos
@@ -51,7 +51,8 @@ e reabra o Claude Code. O `/realce status` avisa quando há versão nova.
 
 ## Primeiros passos
 
-1. Rode `/realce demo`: uma resposta com todos os recursos, sem chamar o modelo.
+1. Rode `/realce diagnostico` para ver o que a sua máquina já tem e o que falta, e `/realce demo` para uma resposta
+   com todos os recursos, sem chamar o modelo.
 2. `/realce` abre o **painel de flags**. `/realce painel` abre o **painel da sessão**, que também abre sozinho num
    terminal com 144 colunas ou mais.
 3. Peça ao Claude: *crie soma.py com uma função soma e um teste pytest, e rode o teste*. A linha que fecha o turno (a
@@ -67,6 +68,7 @@ Um **turno** é uma mensagem sua e tudo o que o Claude faz até responder.
 |---|---|
 | `/realce` | Abre o painel de flags: cada recurso tem uma tecla (letra ou número), os últimos só por Tab e Enter; Esc fecha |
 | `/realce ajuda` | Lista os comandos |
+| `/realce diagnostico` | Confere o que a sua máquina dá ao realce (versão, cores, macOS, tela cheia, editor, mermaid, Chrome) e o que falta |
 | `/realce on` · `/realce off` | Liga ou desliga o mod inteiro, sem perder a escolha de cada flag |
 | `/realce <flag> on` · `off` | Liga ou desliga um recurso, por exemplo `/realce coluna off` |
 | `/realce painel` | Abre ou fecha o painel da sessão (uso, plano, linha do tempo, fixadas, arquivos, falhas, agentes) |

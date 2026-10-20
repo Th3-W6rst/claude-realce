@@ -94,7 +94,7 @@ describe('commands', () => {
   test('/realce with anything else answers the usage', async ($, on) => {
     mock.store(on)
     const text = (await $.command.run({ ...RUN, args: 'xyz' })).text ?? ''
-    expect(text).toMatch(/^Uso: \/realce \[ajuda\|on\|off\|status\|painel\|copiar\|resumo\|foco\|explica\|fixar\|print\|demo\|<recurso> on\|off\]/)
+    expect(text).toMatch(/^Uso: \/realce \[ajuda\|diagnostico\|on\|off\|status\|painel\|copiar\|resumo\|foco\|explica\|fixar\|print\|demo\|<recurso> on\|off\]/)
     expect(text).toMatch(/coluna/)
   })
 

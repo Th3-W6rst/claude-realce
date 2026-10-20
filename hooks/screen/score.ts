@@ -101,34 +101,46 @@ function swiftTesting(text: string): Found | null {
   return { score: { runner: 'swift-testing', passed: total - failed, failed, skipped: 0, seconds: Number(m[3]), unit: 'testes' }, at: m.index! + m[0].length }
 }
 
-// node --test: "ℹ pass 11" (or "# pass 11" in TAP) lines, then "duration_ms 52.3".
+// node --test: "ℹ pass 11" (or "# pass 11" in TAP) lines, then "duration_ms 52.3". The whole summary must be
+// there: a lone "# tests 3" is a markdown heading, and a score with nothing counted would read as proof.
 function nodeTest(text: string): Found | null {
   const m = lastMatch(text, /^[ℹ#] tests (\d+)$/gmu)
   if (m === undefined) return null
   const rest = text.slice(m.index!)
-  const count = (word: string) => Number(new RegExp(`^[ℹ#] ${word} (\\d+)$`, 'mu').exec(rest)?.[1] ?? 0)
+  const line = (word: string) => new RegExp(`^[ℹ#] ${word} (\\d+)$`, 'mu').exec(rest)
   const duration = /^[ℹ#] duration_ms ([\d.]+)$/mu.exec(rest)
-  const end = duration === null ? m.index! + m[0].length : m.index! + duration.index + duration[0].length
-  const score: TestScore = { runner: 'node', passed: count('pass'), failed: count('fail') + count('cancelled'), skipped: count('skipped') + count('todo'), ...(duration ? { seconds: Number(duration[1]) / 1000 } : {}), unit: 'testes' }
-  return { score, at: end }
+  if (line('pass') === null || line('fail') === null || duration === null) return null
+  const count = (word: string) => Number(line(word)?.[1] ?? 0)
+  const score: TestScore = { runner: 'node', passed: count('pass'), failed: count('fail') + count('cancelled'), skipped: count('skipped') + count('todo'), seconds: Number(duration[1]) / 1000, unit: 'testes' }
+  return { score, at: m.index! + duration.index + duration[0].length }
 }
 
-// rspec: "12 examples, 1 failure, 2 pending", after "Finished in 0.5 seconds".
+// rspec: "Finished in 0.5 seconds" and then "12 examples, 1 failure, 2 pending": a doc quoting the second line alone is
+// no run.
 function rspec(text: string): Found | null {
-  const m = lastMatch(text, /^(\d+) examples?, (\d+) failures?(?:, (\d+) pending)?/gm)
+  const m = lastMatch(text, /^(\d+) examples?, (\d+) failures?(?:, (\d+) pending)?[ \t]*$/gm)
   if (m === undefined) return null
+  const time = lastMatch(text.slice(0, m.index!), /^Finished in ([\d.]+) seconds?/gm)
+  if (time === undefined) return null
   const total = Number(m[1])
   const failed = Number(m[2])
   const skipped = Number(m[3] ?? 0)
-  const time = lastMatch(text.slice(0, m.index!), /^Finished in ([\d.]+) seconds?/gm)
-  return { score: { runner: 'rspec', passed: total - failed - skipped, failed, skipped, ...(time ? { seconds: Number(time[1]) } : {}), unit: 'testes' }, at: m.index! + m[0].length }
+  return { score: { runner: 'rspec', passed: total - failed - skipped, failed, skipped, seconds: Number(time[1]), unit: 'testes' }, at: m.index! + m[0].length }
 }
 
-// deno test: "ok | 12 passed | 0 failed (52ms)", "FAILED | 11 passed | 1 failed | 2 ignored (60ms)".
+// deno test: "ok | 12 passed | 0 failed (52ms)", "FAILED | 3 passed (4 steps) | 1 failed (1 step) | 2 ignored |
+// 1 filtered out (1m6s)".
+const DENO = /^(?:ok|FAILED) \| (\d+) passed(?: \(\d+ steps?\))? \| (\d+) failed(?: \(\d+ steps?\))?(?: \| (\d+) ignored(?: \(\d+ steps?\))?)?(?: \| \d+ [a-z ]+?)* \(((?:\d+m)?[\d.]+(?:ms|s)|\d+m)\)/gm
+
+const denoSeconds = (t: string) => {
+  const m = /^(?:(\d+)m)?(?:([\d.]+)(ms|s))?$/.exec(t)
+  return m === null ? 0 : Number(m[1] ?? 0) * 60 + (m[2] === undefined ? 0 : toSeconds(m[2], m[3]!))
+}
+
 function deno(text: string): Found | null {
-  const m = lastMatch(text, /^(?:ok|FAILED) \| (\d+) passed(?: \(\d+ steps?\))? \| (\d+) failed(?: \| (\d+) ignored)?(?: \| \d+ \w+)* \(([\d.]+)(ms|s|m)\)/gm)
+  const m = lastMatch(text, DENO)
   if (m === undefined) return null
-  return { score: { runner: 'deno', passed: Number(m[1]), failed: Number(m[2]), skipped: Number(m[3] ?? 0), seconds: toSeconds(m[4]!, m[5]!), unit: 'testes' }, at: m.index! + m[0].length }
+  return { score: { runner: 'deno', passed: Number(m[1]), failed: Number(m[2]), skipped: Number(m[3] ?? 0), seconds: denoSeconds(m[4]!), unit: 'testes' }, at: m.index! + m[0].length }
 }
 
 const RUNNERS = [pytest, jest, vitest, bun, mocha, cargo, goTest, xctest, swiftTesting, nodeTest, rspec, deno]

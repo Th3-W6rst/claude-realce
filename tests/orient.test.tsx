@@ -6,6 +6,7 @@ import { awaySummary, awayText } from '../hooks/orient/away'
 import { limitText, limitWarning, usageLine } from '../hooks/orient/limits'
 import { togglePin } from '../hooks/orient/pins'
 import { reportText } from '../hooks/orient/report'
+import { scrollRefusal } from '../hooks/orient/timeline'
 import { questionHeader } from '../hooks/orient/question'
 import { extractPending } from '../hooks/orient/pending'
 import { applyPlanCall, planRow, type PlanItem } from '../hooks/orient/plan'
@@ -617,6 +618,12 @@ describe('timeline', () => {
     expect((await ui.find({ key: 'turn-u1' }))?.text).toBe('9s · primeiro')
   })
 
+  test('a refused scroll says why', () => {
+    expect(scrollRefusal('not person-initiated')).toBe('A linha do tempo rola só em tela cheia.')
+    expect(scrollRefusal('none scrolls')).toBe('A linha do tempo rola só em tela cheia.')
+    expect(scrollRefusal('the window moved meanwhile')).toBe('Não deu para rolar: the window moved meanwhile.')
+  })
+
   test('a reminder or a tool result opens no row', async ($, on) => {
     mock.store(on)
     mock.clock(on)
@@ -880,6 +887,12 @@ describe('usage limit', () => {
     expect(usageLine({ context: null, windows: [] })).toEqual([])
   })
 
+  test('the context colors like its warning: amber from 90%', () => {
+    const tones = (context: number) => usageLine({ context, windows: [] })[0]?.color
+    expect(tones(85)).toBe(usageLine({ context: 10, windows: [] })[0]?.color)
+    expect(tones(91)).not.toBe(tones(85))
+  })
+
   test('the session pane shows the usage once measured', async ($, on) => {
     mock.store(on)
     mock.clock(on)
@@ -960,6 +973,33 @@ describe('session report', () => {
     expect(text).not.toContain('1 testes')
   })
 
+  test('a capped list says it is the latest part', () => {
+    const rows = Array.from({ length: 50 }, (_, i) => ({ requestId: `u${i}`, at: i * 60_000, prompt: `p${i}`, durationMs: 1000, seal: null, tests: null }))
+    const failures = Array.from({ length: 20 }, (_, i) => ({ command: `c${i}`, line: 'x', at: i }))
+    const text = reportText({ timeline: rows, files: [], commits: [], failures, cwd: '/', tzOffsetMinutes: 0, isTimelineFull: true, isFailuresFull: true })
+    expect(text).toContain('- **Turnos:** os últimos 50')
+    expect(text).toContain('- **Falhas:** as últimas 20')
+  })
+
+  test('a multi-line command or one with backticks keeps the markdown whole', () => {
+    const text = reportText({ timeline: [], files: [], commits: [], failures: [{ command: 'git commit -m "$(cat <<EOF\nmsg\nEOF\n)"', line: 'erro `x`', at: 1 }], cwd: '/', tzOffsetMinutes: 0 })
+    expect(text).toContain('(última: `git commit -m "$(cat <<EOF…` → erro ˋxˋ)')
+  })
+
+  test('the command shows the report without markdown marks', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    engine(on)
+    on('ui.copy', () => ({ value: { isCopied: true as const } }))
+    on('session.cwd', () => ({ value: '/a/b' }))
+    on('process.run', () => ({ value: { exitCode: 0, stdout: '-0300\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+    await $.tool.call({ tool: 'Edit', file_path: '/a/b/x.ts', old_string: 'a', new_string: 'b' })
+    const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
+    const text = (await $.command.run({ ...RUN, args: 'resumo' })).text ?? ''
+    expect(text).toContain('Arquivos: 1')
+    expect(text).not.toContain('**')
+  })
+
   test('an empty session says so', () => {
     expect(reportText({ timeline: [], files: [], commits: [], failures: [], cwd: '/a', tzOffsetMinutes: -180 })).toBe('## Resumo da sessão\n\nNada aconteceu ainda nesta sessão.')
   })
@@ -977,7 +1017,7 @@ describe('session report', () => {
     on('process.run', () => ({ value: { exitCode: 0, stdout: '-0300\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
     const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
     const text = (await $.command.run({ ...RUN, args: 'resumo' })).text ?? ''
-    expect(text.startsWith('Resumo copiado.\n\n## Resumo da sessão')).toBe(true)
+    expect(text.startsWith('Resumo copiado em markdown.\n\nResumo da sessão')).toBe(true)
     expect(copied[0]?.startsWith('## Resumo da sessão')).toBe(true)
   })
 

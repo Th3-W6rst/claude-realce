@@ -2,6 +2,19 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.21
+- Selo de prova mais rígido: um documento que cita "12 examples, 0 failures" ou um título "# tests 3" não conta
+  mais como teste; o Deno é reconhecido com testes filtrados, passos e tempo em minutos.
+- `/realce print` no tema ANSI sai nas cores do tema claro ou escuro.
+- `/realce resumo`: avisa quando mostra só os últimos 50 turnos ou as últimas 20 falhas; comandos de várias linhas
+  não quebram o markdown; na conversa aparece sem as marcas de markdown.
+- O contexto no painel fica amarelo a partir de 90%, como o aviso.
+- Rolagem recusada diz o motivo real.
+
+## 0.4.20
+- `/realce diagnostico` confere o que a máquina dá ao realce (versão do Claude Code, cor de 24 bits, macOS, tela
+  cheia, editor, mermaid-cli, Chrome headless) e diz o que falta instalar.
+
 ## 0.4.19
 - `/realce explica <texto>` explica o texto escrito, sem precisar selecionar (útil fora da tela cheia).
 - O `/realce resumo` lista os últimos dez turnos, cada um com o seu selo.

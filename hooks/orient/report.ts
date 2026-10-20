@@ -20,6 +20,15 @@ export type ReportInput = {
   failures: readonly Failure[]
   cwd: string
   tzOffsetMinutes: number
+  // The session keeps the last 50 turns and 20 failures: past that the report says it shows the latest.
+  isTimelineFull?: boolean
+  isFailuresFull?: boolean
+}
+
+/** A command as one inline-code run: its first line, and no backtick that would close the run early. */
+const inlineCode = (text: string) => {
+  const lines = text.trim().split('\n')
+  return `\`${(lines[0] ?? '').replace(/`/g, 'ˋ')}${lines.length > 1 ? '…' : ''}\``
 }
 
 /** The session in markdown, ready to paste into a PR or a report: turns and their seals, tests, files, git, failures. */
@@ -36,7 +45,7 @@ export function reportText(r: ReportInput): string {
       count('unproved') > 0 ? `⚠ ${count('unproved')} sem prova` : null,
       count('failing') > 0 ? `✖ ${count('failing')} com testes falhando` : null,
     ].filter((s): s is string => s !== null)
-    lines.push(`- **Turnos:** ${r.timeline.length}${seals.length === 0 ? '' : ` (${seals.join(' · ')})`}`)
+    lines.push(`- **Turnos:** ${r.isTimelineFull === true ? `os últimos ${r.timeline.length}` : r.timeline.length}${seals.length === 0 ? '' : ` (${seals.join(' · ')})`}`)
     // The last ten prompts, each with its verdict: what was asked, at a glance.
     for (const t of r.timeline.slice(-MAX_TURNS)) {
       const seal = sealLabel(t.seal)
@@ -56,7 +65,7 @@ export function reportText(r: ReportInput): string {
   if (r.commits.length > 0) lines.push(`- **Git:** ${r.commits.join(' · ')}`)
   if (r.failures.length > 0) {
     const f = r.failures[r.failures.length - 1]!
-    lines.push(`- **Falhas:** ${r.failures.length} (última: \`${f.command}\` → ${f.line})`)
+    lines.push(`- **Falhas:** ${r.isFailuresFull === true ? `as últimas ${r.failures.length}` : r.failures.length} (última: ${inlineCode(f.command)} → ${f.line.replace(/`/g, 'ˋ')})`)
   }
   return lines.join('\n')
 }
@@ -64,7 +73,9 @@ export function reportText(r: ReportInput): string {
 /** `/realce resumo`: the report shown, and on the clipboard. */
 export async function reportCommand($: EngineInterface, cwd: string, tzOffsetMinutes: number): Promise<string> {
   const [timeline, files, failures] = await Promise.all([read($, TIMELINE), read($, FILES), read($, FAILURES)])
-  const text = reportText({ timeline, files, commits: allCommits(), failures, cwd, tzOffsetMinutes })
+  const text = reportText({ timeline, files, commits: allCommits(), failures, cwd, tzOffsetMinutes, isTimelineFull: timeline.length >= 50, isFailuresFull: failures.length >= 20 })
   const copied = await $.ui.copy({ text })
-  return `${copied.isCopied ? 'Resumo copiado.' : `Não deu para copiar (${copied.reason}).`}\n\n${text}`
+  // The clipboard takes the markdown; the transcript shows it as text, where the marks would print as written.
+  const plain = text.replace(/\*\*/g, '').replace(/`/g, '').replace(/^## /gm, '')
+  return `${copied.isCopied ? 'Resumo copiado em markdown.' : `Não deu para copiar (${copied.reason}).`}\n\n${plain}`
 }

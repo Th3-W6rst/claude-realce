@@ -45,12 +45,13 @@ export function limitText(w: LimitWarning, tzOffsetMinutes: number | undefined, 
   return `⚠ Limite de ${w.label} em ${w.percent}% · renova ${day}às ${formatClock(w.resetsAt, tzOffsetMinutes)}`
 }
 
-const tone = (percent: number) => (percent >= 95 ? SCREEN.bad : percent >= WARN_AT ? SCREEN.warn : SCREEN.dim)
+const tone = (percent: number, warnAt: number) => (percent >= 95 ? SCREEN.bad : percent >= warnAt ? SCREEN.warn : SCREEN.dim)
 
 /** 'Contexto 30% · 5 h 46% · 7 dias 12%', each part in the color its fill calls for; nothing before a reading. */
 export function usageLine(u: UsageReading): Segment[] {
-  const parts = [...(u.context === null ? [] : [{ label: 'Contexto', percent: u.context }]), ...u.windows]
-  return parts.flatMap((p, i) => [...(i > 0 ? [{ text: ' · ', color: SCREEN.dim }] : []), { text: `${p.label} ${p.percent}%`, color: tone(p.percent) }])
+  // The context colors as its warning comes: from 90%; the windows from 80%.
+  const parts = [...(u.context === null ? [] : [{ label: 'Contexto', percent: u.context, warnAt: CONTEXT_WARN_AT }]), ...u.windows.map(w => ({ ...w, warnAt: WARN_AT }))]
+  return parts.flatMap((p, i) => [...(i > 0 ? [{ text: ' · ', color: SCREEN.dim }] : []), { text: `${p.label} ${p.percent}%`, color: tone(p.percent, p.warnAt) }])
 }
 
 const readingOf = (e: Pick<Args<'session.measure'>, 'context' | 'rateLimits'>): UsageReading => ({
