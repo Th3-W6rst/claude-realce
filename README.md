@@ -12,7 +12,7 @@ Plugin (mod) do Claude Code que deixa a tela mais fácil de ler. Cada recurso te
 *Gerada pelo próprio mod: `/realce demo` e depois `/realce print`; os números da tabela são só de exemplo. No tema
 claro: [demo-claro.png](images/demo-claro.png).*
 
-Versão atual: 0.4.16 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
+Versão atual: 0.4.18 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (dúvidas e problemas em *Issues*).
 
 ## Requisitos
@@ -70,6 +70,8 @@ Um **turno** é uma mensagem sua e tudo o que o Claude faz até responder.
 | `/realce on` · `/realce off` | Liga ou desliga o mod inteiro, sem perder a escolha de cada flag |
 | `/realce <flag> on` · `off` | Liga ou desliga um recurso, por exemplo `/realce coluna off` |
 | `/realce painel` | Abre ou fecha o painel da sessão (uso, plano, linha do tempo, fixadas, arquivos, falhas, agentes) |
+| `/realce copiar` | Copia a última resposta do Claude (as marcas viram markdown comum) |
+| `/realce resumo` | Mostra e copia um resumo da sessão em markdown: turnos e selos, testes, arquivos, git, falhas |
 | `/realce foco` | Alterna o modo foco, que esconde as ferramentas concluídas sem erro |
 | `/realce explica` | Explica no painel da sessão o trecho que você selecionou na conversa |
 | `/realce fixar` | Fixa no painel a resposta selecionada, ou a última; de novo, desafixa |
@@ -92,7 +94,7 @@ desliga o recurso (o comando passa a dizer como religar).
 | Texto | `respiro` | Respiro entre itens | Linha em branco entre itens de lista que quebram linha | ligado |
 | Texto | `numeros` | Números humanos | "102761 ms" ganha "(1m 42s)" ao lado | ligado |
 | Código | `highlight` | Highlighter próprio | Cores neon em ts, py, sh, json, yaml, swift, sql e diff | ligado |
-| Código | `copiar` | Copiar com um clique | Botão copiar em cada bloco de código | ligado |
+| Código | `copiar` | Copiar com um clique | Botão copiar em cada bloco de código e nas respostas longas | ligado |
 | Código | `dobrar` | Dobrar o que é longo | Blocos com mais de 25 linhas aparecem dobrados | ligado |
 | Código | `caminhos` | Caminhos clicáveis | Caminhos abrem no editor, na linha | ligado |
 | Código | `diagramas` | Diagramas | Blocos mermaid viram imagem | ligado |
@@ -121,6 +123,7 @@ desliga o recurso (o comando passa a dizer como religar).
 | Sistema | `print` | Print bonito | /realce print salva a última resposta como imagem | ligado |
 | Sistema | `demo` | Demonstração | /realce demo mostra tudo o que o mod faz | ligado |
 | Sistema | `atualizacao` | Aviso de atualização | Avisa quando sair versão nova no GitHub | ligado |
+| Sistema | `resumo` | Resumo da sessão | /realce resumo copia um resumo da sessão em markdown | ligado |
 
 ## Marcas que o Claude passa a usar
 

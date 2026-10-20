@@ -2,8 +2,7 @@ import { atom, read } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
 import { diagramHash } from '../code/diagram'
-import { cachedEnv } from '../env'
-import { parseTzOffset } from '../format'
+import { sessionOffset } from '../env'
 import { PALETTES } from '../palettes'
 import { parseBlocks } from '../text/blocks'
 import { getFlags } from '../flags'
@@ -36,7 +35,7 @@ export async function printCommand($: EngineInterface): Promise<string> {
   const desktop = `${home}/Desktop`
   const dir = (await $.fs.exists(desktop)) ? desktop : home
   // The session's offset, or the machine's when the session has not read it yet: the name says the person's time.
-  const tz = cachedEnv()?.tzOffsetMinutes ?? parseTzOffset((await $.process.run(['date', '+%z'])).stdout)
+  const tz = await sessionOffset($)
   const base = `${dir}/realce-${stamp(await $.clock.now(), tz)}`
   const diagrams = await read($, DIAGRAMS)
   const picture = (source: string): Picture | null => {

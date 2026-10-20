@@ -11,6 +11,11 @@ let current: SessionEnv | null = null
 
 export const cachedEnv = () => current
 
+/** The session's offset from UTC, or the machine's (`date +%z`) when the session has not read it yet. */
+export async function sessionOffset($: EngineInterface): Promise<number> {
+  return current?.tzOffsetMinutes ?? parseTzOffset((await $.process.run(['date', '+%z'])).stdout)
+}
+
 // The first one installed wins: links open where the person edits.
 const EDITOR_APPS: readonly (readonly [Editor, string])[] = [
   ['cursor', '/Applications/Cursor.app'],

@@ -70,6 +70,22 @@ describe('links', () => {
 const numbered = (count: number) => Array.from({ length: count }, (_, n) => `const line${n + 1} = ${n + 1}`).join('\n')
 
 describe('copy and fold', () => {
+  test('a long reply can be copied whole, its marks as plain markdown', async ($, on) => {
+    mock.store(on)
+    const copied: string[] = []
+    on('ui.copy', ($, e) => {
+      copied.push(e.text)
+      return { value: { isCopied: true as const } }
+    })
+    on('ui.toast', () => ({ value: undefined }))
+    const text = ['Um {+bom+} resultado.', ...Array.from({ length: 16 }, (_, i) => `- item ${i}`)].join('\n')
+    const ui = await mountReply($, text)
+    expect((await ui.find({ key: 'copy-reply' }))?.text).toBe('Copiar resposta')
+    await ui.press({ key: 'copy-reply' })
+    expect(copied[0]).toBe(['Um **bom** resultado.', ...Array.from({ length: 16 }, (_, i) => `- item ${i}`)].join('\n'))
+    expect(await (await mountReply($, 'curta', 120, 'r2')).find({ key: 'copy-reply' })).toBeUndefined()
+  })
+
   test('copy puts the block source on the clipboard', async ($, on) => {
     mock.store(on)
     const copied: string[] = []
@@ -228,8 +244,8 @@ async function appendReply($: Engine, text: string, type: 'assistant' | 'user' =
   })
 }
 
-async function mountReply($: Engine, text: string, columns = 120) {
-  return $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'AssistantMessage', props: { text, isFirstOfReply: true }, viewport: { columns, rows: 40 } })
+async function mountReply($: Engine, text: string, columns = 120, requestId?: string) {
+  return $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'AssistantMessage', ...(requestId === undefined ? {} : { requestId }), props: { text, isFirstOfReply: true }, viewport: { columns, rows: 40 } })
 }
 
 describe('diagram sizes', () => {

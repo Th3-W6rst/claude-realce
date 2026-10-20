@@ -1,6 +1,14 @@
 # Novidades do realce
 
-Todas as versões abaixo saíram em 19/10/2026. Versões que só mudaram coisas internas não aparecem.
+Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
+
+## 0.4.18
+- "1 teste" no singular no resumo e na faixa "Enquanto você estava fora".
+
+## 0.4.17
+- Respostas longas ganham um botão "Copiar resposta"; `/realce copiar` copia a última resposta.
+- `/realce resumo` mostra e copia um resumo da sessão em markdown (turnos e selos, testes, arquivos, git, falhas),
+  pronto para colar num PR ou num relatório.
 
 ## 0.4.16
 - README reorganizado para quem acabou de instalar: requisitos, custo dos recursos que usam o Haiku, como pausar e

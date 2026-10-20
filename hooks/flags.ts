@@ -7,7 +7,7 @@ export type FlagId =
   | 'pendencias' | 'plano' | 'painel' | 'spinner'
   | 'numeros' | 'selo' | 'diff' | 'erros' | 'commits' | 'foco'
   | 'avisos' | 'som' | 'limite' | 'ausencia' | 'linha' | 'perguntas' | 'fixar' | 'explica'
-  | 'tema' | 'print' | 'demo' | 'atualizacao'
+  | 'tema' | 'print' | 'demo' | 'atualizacao' | 'resumo'
 
 export type FlagGroup = 'Texto' | 'Código' | 'Ferramentas' | 'Orientação' | 'Sistema'
 
@@ -24,7 +24,7 @@ export const FLAGS: readonly FlagSpec[] = [
   { id: 'respiro', group: 'Texto', label: 'Respiro entre itens', description: 'Linha em branco entre itens de lista que quebram linha', isDefaultOn: true },
   { id: 'numeros', group: 'Texto', label: 'Números humanos', description: '"102761 ms" ganha "(1m 42s)" ao lado', isDefaultOn: true },
   { id: 'highlight', group: 'Código', label: 'Highlighter próprio', description: 'Cores neon em ts, py, sh, json, yaml, swift, sql e diff', isDefaultOn: true },
-  { id: 'copiar', group: 'Código', label: 'Copiar com um clique', description: 'Botão copiar em cada bloco de código', isDefaultOn: true },
+  { id: 'copiar', group: 'Código', label: 'Copiar com um clique', description: 'Botão copiar em cada bloco de código e nas respostas longas', isDefaultOn: true },
   { id: 'dobrar', group: 'Código', label: 'Dobrar o que é longo', description: 'Blocos com mais de 25 linhas aparecem dobrados', isDefaultOn: true },
   { id: 'caminhos', group: 'Código', label: 'Caminhos clicáveis', description: 'Caminhos abrem no editor, na linha', isDefaultOn: true },
   { id: 'diagramas', group: 'Código', label: 'Diagramas', description: 'Blocos mermaid viram imagem', isDefaultOn: true },
@@ -52,6 +52,7 @@ export const FLAGS: readonly FlagSpec[] = [
   { id: 'print', group: 'Sistema', label: 'Print bonito', description: '/realce print salva a última resposta como imagem', isDefaultOn: true },
   { id: 'demo', group: 'Sistema', label: 'Demonstração', description: '/realce demo mostra tudo o que o mod faz', isDefaultOn: true },
   { id: 'atualizacao', group: 'Sistema', label: 'Aviso de atualização', description: 'Avisa quando sair versão nova no GitHub', isDefaultOn: true },
+  { id: 'resumo', group: 'Sistema', label: 'Resumo da sessão', description: '/realce resumo copia um resumo da sessão em markdown', isDefaultOn: true },
   // Added after the 36 keys were given out: last in the table, so no earlier flag's key moves.
   { id: 'limite', group: 'Orientação', label: 'Uso e limites', description: 'Uso no painel; faixa quando um limite ou o contexto se aproxima do fim', isDefaultOn: true },
 ]

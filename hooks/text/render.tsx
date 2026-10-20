@@ -5,6 +5,8 @@ import { BLOCK, CALLOUT, PROSE, READING_WIDTH, type Paint, type ProseKind } from
 import type { Block } from './blocks'
 import type { RenderCtx } from './ctx'
 import { parseInline, plainText, toPlainMarkdown, type InlineOpts, type Span } from './inline'
+
+// From this many lines a reply gets its own copy button: shorter ones are easy to select.
 import { parseTable, renderTable } from './table'
 
 // With enfase off these draw as the engine draws `**x**`: the one place this mod uses bold.
@@ -18,9 +20,12 @@ function paintOf(ctx: RenderCtx, span: Span): Paint & { bold?: boolean } {
 
 export const inlineOpts = (ctx: RenderCtx): InlineOpts => ({ enfase: ctx.flags.enfase, deltas: ctx.flags.deltas, numeros: ctx.flags.numeros })
 
+const COPY_REPLY_LINES = 15
+
 /** One reply block's markdown as a tree of colored rows. */
 export function renderReply(ctx: RenderCtx, blocks: readonly Block[]): RenderElement {
-  const { Box } = ctx.t
+  const { Box, Button } = ctx.t
+  const isLong = ctx.flags.copiar && ctx.text.split('\n').length >= COPY_REPLY_LINES
   // Prose reads best in a column; code, tables and diagrams keep the whole width.
   const column = ctx.flags.coluna ? { width: Math.max(1, Math.min(READING_WIDTH, ctx.columns - 2)) } : {}
   const proseWidth = ctx.flags.coluna ? Math.min(READING_WIDTH, ctx.columns - 2) : ctx.columns - 2
@@ -38,6 +43,13 @@ export function renderReply(ctx: RenderCtx, blocks: readonly Block[]): RenderEle
           {renderBlock(ctx, block, block.type === 'code' ? codeIndex++ : -1, block.type === 'table' ? tableIndex++ : -1)}
         </Box>
       ))}
+      {isLong && (
+        <Box marginTop={1}>
+          <Button plain key="copy-reply" dimColor onPress={() => ctx.onCopy(toPlainMarkdown(ctx.text))}>
+            Copiar resposta
+          </Button>
+        </Box>
+      )}
     </Box>
   )
 }

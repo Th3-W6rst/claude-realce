@@ -18,5 +18,7 @@ export type RenderCtx = {
   // A link for a path span, or null when caminhos is off or the session env is unknown.
   hrefForPath: (path: string) => string | null
   onCopy: (source: string) => void
+  // The reply block's own markdown, for copying it whole.
+  text: string
   onFold: (index: number, isOpen: boolean) => void
 }

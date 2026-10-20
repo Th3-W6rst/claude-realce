@@ -79,10 +79,22 @@ describe('commands', () => {
     expect((await ui.find({ key: 'flag-limite' }))?.props.hotkey).toBeUndefined()
   })
 
+  test('/realce copiar copies the last reply', async ($, on) => {
+    mock.store(on)
+    const copied: string[] = []
+    on('ui.copy', ($, e) => {
+      copied.push(e.text)
+      return { value: { isCopied: true as const } }
+    })
+    on('session.messages', () => ({ value: [{ role: 'assistant' as const, text: 'primeira', toolUses: [] }, { role: 'user' as const, text: 'oi', toolUses: [] }, { role: 'assistant' as const, text: 'Feito {+ok+}', toolUses: [] }] }))
+    expect((await $.command.run({ ...RUN, args: 'copiar' })).text).toBe('Última resposta copiada.')
+    expect(copied).toEqual(['Feito **ok**'])
+  })
+
   test('/realce with anything else answers the usage', async ($, on) => {
     mock.store(on)
     const text = (await $.command.run({ ...RUN, args: 'xyz' })).text ?? ''
-    expect(text).toMatch(/^Uso: \/realce \[ajuda\|on\|off\|status\|painel\|foco\|explica\|fixar\|print\|demo\|<recurso> on\|off\]/)
+    expect(text).toMatch(/^Uso: \/realce \[ajuda\|on\|off\|status\|painel\|copiar\|resumo\|foco\|explica\|fixar\|print\|demo\|<recurso> on\|off\]/)
     expect(text).toMatch(/coluna/)
   })
 
@@ -129,14 +141,14 @@ describe('flags pane', () => {
     expect(await label('flag-coluna')).toBe('[ ] Coluna de leitura · Prosa limitada a 100 colunas')
   })
 
-  test('the pane lists 37 flags under 5 groups, 36 of them on a key', async ($, on) => {
+  test('the pane lists 38 flags under 5 groups, 36 of them on a key', async ($, on) => {
     mock.store(on)
     on('prompt.compose', () => ({ sections: [] }))
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
     for (const group of ['Texto', 'Código', 'Ferramentas', 'Orientação', 'Sistema']) expect(await ui.find({ type: 'Text', text: group })).toBeDefined()
     expect(await ui.find({ key: 'flag-atualizacao' })).toBeDefined()
     const buttons = (await ui.findAll({ type: 'Button' })).filter(b => b.key?.startsWith('flag-'))
-    expect(buttons).toHaveLength(37)
+    expect(buttons).toHaveLength(38)
     // The engine takes 36 keys (a–z, 0–9): the 37th flag is reached with Tab and Enter.
     expect(new Set(buttons.map(b => b.props.hotkey).filter(k => k !== undefined)).size).toBe(36)
     expect(await ui.find({ type: 'Text', text: 'Letra ou número alterna · Tab e Enter também · Esc fecha' })).toBeDefined()

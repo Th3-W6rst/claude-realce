@@ -22,6 +22,9 @@ function keepNewest<V>(record: Record<string, V>): Record<string, V> {
 }
 
 export const explanationFor = (toolUseId: string): Explanation | null => explanations.get(toolUseId) ?? null
+/** Every commit card the session saw, oldest first. */
+export const allCommits = (): string[] => [...commits.values()]
+
 export const commitFor = (toolUseId: string): string | null => commits.get(toolUseId) ?? null
 
 /**

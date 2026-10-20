@@ -9,8 +9,11 @@ import { openFlagsPane } from './orient/flagsPane'
 import { toggleSessionPane } from './orient/paneToggle'
 import { status } from './prompt'
 import { refreshTheme } from './theme'
+import { toPlainMarkdown } from './text/inline'
+import { cachedEnv, sessionOffset } from './env'
+import { reportCommand } from './orient/report'
 
-const USAGE = '[ajuda|on|off|status|painel|foco|explica|fixar|print|demo|<recurso> on|off]'
+const USAGE = '[ajuda|on|off|status|painel|copiar|resumo|foco|explica|fixar|print|demo|<recurso> on|off]'
 
 const HELP = [
   'Comandos do realce:',
@@ -18,6 +21,8 @@ const HELP = [
   '/realce on | off — liga ou desliga tudo, sem perder a escolha de cada recurso',
   '/realce <recurso> on | off — liga ou desliga um recurso',
   '/realce painel — abre ou fecha o painel da sessão',
+  '/realce copiar — copia a última resposta do Claude',
+  '/realce resumo — mostra e copia um resumo da sessão em markdown',
   '/realce foco — esconde as ferramentas concluídas sem erro',
   '/realce explica — explica no painel o trecho selecionado',
   '/realce fixar — fixa a resposta selecionada, ou a última',
@@ -25,6 +30,14 @@ const HELP = [
   '/realce demo — mostra tudo o que o mod faz, sem chamar o modelo',
   '/realce status — o que está desligado, tema, tela cheia, avisos e desempenho',
 ].join('\n')
+
+/** `/realce copiar`: the last reply on the clipboard, its typed marks as plain markdown. */
+async function copyLastReply($: EngineInterface): Promise<string> {
+  const reply = [...(await $.session.messages())].reverse().find(m => m.role === 'assistant' && m.text.trim() !== '')
+  if (reply === undefined) return 'Nenhuma resposta para copiar ainda.'
+  const copied = await $.ui.copy({ text: toPlainMarkdown(reply.text) })
+  return copied.isCopied ? 'Última resposta copiada.' : `Não deu para copiar: ${copied.reason}.`
+}
 
 export async function registerRealceCommand($: EngineInterface): Promise<void> {
   await $.command.register({
@@ -47,6 +60,10 @@ export function registerCommands(on: On): void {
       return { text: first === 'on' ? 'Realce ligado.' : 'Realce desligado.' }
     }
     if (words.length === 1 && first === 'ajuda') return { text: HELP }
+    if (words.length === 1 && first === 'copiar') return { text: await copyLastReply($) }
+    if (words.length === 1 && first === 'resumo') {
+      return { text: (await getFlags($)).resumo ? await reportCommand($, cachedEnv()?.cwd ?? (await $.session.cwd()), await sessionOffset($)) : featureOff('resumo') }
+    }
     if (words.length === 1 && first === 'status') return { text: await status($, e.presentation.isFullscreen) }
     if (words.length === 1 && first === 'painel') {
       return { text: (await toggleSessionPane($)) ? 'Painel da sessão aberto.' : 'Painel da sessão fechado.' }

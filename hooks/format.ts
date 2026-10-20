@@ -24,6 +24,9 @@ export function formatDayMonth(epochMs: number, tzOffsetMinutes: number): string
 
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
+/** '1 teste', '159 testes', '1 pacote': a test score's count in its unit. */
+export const testCount = (n: number, unit: 'testes' | 'pacotes') => plural(n, unit === 'pacotes' ? 'pacote' : 'teste', unit)
+
 /** A number in PT-BR spelling: comma decimals, as many as asked. */
 export const formatDecimal = (value: number, decimals: number) => value.toFixed(decimals).replace('.', ',')
 

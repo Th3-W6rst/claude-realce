@@ -5,6 +5,7 @@ import type { AgentInfo, On, PromptEditInput, RenderPropsOf } from 'claude-code'
 import { awaySummary, awayText } from '../hooks/orient/away'
 import { limitText, limitWarning, usageLine } from '../hooks/orient/limits'
 import { togglePin } from '../hooks/orient/pins'
+import { reportText } from '../hooks/orient/report'
 import { questionHeader } from '../hooks/orient/question'
 import { extractPending } from '../hooks/orient/pending'
 import { applyPlanCall, planRow, type PlanItem } from '../hooks/orient/plan'
@@ -910,5 +911,68 @@ describe('pane links', () => {
     const links = (await ui.findAll({ type: 'Link' })).map(l => l.props.href)
     expect(links).toContain('file:///a/b/x.ts')
     expect((await ui.find({ key: 'fail-b1' }))?.type).toBe('Button')
+  })
+})
+
+describe('session report', () => {
+  const PASSED = { runner: 'pytest', passed: 12, failed: 0, skipped: 0, unit: 'testes' as const }
+
+  test('the report sums turns, seals, files, commits and failures', () => {
+    const text = reportText({
+      timeline: [
+        { requestId: 'u1', at: Date.UTC(2026, 9, 19, 23, 41), prompt: 'Renomeia b', durationMs: 12_000, seal: 'proved', tests: PASSED },
+        { requestId: 'u2', at: Date.UTC(2026, 9, 20, 0, 5), prompt: 'Sobe a versão', durationMs: 4_000, seal: 'unproved', tests: null },
+      ],
+      files: [{ path: '/a/b/calc.py', added: 3, removed: 1, edits: 2, at: 1 }, { path: '/a/b/README.md', added: 10, removed: 0, edits: 1, at: 2 }],
+      commits: ['● commit 9cd805a', '↑ push main'],
+      failures: [{ command: 'npm test', line: '2 failing', at: 3 }],
+      cwd: '/a/b',
+      tzOffsetMinutes: -180,
+    })
+    expect(text).toBe([
+      '## Resumo da sessão (20:41–21:05)',
+      '',
+      '- **Turnos:** 2 (✔ 1 provado · ⚠ 1 sem prova)',
+      '- **Testes:** último placar ✔ 12 testes',
+      '- **Arquivos:** 2 (+13 −1)',
+      '  - `calc.py` +3 −1',
+      '  - `README.md` +10 −0',
+      '- **Git:** ● commit 9cd805a · ↑ push main',
+      '- **Falhas:** 1 (última: `npm test` → 2 failing)',
+    ].join('\n'))
+  })
+
+  test('one passing test is one test', () => {
+    const one = { runner: 'pytest', passed: 1, failed: 0, skipped: 0, unit: 'testes' as const }
+    const text = reportText({ timeline: [{ requestId: 'u', at: 0, prompt: 'x', durationMs: 1000, seal: 'proved', tests: one }], files: [], commits: [], failures: [], cwd: '/', tzOffsetMinutes: 0 })
+    expect(text).toContain('último placar ✔ 1 teste')
+    expect(text).not.toContain('1 testes')
+  })
+
+  test('an empty session says so', () => {
+    expect(reportText({ timeline: [], files: [], commits: [], failures: [], cwd: '/a', tzOffsetMinutes: -180 })).toBe('## Resumo da sessão\n\nNada aconteceu ainda nesta sessão.')
+  })
+
+  test('/realce resumo copies the report and shows it', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    engine(on)
+    const copied: string[] = []
+    on('ui.copy', ($, e) => {
+      copied.push(e.text)
+      return { value: { isCopied: true as const } }
+    })
+    on('session.cwd', () => ({ value: '/a/b' }))
+    on('process.run', () => ({ value: { exitCode: 0, stdout: '-0300\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+    const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
+    const text = (await $.command.run({ ...RUN, args: 'resumo' })).text ?? ''
+    expect(text.startsWith('Resumo copiado.\n\n## Resumo da sessão')).toBe(true)
+    expect(copied[0]?.startsWith('## Resumo da sessão')).toBe(true)
+  })
+
+  test('resumo off says how to turn it on', async ($, on) => {
+    mock.store(on, { flags: { resumo: false } })
+    const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
+    expect((await $.command.run({ ...RUN, args: 'resumo' })).text).toBe('Recurso desligado: Resumo da sessão. /realce resumo on liga.')
   })
 })

@@ -3,7 +3,7 @@ import type { Args, EngineInterface, On } from 'claude-code'
 
 import type { AwaySummary, TurnStats } from '../../types'
 import { getFlags } from '../flags'
-import { plural } from '../format'
+import { plural, testCount } from '../format'
 import { sealLabel, turnStatsFor } from '../screen/turns'
 
 const AWAY = atom({ plugin: 'realce', key: 'away' } as const, null)
@@ -35,7 +35,7 @@ export function awaySummary(now: number, lastInput: number, ended: readonly Turn
 export function awayText(s: AwaySummary): string {
   const parts = [plural(s.turns, 'turno', 'turnos')]
   if (s.files > 0) parts.push(plural(s.files, 'arquivo', 'arquivos'))
-  if (s.tests !== null) parts.push(s.tests.failed === 0 ? `✔ ${s.tests.passed} ${s.tests.unit}` : `✖ ${plural(s.tests.failed, 'teste falhou', 'testes falharam')}`)
+  if (s.tests !== null) parts.push(s.tests.failed === 0 ? `✔ ${testCount(s.tests.passed, s.tests.unit)}` : `✖ ${plural(s.tests.failed, 'teste falhou', 'testes falharam')}`)
   const seal = sealLabel(s.seal)
   if (seal !== null) parts.push(seal.text)
   if (s.pending > 0) parts.push(plural(s.pending, 'decisão esperando', 'decisões esperando'))

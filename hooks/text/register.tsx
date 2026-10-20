@@ -47,6 +47,7 @@ export function registerText(on: On): void {
       env,
       hrefForPath: path => (flags.caminhos && env !== null ? pathHref(path, env) : null),
       onCopy: source => void copySource($, source, e.surface),
+      text: e.props.text,
       onFold: (index, isOpen) => void update($, { ...FOLDS, id: `${e.requestId}:${index}` }, () => isOpen),
     }
     return renderReply(ctx, blocks)
