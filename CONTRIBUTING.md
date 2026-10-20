@@ -56,6 +56,12 @@ imports `tests/lang.ts` and pins Portuguese with `PT`; `tests/i18n.test.tsx` cov
    match, and that rule keeps the duration only.
 9. The mod's own `$.prompt.submit` does not go through its own `prompt.submit` hook: the demo's turn opens at
    `turn.step`.
+10. A shared site is composed, never taken: the band above the prompt draws its notice over `await next(e)`, which
+    holds Claude Code's and other mods' content, and leaves it the rows it takes (`rowsOf`). Claude Code refuses its
+    own node (`{ type: 'engine' }`) under a Box with `width`, `height`, `minWidth`, `minHeight`, `position`, `top`,
+    `left`, `right`, `bottom`, `display` or `overflow`: the Box that wraps it takes none of them.
+11. The store is shared by every open session, each with its own copy of the flags: a write starts from what the store
+    holds now (`setFlag`), never from the copy, or it undoes what another session changed.
 
 ## What the mod reaches
 

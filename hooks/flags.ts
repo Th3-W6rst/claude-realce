@@ -130,7 +130,8 @@ export async function getFlags($: EngineInterface): Promise<Flags> {
 
 export async function setFlag($: EngineInterface, id: FlagId, value: boolean): Promise<void> {
   const current = await load($)
-  const stored = { ...current.stored, [id]: value }
+  // From what the store holds now, not this session's copy: another session's change since this one loaded stays.
+  const stored = { ...parseStored(await storeGet($, 'flags')), [id]: value }
   snapshot = { ...current, stored }
   version += 1
   await storeSet($, 'flags', stored)

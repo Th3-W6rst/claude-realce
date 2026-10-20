@@ -38,6 +38,22 @@ describe('commands', () => {
     expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Coluna de leitura, Erro explicado, Modo foco, Precisa de você, Som nos avisos\./)
   })
 
+  test("a flag another session changed since this one loaded survives this one's change", async ($, on) => {
+    // The store every session shares: another session writes to it behind this one's back.
+    const store = new Map<string, unknown>([['language', 'pt']])
+    on('store.get', ($, e) => ({ value: store.get(e.key) }))
+    on('store.set', ($, e) => {
+      store.set(e.key, e.value)
+      return { value: undefined }
+    })
+    mock.clock(on)
+    baseSections(on)
+    await $.command.run({ ...RUN, args: 'status' })
+    store.set('flags', { ...(store.get('flags') as object), foco: true })
+    await $.command.run({ ...RUN, args: 'coluna off' })
+    expect(store.get('flags')).toMatchObject({ foco: true, coluna: false })
+  })
+
   test('/realce off and on keep each flag as it was', async ($, on) => {
     mock.store(on, PT)
     mock.clock(on)

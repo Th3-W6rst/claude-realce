@@ -2,6 +2,11 @@
 
 Versions from October 19 to 20, 2026. Those that only changed internals are left out.
 
+## 0.5.5
+- The band above the prompt is shared: what Claude Code or another mod draws there stays, under realce's notice,
+  which takes only the rows left free.
+- A flag changed in one session is no longer undone when another session, opened before, changes a flag of its own.
+
 ## 0.5.4
 - Explained errors (`errors`) and the "Needs you" band (`pending`) start off: they added lines to every turn. Turn
   them on with `/realce errors on` and `/realce pending on`; a choice you already made stays.

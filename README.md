@@ -20,7 +20,7 @@ The interface follows Claude Code's language: English, or Portuguese for whoever
 *Drawn by the mod itself, as `/realce print` draws a reply (`/realce demo` shows it in the terminal); the table's
 numbers are just an example. On a light theme: [demo-light.png](images/demo-light.png).*
 
-Current version: 0.5.4 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
+Current version: 0.5.5 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
 [releases](https://github.com/Th3-W6rst/claude-realce/releases) · repository:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (questions and problems in *Issues*).
 
