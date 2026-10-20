@@ -1,7 +1,7 @@
 import { atom, read } from 'claude-code'
 import type { On } from 'claude-code'
 
-import type { AgentRow, ExplainPanel, FileTouch, Pin, PlanItem, TimelineRow, UsageReading } from '../../types'
+import type { AgentRow, Explanation, ExplainPanel, FileTouch, Pin, PlanItem, TimelineRow, UsageReading } from '../../types'
 import { usageLine } from './limits'
 import { closeExplanation } from './explain'
 import { pathHref } from '../code/links'
@@ -23,6 +23,7 @@ const TIMELINE = atom({ plugin: 'realce', key: 'timeline' } as const, [])
 const EXPLAIN = atom({ plugin: 'realce', key: 'explain' } as const, null)
 const PINS = atom({ plugin: 'realce', key: 'pins' } as const, [])
 const USAGE = atom({ plugin: 'realce', key: 'usage' } as const, null)
+const EXPLANATIONS = atom({ plugin: 'realce', key: 'explanations' } as const, {})
 
 // A literal, so the module scan can name the pane's matcher; the type ties it to the toggle's id.
 const PANE_ID: typeof SESSION_PANE = 'realce-sessao'
@@ -80,7 +81,7 @@ export function registerSessionPane(on: On): void {
     const { Box, Text, Button, Link } = $.ui.resolve(e)
     const cols = e.props.bodyColumns
     const flags = await getFlags($)
-    const [pending, plan, files, failures, agents, env, timeline, explain, pins, usage] = await Promise.all([
+    const [pending, plan, files, failures, agents, env, timeline, explain, pins, usage, explanations] = await Promise.all([
       read($, PENDING),
       read($, PLAN),
       read($, FILES),
@@ -91,6 +92,7 @@ export function registerSessionPane(on: On): void {
       flags.explica ? read($, EXPLAIN) : Promise.resolve(null as ExplainPanel | null),
       flags.fixar ? read($, PINS) : Promise.resolve([] as Pin[]),
       flags.limite ? read($, USAGE) : Promise.resolve(null as UsageReading | null),
+      flags.erros ? read($, EXPLANATIONS) : Promise.resolve({} as Record<string, Explanation>),
     ])
     const items = pending?.items ?? []
     if (plan.length + items.length + files.length + failures.length + agents.length + timeline.length + pins.length === 0 && explain === null && usage === null) {
@@ -181,24 +183,33 @@ export function registerSessionPane(on: On): void {
         {failures.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
             {heading(`Falhas (${failures.length})`)}
-            {failures.slice(-MAX_FAILURES).reverse().map(f => (
-              <Box flexDirection="column">
-                {f.toolUseId === undefined ? (
-                  <Text color={SCREEN.bad} wrap="truncate-end">
-                    {fitEnd(f.command, cols)}
-                  </Text>
-                ) : (
-                  <Button plain key={`fail-${f.toolUseId}`} onPress={() => void scrollToRow($, f.toolUseId!)}>
-                    <Text color={SCREEN.bad}>{fitEnd(f.command.split('\n')[0] ?? '', cols)}</Text>
-                  </Button>
-                )}
-                <Box paddingLeft={2}>
-                  <Text dimColor wrap="truncate-end">
-                    {fitEnd(f.line, cols - 2)}
-                  </Text>
+            {failures.slice(-MAX_FAILURES).reverse().map(f => {
+              const why = f.toolUseId === undefined ? undefined : explanations[f.toolUseId]
+              return (
+                <Box flexDirection="column">
+                  {f.toolUseId === undefined ? (
+                    <Text color={SCREEN.bad} wrap="truncate-end">
+                      {fitEnd(f.command, cols)}
+                    </Text>
+                  ) : (
+                    <Button plain key={`fail-${f.toolUseId}`} onPress={() => void scrollToRow($, f.toolUseId!)}>
+                      <Text color={SCREEN.bad}>{fitEnd(f.command.split('\n')[0] ?? '', cols)}</Text>
+                    </Button>
+                  )}
+                  <Box paddingLeft={2}>
+                    <Text dimColor wrap="truncate-end">
+                      {fitEnd(f.line, cols - 2)}
+                    </Text>
+                  </Box>
+                  {why?.status === 'ready' && (
+                    // The sentence wraps: it is what to do next, worth its lines.
+                    <Box key={`why-${f.toolUseId}`} paddingLeft={2}>
+                      <Text color={SCREEN.warn}>{`↳ ${why.text}`}</Text>
+                    </Box>
+                  )}
                 </Box>
-              </Box>
-            ))}
+              )
+            })}
           </Box>
         )}
         {agents.length > 0 && (

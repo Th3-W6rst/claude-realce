@@ -932,6 +932,23 @@ describe('usage limit', () => {
 })
 
 describe('pane links', () => {
+  test("a failure's explanation shows under it in the pane, once it arrives", async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    on('tool.call', { tool: 'Bash' }, () => ({ isError: true as const, result: 'Exit code 1\ncat: x: No such file', text: 'Exit code 1\ncat: x: No such file' }))
+    engine(on)
+    startStandIns(on)
+    on('model.complete', () => ({ value: { isAnswered: true, text: 'O arquivo x não existe; confira o nome.', usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }) as never)
+    on('ui.invalidate', () => ({ value: undefined }))
+    on('ui.toast', () => ({ value: undefined }))
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    await $.tool.call({ tool: 'Bash', command: 'cat x', tool_use_id: 'c1' })
+    const ui = await mountPane($)
+    expect(await ui.find({ key: 'why-c1' })).toBeUndefined()
+    await clock.settle()
+    expect((await ui.find({ key: 'why-c1' }))?.text).toBe('↳ O arquivo x não existe; confira o nome.')
+  })
+
   test('a touched file opens in the editor, a failure scrolls to its command', async ($, on) => {
     mock.store(on)
     mock.clock(on)

@@ -2,6 +2,9 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.35
+- O painel da sessão mostra, sob cada falha, a explicação do Haiku assim que ela chega.
+
 ## 0.4.34
 - Duas ferramentas diferentes em paralelo viram uma frase no spinner: "Lendo e buscando".
 - Nomes longos no spinner são cortados sem partir emoji.
