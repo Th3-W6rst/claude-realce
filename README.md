@@ -77,9 +77,9 @@ A **turn** is one message of yours and everything Claude does until it answers.
 
 ![A turn recorded in a real session](images/session.gif)
 
-*A turn recorded in a real session (Claude Code 2.1.304, sped up while Claude thinks;
-[MP4](images/session.mp4)): the tool rows with the word diff and the test score, the reply colored by meaning, the
-rule that closes the turn with its proof seal, the detailed transcript (ctrl+o) and the session pane.*
+*A turn recorded in a real session (Claude Code 2.1.304, 4× while Claude works; [MP4](images/session.mp4)): the tool
+rows with the word diff, the reply colored by meaning, the rule that closes the turn with its proof seal, the detailed
+transcript (ctrl+o) with the test score, the same turn with `/realce off` and back on, and the session pane.*
 
 ![A session where Claude fixes a failing test](images/session.png)
 
