@@ -68,6 +68,8 @@ describe('readable diff', () => {
     expect(await ui.find({ text: '@@ linha 12' })).toBeDefined()
     const word = (await ui.findAll({ type: 'Text', text: '2' })).find(el => el.text === '2')
     expect(word?.props.backgroundColor).toBe('diffAddedWord')
+    // On the theme's word background the theme's own text color reads; the line's green on green would not.
+    expect(word?.props.color).toBe('text')
     expect(await ui.find({ text: 'engine' })).toBeUndefined()
   })
 

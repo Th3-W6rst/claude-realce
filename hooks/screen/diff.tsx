@@ -64,7 +64,8 @@ function pieceRuns(t: T, pieces: readonly DiffPiece[], color: string | undefined
   // An ANSI theme has no word background of its own: the changed words are underlined there.
   const isAnsi = currentTheme().endsWith('ansi')
   return pieces.map(p =>
-    !p.isChanged ? (p.text as unknown as RenderElement) : isAnsi ? <Text color={color} underline>{p.text}</Text> : <Text color={color} backgroundColor={word}>{p.text}</Text>,
+    // On the theme's word background its own text color reads in both light and dark; the line's color may not.
+    !p.isChanged ? (p.text as unknown as RenderElement) : isAnsi ? <Text color={color} underline>{p.text}</Text> : <Text color="text" backgroundColor={word}>{p.text}</Text>,
   )
 }
 

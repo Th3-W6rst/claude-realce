@@ -43,6 +43,14 @@ claude plugin update realce@claude-realce
 
 e reabra o Claude Code.
 
+### Primeiros passos
+
+1. Numa sessão nova, rode `/realce demo`: uma resposta com todos os recursos, sem chamar o modelo.
+2. `/realce` abre o painel de flags; `/realce painel`, o painel da sessão (abre sozinho com 144 colunas ou mais).
+3. Peça ao Claude algo que edite e teste: a régua do fim do turno diz `✔ provado`, `⚠ sem prova` ou
+   `✖ afirmou com testes falhando`.
+4. `/realce status` mostra o tema, o que está desligado, avisos, atualização e quanto cada desenho custa.
+
 ### O que ajuda a aproveitar
 
 - **Terminal com cor verdadeira (24 bits):** Ghostty, iTerm2, WezTerm, Kitty. Fundo escuro.
