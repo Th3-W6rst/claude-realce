@@ -2,6 +2,10 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.19
+- `/realce explica <texto>` explica o texto escrito, sem precisar selecionar (útil fora da tela cheia).
+- O `/realce resumo` lista os últimos dez turnos, cada um com o seu selo.
+
 ## 0.4.18
 - "1 teste" no singular no resumo e na faixa "Enquanto você estava fora".
 

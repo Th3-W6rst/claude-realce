@@ -12,7 +12,7 @@ Plugin (mod) do Claude Code que deixa a tela mais fácil de ler. Cada recurso te
 *Gerada pelo próprio mod: `/realce demo` e depois `/realce print`; os números da tabela são só de exemplo. No tema
 claro: [demo-claro.png](images/demo-claro.png).*
 
-Versão atual: 0.4.18 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
+Versão atual: 0.4.19 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (dúvidas e problemas em *Issues*).
 
 ## Requisitos
@@ -73,7 +73,7 @@ Um **turno** é uma mensagem sua e tudo o que o Claude faz até responder.
 | `/realce copiar` | Copia a última resposta do Claude (as marcas viram markdown comum) |
 | `/realce resumo` | Mostra e copia um resumo da sessão em markdown: turnos e selos, testes, arquivos, git, falhas |
 | `/realce foco` | Alterna o modo foco, que esconde as ferramentas concluídas sem erro |
-| `/realce explica` | Explica no painel da sessão o trecho que você selecionou na conversa |
+| `/realce explica [texto]` | Explica no painel da sessão o texto que você escreveu, ou o trecho selecionado na conversa |
 | `/realce fixar` | Fixa no painel a resposta selecionada, ou a última; de novo, desafixa |
 | `/realce print` | Salva a última resposta como HTML e PNG no Desktop, nas cores do seu tema |
 | `/realce demo` | Mostra uma resposta com todos os recursos, sem chamar o modelo |

@@ -24,7 +24,7 @@ const HELP = [
   '/realce copiar — copia a última resposta do Claude',
   '/realce resumo — mostra e copia um resumo da sessão em markdown',
   '/realce foco — esconde as ferramentas concluídas sem erro',
-  '/realce explica — explica no painel o trecho selecionado',
+  '/realce explica [texto] — explica no painel o texto dado, ou o trecho selecionado',
   '/realce fixar — fixa a resposta selecionada, ou a última',
   '/realce print — salva a última resposta como imagem no Desktop',
   '/realce demo — mostra tudo o que o mod faz, sem chamar o modelo',
@@ -73,7 +73,11 @@ export function registerCommands(on: On): void {
       await setFlag($, 'foco', isOn)
       return { text: isOn ? 'Modo foco ligado.' : 'Modo foco desligado.' }
     }
-    if (words.length === 1 && first === 'explica') return { text: (await getFlags($)).explica ? await explainCommand($) : featureOff('explica') }
+    if (first === 'explica' && (words.length === 1 || !(words.length === 2 && (second === 'on' || second === 'off')))) {
+      // What follows the word keeps its case: it is the text to explain.
+      const given = e.args.trim().slice('explica'.length)
+      return { text: (await getFlags($)).explica ? await explainCommand($, given) : featureOff('explica') }
+    }
     if (words.length === 1 && first === 'demo') {
       if (!(await getFlags($)).demo) return { text: featureOff('demo') }
       await demoCommand($)

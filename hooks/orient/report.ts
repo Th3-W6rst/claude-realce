@@ -5,10 +5,13 @@ import type { Failure, FileTouch, TimelineRow } from '../../types'
 import { formatClock, plural, testCount } from '../format'
 import { allCommits } from '../screen/notes'
 import { shortPath } from '../screen/toolInfo'
+import { sealLabel } from '../screen/turns'
 
 const TIMELINE = atom({ plugin: 'realce', key: 'timeline' } as const, [])
 const FILES = atom({ plugin: 'realce', key: 'files' } as const, [])
 const FAILURES = atom({ plugin: 'realce', key: 'failures' } as const, [])
+
+const MAX_TURNS = 10
 
 export type ReportInput = {
   timeline: readonly TimelineRow[]
@@ -34,6 +37,11 @@ export function reportText(r: ReportInput): string {
       count('failing') > 0 ? `✖ ${count('failing')} com testes falhando` : null,
     ].filter((s): s is string => s !== null)
     lines.push(`- **Turnos:** ${r.timeline.length}${seals.length === 0 ? '' : ` (${seals.join(' · ')})`}`)
+    // The last ten prompts, each with its verdict: what was asked, at a glance.
+    for (const t of r.timeline.slice(-MAX_TURNS)) {
+      const seal = sealLabel(t.seal)
+      lines.push(`  - ${formatClock(t.at, r.tzOffsetMinutes)} · ${t.prompt}${seal === null ? '' : ` · ${seal.text}`}`)
+    }
     const tests = [...r.timeline].reverse().find(t => t.tests !== null)?.tests
     if (tests !== undefined && tests !== null) {
       lines.push(`- **Testes:** último placar ${tests.failed === 0 ? `✔ ${testCount(tests.passed, tests.unit)}` : `✖ ${plural(tests.failed, 'teste falhou', 'testes falharam')}`}`)

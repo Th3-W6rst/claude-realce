@@ -24,11 +24,13 @@ export async function closeExplanation($: EngineInterface): Promise<void> {
   await update($, EXPLAIN, () => null)
 }
 
-/** `/realce explica`: the selected text explained in the session pane, by a fast model, off the command. */
-export async function explainCommand($: EngineInterface): Promise<string> {
-  const selection = await $.ui.selection()
-  const text = selection?.text.trim() ?? ''
-  if (text === '') return 'Selecione um trecho da conversa (em tela cheia) e rode de novo.'
+/**
+ * `/realce explica [texto]`: the text given, or else the selection, explained in the session pane by a fast model,
+ * off the command. The text works where nothing can be selected (outside fullscreen).
+ */
+export async function explainCommand($: EngineInterface, given = ''): Promise<string> {
+  const text = given.trim() !== '' ? given.trim() : ((await $.ui.selection())?.text.trim() ?? '')
+  if (text === '') return 'Selecione um trecho da conversa (em tela cheia) ou escreva o que explicar: /realce explica <texto>.'
   const excerpt = [...text].slice(0, MAX_CHARS).join('')
   await update($, EXPLAIN, () => ({ excerpt, status: 'pending' as const, text: '' }))
   await openSessionPane($)

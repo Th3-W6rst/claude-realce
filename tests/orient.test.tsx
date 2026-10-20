@@ -668,7 +668,16 @@ describe('explain this', () => {
     mock.store(on)
     mock.clock(on)
     explainWorld(on, undefined)
-    expect((await $.command.run({ ...RUN, args: 'explica' })).text).toBe('Selecione um trecho da conversa (em tela cheia) e rode de novo.')
+    expect((await $.command.run({ ...RUN, args: 'explica' })).text).toBe('Selecione um trecho da conversa (em tela cheia) ou escreva o que explicar: /realce explica <texto>.')
+  })
+
+  test('the text after the command is explained when given', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    const asked = explainWorld(on, undefined)
+    expect((await $.command.run({ ...RUN, args: 'explica O que é um Hook?' })).text).toBe('Explicando no painel.')
+    await clock.settle()
+    expect(String(asked[0]!.prompt)).toBe('O que é um Hook?')
   })
 
   test('a selection is explained in the pane', async ($, on) => {
@@ -933,6 +942,8 @@ describe('session report', () => {
       '## Resumo da sessão (20:41–21:05)',
       '',
       '- **Turnos:** 2 (✔ 1 provado · ⚠ 1 sem prova)',
+      '  - 20:41 · Renomeia b · ✔ provado',
+      '  - 21:05 · Sobe a versão · ⚠ sem prova',
       '- **Testes:** último placar ✔ 12 testes',
       '- **Arquivos:** 2 (+13 −1)',
       '  - `calc.py` +3 −1',
