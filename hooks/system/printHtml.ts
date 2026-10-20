@@ -84,7 +84,9 @@ export function replyHtml(text: string, palette: PaletteSet, picture: (source: s
 
 /** The page's height in pixels, for the screenshot's window: rows of text plus the pictures at their drawn size. */
 export function estimateHeight(text: string, pictures: readonly { width: number; height: number }[]): number {
-  const rows = text.split('\n').reduce((n, line) => n + Math.max(1, Math.ceil([...line].length / CHARS_PER_LINE)), 0)
+  // A mermaid block drawn as its picture takes the picture's height, not its source's rows.
+  const shown = pictures.length === 0 ? text : text.replace(/^```mermaid[^\n]*\n[\s\S]*?^```[ \t]*$/gm, '')
+  const rows = shown.split('\n').reduce((n, line) => n + Math.max(1, Math.ceil([...line].length / CHARS_PER_LINE)), 0)
   const images = pictures.reduce((n, p) => {
     const width = Math.min(PAGE_WIDTH, p.width / 2)
     return n + (p.height / p.width) * width

@@ -13,8 +13,12 @@ const SOUNDS = { done: '/System/Library/Sounds/Glass.aiff', question: '/System/L
 
 let turnStartedAt: number | null = null
 let lastFailure: string | null = null
+let wasBanner = false
 
 export const lastNotifyFailure = () => lastFailure
+
+/** True when the last notice went out as the macOS banner, the terminal giving Claude Code no channel. */
+export const lastNotifyWasBanner = () => wasBanner
 
 /** '6m 25s · ✔ testes · ✔ provado': what the finished turn did, the parts it has. */
 export function finishText(durationMs: number, stats: TurnStats | null): string {
@@ -43,9 +47,27 @@ async function playSound($: EngineInterface, file: string): Promise<void> {
   }
 }
 
+/** The system's own banner, text and title as arguments (no AppleScript quoting); the reason when it fails. */
+async function systemBanner($: EngineInterface, text: string, title: string): Promise<string | null> {
+  try {
+    const run = await $.process.run(['osascript', '-e', 'on run argv', '-e', 'display notification (item 1 of argv) with title (item 2 of argv)', '-e', 'end run', text, title])
+    return run.exitCode === 0 ? null : run.stderr.trim() || `osascript saiu com ${run.exitCode}`
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
+  }
+}
+
 async function send($: EngineInterface, text: string, title: string, sound: string): Promise<void> {
   const result = await $.ui.notify(text, { title })
+  wasBanner = false
   lastFailure = result.isSent ? null : result.reason
+  // A terminal that gives Claude Code no channel (tmux, Terminal.app) still has the system's banner. A notice the
+  // person turned off ('disabled') or a hook refused stays unsent.
+  if (!result.isSent && result.reason.startsWith('no-channel')) {
+    const failed = await systemBanner($, text, title)
+    wasBanner = failed === null
+    lastFailure = failed === null ? null : `${result.reason}; banner do macOS: ${failed}`
+  }
   // afplay lasts as long as the sound: off the event's dispatch.
   if ((await getFlags($)).som) $.clock.after(0, () => void playSound($, sound))
 }

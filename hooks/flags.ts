@@ -6,7 +6,7 @@ export type FlagId =
   | 'ferramentas' | 'placar' | 'separador' | 'agentes'
   | 'pendencias' | 'plano' | 'painel' | 'spinner'
   | 'numeros' | 'selo' | 'diff' | 'erros' | 'commits' | 'foco'
-  | 'avisos' | 'som' | 'ausencia' | 'linha' | 'perguntas' | 'fixar' | 'explica'
+  | 'avisos' | 'som' | 'limite' | 'ausencia' | 'linha' | 'perguntas' | 'fixar' | 'explica'
   | 'tema' | 'print' | 'demo' | 'atualizacao'
 
 export type FlagGroup = 'Texto' | 'Código' | 'Ferramentas' | 'Orientação' | 'Sistema'
@@ -43,6 +43,7 @@ export const FLAGS: readonly FlagSpec[] = [
   { id: 'spinner', group: 'Orientação', label: 'Spinner em português', description: '"Pensando", "Escrevendo", "Executando"', isDefaultOn: true },
   { id: 'avisos', group: 'Orientação', label: 'Aviso quando termina', description: 'Notificação do macOS no fim de um turno longo ou numa pergunta', isDefaultOn: true },
   { id: 'som', group: 'Orientação', label: 'Som nos avisos', description: 'Um som curto junto da notificação', isDefaultOn: false },
+  { id: 'limite', group: 'Orientação', label: 'Alerta de limite', description: 'Faixa quando o limite de uso ou o contexto passa de 80%', isDefaultOn: true },
   { id: 'ausencia', group: 'Orientação', label: 'Enquanto você estava fora', description: 'Resumo do que aconteceu quando você volta a digitar', isDefaultOn: true },
   { id: 'linha', group: 'Orientação', label: 'Linha do tempo', description: 'Os turnos no painel, com clique para rolar até cada um', isDefaultOn: true },
   { id: 'perguntas', group: 'Orientação', label: 'Cabeçalho de pergunta', description: 'Uma linha colorida acima das perguntas do Claude', isDefaultOn: true },

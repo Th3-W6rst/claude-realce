@@ -100,16 +100,26 @@ describe('flags pane', () => {
     expect(await label('flag-coluna')).toBe('[ ] Coluna de leitura · Prosa limitada a 100 colunas')
   })
 
-  test('the pane lists 36 flags under 5 groups, each on its own key', async ($, on) => {
+  test('the pane lists 37 flags under 5 groups, 36 of them on a key', async ($, on) => {
     mock.store(on)
     on('prompt.compose', () => ({ sections: [] }))
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
     for (const group of ['Texto', 'Código', 'Ferramentas', 'Orientação', 'Sistema']) expect(await ui.find({ type: 'Text', text: group })).toBeDefined()
     expect(await ui.find({ key: 'flag-atualizacao' })).toBeDefined()
     const buttons = await ui.findAll({ type: 'Button' })
-    expect(buttons).toHaveLength(36)
-    expect(new Set(buttons.map(b => b.props.hotkey)).size).toBe(36)
+    expect(buttons).toHaveLength(37)
+    // The engine takes 36 keys (a–z, 0–9): the 37th flag is reached with Tab and Enter.
+    expect(new Set(buttons.map(b => b.props.hotkey).filter(k => k !== undefined)).size).toBe(36)
     expect(await ui.find({ type: 'Text', text: 'Letra ou número alterna · Tab e Enter também · Esc fecha' })).toBeDefined()
+  })
+
+  test('a narrow pane keeps each flag on one line, in the theme colors', async ($, on) => {
+    mock.store(on)
+    on('prompt.compose', () => ({ sections: [] }))
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: { ...PANE, bodyColumns: 40 } })
+    for (const b of await ui.findAll({ type: 'Button' })) expect([...b.text].length).toBeLessThanOrEqual(37)
+    expect((await ui.find({ key: 'flag-coluna' }))?.text).toBe('[x] Coluna de leitura · Prosa limita…')
+    expect((await ui.find({ type: 'Text', text: 'Texto' }))?.props.color).toBe('#24D3E0')
   })
 
   test('pressing a new flag toggles it', async ($, on) => {

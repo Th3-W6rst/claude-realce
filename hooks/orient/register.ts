@@ -2,6 +2,7 @@ import type { On } from 'claude-code'
 
 import { registerAway } from './away'
 import { registerBand } from './band'
+import { registerLimits } from './limits'
 import { registerNotify } from './notify'
 import { registerQuestion } from './question'
 import { registerSessionPane } from './sessionPane'
@@ -13,4 +14,5 @@ export function registerOrient(on: On): void {
   registerNotify(on)
   registerAway(on)
   registerQuestion(on)
+  registerLimits(on)
 }

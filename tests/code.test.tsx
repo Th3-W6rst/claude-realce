@@ -119,12 +119,16 @@ describe('copy and fold', () => {
 
   test('a 2000-line block draws folded and fast', async ($, on) => {
     mock.store(on)
+    // The kit's mount has its own cost, which a loaded machine stretches: the block's is the long one over a short one.
+    const t0 = performance.now()
+    await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'AssistantMessage', requestId: 'short', props: { text: '```ts\n' + numbered(30) + '\n```', isFirstOfReply: true }, viewport: { columns: 120, rows: 40 } })
+    const short = performance.now() - t0
     const started = performance.now()
     const ui = await mountReply($, '```ts\n' + numbered(2000) + '\n```')
-    const took = performance.now() - started
+    const took = performance.now() - started - short
     expect((await ui.find({ key: 'fold-0' }))?.text).toBe('▸ Mostrar mais 1992 linhas')
     expect(await ui.find({ text: 'line9 ' })).toBeUndefined()
-    expect(took).toBeLessThan(200)
+    expect(took).toBeLessThan(100)
   })
 
   test('the engine highlighter keeps the header and the fold', async ($, on) => {

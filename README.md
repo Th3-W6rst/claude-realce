@@ -2,8 +2,12 @@
 
 Mod do Claude Code que deixa a tela mais fácil de ler e de entender: cores por sentido nas respostas, código com
 highlighter próprio, diffs por palavra, ferramentas e turnos legíveis num relance, um selo que diz se o que o Claude
-afirmou foi testado, avisos quando ele termina ou pergunta, e um painel com a linha do tempo da sessão. Cada um dos 36
+afirmou foi testado, avisos quando ele termina ou pergunta, e um painel com a linha do tempo da sessão. Cada um dos 37
 recursos tem a sua flag e liga ou desliga na hora.
+
+![Demonstração do realce](images/demo.png)
+
+*A imagem foi gerada pelo próprio mod: `/realce demo` e depois `/realce print`.*
 
 Feito para o terminal (testado no Ghostty com fundo `#111111`). Nas outras superfícies (desktop, mobile) o mod só
 converte as marcas do Claude em negrito comum.
@@ -54,7 +58,7 @@ e reabra o Claude Code.
 
 | Comando | O que faz |
 |---|---|
-| `/realce` | Abre o painel de flags: cada recurso tem a sua tecla (letra ou número), Tab e Enter também, Esc fecha |
+| `/realce` | Abre o painel de flags: os 36 primeiros recursos têm a sua tecla (letra ou número), Tab e Enter alcançam todos, Esc fecha |
 | `/realce on` / `/realce off` | Liga ou desliga tudo, sem perder a escolha de cada flag |
 | `/realce <recurso> on\|off` | Liga ou desliga um recurso (`/realce coluna off`) |
 | `/realce painel` | Abre ou fecha o painel lateral da sessão (plano, linha do tempo, fixadas, arquivos, falhas, agentes) |
@@ -96,6 +100,7 @@ e reabra o Claude Code.
 | Orientação | `spinner` | Spinner em português: "Pensando", "Escrevendo", "Executando" | ligado |
 | Orientação | `avisos` | Aviso quando termina: Notificação do macOS no fim de um turno longo ou numa pergunta | ligado |
 | Orientação | `som` | Som nos avisos: Um som curto junto da notificação | desligado |
+| Orientação | `limite` | Alerta de limite: Faixa quando o limite de uso ou o contexto passa de 80% | ligado |
 | Orientação | `ausencia` | Enquanto você estava fora: Resumo do que aconteceu quando você volta a digitar | ligado |
 | Orientação | `linha` | Linha do tempo: Os turnos no painel, com clique para rolar até cada um | ligado |
 | Orientação | `perguntas` | Cabeçalho de pergunta: Uma linha colorida acima das perguntas do Claude | ligado |

@@ -437,6 +437,14 @@ describe('human numbers', () => {
     expect(parseInline('levou 102761ms', [], true, { numeros: true }).some(s => s.text === ' (1m 42s)')).toBe(true)
   })
 
+  test('a unit written before the number reads too', () => {
+    const text = (t: string) => parseInline(t, [], true, { numeros: true }).map(s => s.text).join('')
+    expect(text('tokens: 73201 no total')).toBe('tokens: 73201 (73,2 mil) no total')
+    expect(text('nem dado de tokens (73201).')).toBe('nem dado de tokens (73201) (73,2 mil).')
+    expect(text('duração em ms: 102761')).toBe('duração em ms: 102761 (1m 42s)')
+    expect(text('são 73201 linhas')).toBe('são 73201 linhas')
+  })
+
   test('a number that already says its reading gets no second one', () => {
     expect(parseInline('levou 102761 ms (1m 42s)', [], true, { numeros: true }).some(s => s.kinds.includes('aside'))).toBe(false)
   })

@@ -3,7 +3,7 @@ import type { EngineInterface, On, PromptComposeSection } from 'claude-code'
 
 import { findMermaid } from './env'
 import { FLAGS, getFlags, getStoredFlags, isMasterOn, type Flags } from './flags'
-import { lastNotifyFailure } from './orient/notify'
+import { lastNotifyFailure, lastNotifyWasBanner } from './orient/notify'
 import { updateStatus } from './system/update'
 import { currentTheme, type ThemeKind } from './theme'
 import { perfLines } from './perf'
@@ -108,6 +108,7 @@ export async function status($: EngineInterface): Promise<string> {
       : `Editor dos links: ${env.editor}. Diagramas: ${env.mmdc === null ? 'mmdc não encontrado' : `mmdc em ${env.mmdc}`}.`,
     `Cores: tema ${THEME_NAMES[currentTheme()]}.`,
     ...(lastNotifyFailure() === null ? [] : [`Último aviso não enviado: ${lastNotifyFailure()}.`]),
+    ...(lastNotifyWasBanner() ? ['Último aviso: pelo macOS (o terminal não dá canal ao Claude Code).'] : []),
     ...(updateStatus() === null ? [] : [updateStatus()!]),
     ...perfLines(),
   ].join('\n')

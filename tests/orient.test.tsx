@@ -3,6 +3,7 @@ import type { Engine } from 'claude-code/testing'
 import type { AgentInfo, On, PromptEditInput, RenderPropsOf } from 'claude-code'
 
 import { awaySummary, awayText } from '../hooks/orient/away'
+import { limitText, limitWarning } from '../hooks/orient/limits'
 import { togglePin } from '../hooks/orient/pins'
 import { questionHeader } from '../hooks/orient/question'
 import { extractPending } from '../hooks/orient/pending'
@@ -344,18 +345,20 @@ describe('finish notice', () => {
   function notifyWorld(on: On, result: unknown = { isSent: true, channel: 'osc9' }) {
     const sent: { text: string; title?: string }[] = []
     const played: string[][] = []
+    const runs: string[][] = []
     on('ui.notify', ($, e) => {
       sent.push({ text: e.text, ...(e.title === undefined ? {} : { title: e.title }) })
       return { value: result as never }
     })
     on('process.run', ($, e) => {
+      runs.push([...e.argv])
       if (e.argv[0] === 'afplay') played.push([...e.argv])
       return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
     })
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '===== 12 passed in 0.50s =====', stderr: '', interrupted: false } }))
     on('ui.log', () => ({ value: undefined }))
     engine(on)
-    return { sent, played }
+    return { sent, played, runs }
   }
 
   const longTurn = async ($: Engine, durationMs: number, extra: { isAborted?: boolean } = {}) => {
@@ -434,6 +437,20 @@ describe('finish notice', () => {
     await longTurn($, 61_000)
     const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
     expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Último aviso não enviado: disabled\./)
+  })
+
+  test('a terminal with no channel gets the macOS banner instead', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    const { runs } = notifyWorld(on, { isSent: false, reason: 'no-channel' })
+    on('prompt.compose', () => ({ sections: [] }))
+    await longTurn($, 61_000)
+    const banner = runs.find(a => a[0] === 'osascript')
+    expect(banner?.slice(-2)).toEqual(['1m 1s · ✔ testes · ✔ provado', 'Claude terminou'])
+    const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
+    const status = (await $.command.run({ ...RUN, args: 'status' })).text ?? ''
+    expect(status).toMatch(/Último aviso: pelo macOS \(o terminal não dá canal ao Claude Code\)\./)
+    expect(status).not.toMatch(/não enviado/)
   })
 
   test('avisos off sends nothing', async ($, on) => {
@@ -753,5 +770,49 @@ describe('pins', () => {
   test('fixar off says how to turn it on', async ($, on) => {
     mock.store(on, { flags: { fixar: false } })
     expect((await $.command.run({ ...RUN, args: 'fixar' })).text).toBe('Recurso desligado: Fixar respostas. /realce fixar on liga.')
+  })
+})
+
+describe('usage limit', () => {
+  const CONTEXT = { window: 1_000_000, tokens: 300_000, percent: 30 }
+  const measure = (rateLimits: { kind: string; percentUsed: number; resetsAt?: string }[], context = CONTEXT) => ({ context, rateLimits, changed: ['rateLimits' as const] })
+
+  test('the highest window past 80% is the warning', () => {
+    expect(limitWarning(measure([{ kind: 'five_hour', percentUsed: 60 }]))).toBeNull()
+    expect(limitWarning(measure([{ kind: 'five_hour', percentUsed: 86, resetsAt: '2026-10-20T02:40:00Z' }, { kind: 'seven_day', percentUsed: 81 }]))).toEqual({ kind: 'rate', label: '5 h', percent: 86, resetsAt: Date.UTC(2026, 9, 20, 2, 40) })
+    expect(limitWarning(measure([], { window: 200_000, tokens: 170_000, percent: 85 }))).toEqual({ kind: 'context', label: 'contexto', percent: 85, resetsAt: null })
+  })
+
+  test('the warning says what fills and when it renews', () => {
+    expect(limitText({ kind: 'rate', label: '5 h', percent: 86, resetsAt: Date.UTC(2026, 9, 20, 2, 40) }, -180)).toBe('⚠ Limite de 5 h em 86% · renova às 23:40')
+    expect(limitText({ kind: 'rate', label: '7 dias', percent: 91, resetsAt: null }, -180)).toBe('⚠ Limite de 7 dias em 91%')
+    expect(limitText({ kind: 'context', label: 'contexto', percent: 85, resetsAt: null }, -180)).toBe('⚠ Contexto em 85%: um /compact antes de algo grande')
+  })
+
+  test('the band shows it, hides it, and shows it again past the next step', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    engine(on)
+    startStandIns(on)
+    on('session.measure', ($, e) => ({ changed: e.changed }))
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    await $.session.measure(measure([{ kind: 'five_hour', percentUsed: 86, resetsAt: '2026-10-20T02:40:00Z' }]))
+    const ui = await mountBand($)
+    expect(await ui.find({ text: '⚠ Limite de 5 h em 86% · renova às 23:40' })).toBeDefined()
+    await ui.press({ key: 'hide-limit' })
+    expect(await ui.find({ text: /Limite de 5 h/ })).toBeUndefined()
+    await $.session.measure(measure([{ kind: 'five_hour', percentUsed: 88 }]))
+    expect(await ui.find({ text: /Limite de 5 h/ })).toBeUndefined()
+    await $.session.measure(measure([{ kind: 'five_hour', percentUsed: 91 }]))
+    expect(await ui.find({ text: '⚠ Limite de 5 h em 91%' })).toBeDefined()
+  })
+
+  test('limite off shows nothing', async ($, on) => {
+    mock.store(on, { flags: { limite: false } })
+    mock.clock(on)
+    engine(on)
+    on('session.measure', ($, e) => ({ changed: e.changed }))
+    await $.session.measure(measure([{ kind: 'five_hour', percentUsed: 97 }]))
+    expect(await (await mountBand($)).find({ text: /Limite/ })).toBeUndefined()
   })
 })

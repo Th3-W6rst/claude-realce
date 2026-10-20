@@ -30,6 +30,12 @@ describe('print html', () => {
     expect(html).toContain('<img src="file:///Users/u/.cache/realce/diagrams/x.png"')
   })
 
+  test('a pictured diagram counts as its picture, not as its source lines', () => {
+    const pic = { width: 1440, height: 1440 }
+    const source = '```mermaid\n' + Array.from({ length: 12 }, (_, i) => `  A${i} --> B${i}`).join('\n') + '\n```'
+    expect(estimateHeight(`texto\n${source}`, [pic])).toBeLessThanOrEqual(estimateHeight('texto', [pic]) + 3 * 22)
+  })
+
   test('the height grows with the reply and its pictures', () => {
     expect(estimateHeight('uma linha', [])).toBeGreaterThanOrEqual(200)
     expect(estimateHeight(Array.from({ length: 80 }, () => 'linha').join('\n'), [])).toBeGreaterThan(estimateHeight('linha', []))

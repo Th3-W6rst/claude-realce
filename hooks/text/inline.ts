@@ -84,18 +84,22 @@ const QUOTED = /"[^"\n]{1,160}"|“[^”\n]{1,160}”/gu
 const LOOKS_LIKE_PATH = new RegExp(`^(?:${PATH})$`, 'u')
 
 const UNIT_AFTER = /^ ?(ms|s|bytes|B|tokens)(?![\p{L}\p{N}_])/u
+// The unit named just before ("tokens: 73201", "em ms: 102761", "tokens (73201)"): the reading follows the number,
+// past a closing parenthesis.
+const UNIT_BEFORE = /(?<![\p{L}\p{N}_])(ms|bytes|tokens)\s*[:=]?\s*(\(?)$/u
 
-/** The reading of a number and the unit that follows it ("102761" + " ms"), or one glued to it ("102761ms"). */
-function humanReading(number: string, after: string): { label: string; unitText: string } | null {
+/** The reading of a number and its unit: after it ("102761 ms"), glued to it ("102761ms") or just before it. */
+function humanReading(number: string, after: string, before: string): { label: string; unitText: string } | null {
   const glued = /^(\d+)(ms|s)$/.exec(number)
   const unitAfter = glued === null ? UNIT_AFTER.exec(after) : null
-  const unit = glued?.[2] ?? unitAfter?.[1]
+  const unitBefore = glued === null && unitAfter === null ? UNIT_BEFORE.exec(before) : null
+  const unit = glued?.[2] ?? unitAfter?.[1] ?? unitBefore?.[1]
   if (unit === undefined) return null
   const parsed = parseNumber(glued?.[1] ?? number)
   if (parsed === null || parsed.unit !== '') return null
   const label = humanizeAmount(parsed.value, unit)
   if (label === null) return null
-  const unitText = unitAfter?.[0] ?? ''
+  const unitText = unitAfter?.[0] ?? (unitBefore?.[2] === '(' && after.startsWith(')') ? ')' : '')
   // Already read for the person ("102761 ms (1m 42s)"): no second reading.
   return after.slice(unitText.length).startsWith(` (${label}`) ? null : { label, unitText }
 }
@@ -156,7 +160,7 @@ function heuristics(text: string, outer: ProseKind[], opts: InlineOpts): Span[] 
     spans.push(kind === 'link' ? { text: m[0], kinds: [kind], href: m[0] } : { text: m[0], kinds: [kind] })
     at = start + m[0].length
     if (kind === 'number' && opts.numeros === true) {
-      const reading = humanReading(m[0], text.slice(at))
+      const reading = humanReading(m[0], text.slice(at), text.slice(0, start))
       if (reading !== null) {
         if (reading.unitText !== '') spans.push({ text: reading.unitText, kinds: [] })
         spans.push({ text: ` (${reading.label})`, kinds: ['aside'] })
