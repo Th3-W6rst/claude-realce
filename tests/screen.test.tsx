@@ -331,6 +331,26 @@ describe('turn rule', () => {
     expect(await drawnText(main, 'realce-turn')).toContain('── 12s · ✔ provado · 1 ferramenta · ✔ testes ──')
   })
 
+  test('a turn no prompt.submit opened still gets its stats', async ($, on) => {
+    // The mod's own prompt (the demo) skips the mod's own prompt.submit hook.
+    mock.store(on)
+    mock.clock(on)
+    engineEvents(on)
+    const written = watchState(on)
+    on('turn.step', async function* ($, e) {
+      yield { kind: 'text' as const, index: 0, text: '5' }
+      return { turnId: e.turnId, index: e.index, answer: '5', toolUses: [], stopReason: 'end_turn' as const, usage: null }
+    })
+    const stream = $.turn.step({ turnId: 'n1', index: 0, model: 'm', messageCount: 3 })
+    for (let step = await stream.next(); step.done !== true; step = await stream.next()) {}
+    expect(written.turn).toMatchObject({ tools: 0, files: [] })
+    // A later step of the same turn leaves its stats alone.
+    await $.tool.call({ tool: 'Bash', command: 'ls' })
+    const later = $.turn.step({ turnId: 'n1', index: 1, model: 'm', messageCount: 5 })
+    for (let step = await later.next(); step.done !== true; step = await later.next()) {}
+    expect(written.turn).toMatchObject({ tools: 1 })
+  })
+
   test('a count of nothing stays off the rule', async ($, on) => {
     mock.store(on)
     mock.clock(on)

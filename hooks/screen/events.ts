@@ -41,7 +41,13 @@ export async function screenPromptSubmit($: EngineInterface, e: Args<'prompt.sub
   if (e.turnId === undefined) await openTurn($)
 }
 
-/** A main turn starts: its rule's stats count from here. Also for the mod's own prompt, which skips its own hook. */
+/** A main turn's first step: a turn no prompt.submit opened (the mod's own prompt skips its own hook) opens here. */
+export async function screenTurnStart($: EngineInterface, e: Args<'turn.step'>): Promise<void> {
+  if (e.agentId !== undefined || e.index !== 0 || (await read($, TURN)) !== null) return
+  await openTurn($)
+}
+
+/** A main turn starts: its rule's stats count from here. */
 export async function openTurn($: EngineInterface): Promise<void> {
   const flags = await getFlags($)
   if (!flags.separador && !flags.selo) return

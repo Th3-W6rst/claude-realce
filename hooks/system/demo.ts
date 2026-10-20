@@ -1,7 +1,7 @@
 import type { Args, EngineInterface, On } from 'claude-code'
 
 import { getFlags } from '../flags'
-import { openTurn } from '../screen/events'
+import { screenTurnStart } from '../screen/events'
 
 /** The showcase reply: every aid the mod draws, in one answer the model never writes. */
 export const DEMO_TEXT = [
@@ -77,13 +77,17 @@ export async function welcomeHint($: EngineInterface, e: Args<'session.start'>):
   $.ui.toast('realce instalado: /realce demo mostra o que ele faz; /realce ajuda lista os comandos.')
 }
 
+// The module's one turn.step hook: a main turn's first step opens its stats if no prompt.submit did, then the demo.
 export function registerDemo(on: On): void {
   on('turn.step', async function* ($, e, next) {
+    try {
+      await screenTurnStart($, e)
+    } catch (error) {
+      $.ui.log(`realce: turn.step (tela) falhou: ${error instanceof Error ? error.message : String(error)}`)
+    }
     // Only a turn's first step: a prompt that joined a running turn must not cut that turn's work short.
     if (!isArmed || e.agentId !== undefined || e.index !== 0) return yield* next(e)
     isArmed = false
-    // The mod's own prompt skips its own prompt.submit hook: its turn opens here, when it starts.
-    await openTurn($)
     yield { kind: 'text' as const, index: 0, text: DEMO_TEXT }
     yield { kind: 'stop' as const, stopReason: 'end_turn' as const, usage: null }
     return { turnId: e.turnId, index: e.index, answer: DEMO_TEXT, toolUses: [], stopReason: 'end_turn' as const, usage: null }

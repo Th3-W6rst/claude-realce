@@ -12,7 +12,7 @@ Plugin (mod) do Claude Code que deixa a tela mais fácil de ler. Cada recurso te
 *Gerada pelo próprio mod: `/realce demo` e depois `/realce print`; os números da tabela são só de exemplo. No tema
 claro: [demo-claro.png](images/demo-claro.png).*
 
-Versão atual: 0.4.37 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
+Versão atual: 0.4.38 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (dúvidas e problemas em *Issues*).
 
 ## Requisitos
@@ -72,9 +72,9 @@ Um **turno** é uma mensagem sua e tudo o que o Claude faz até responder.
 | `/realce diagnostico` | Confere o que a sua máquina dá ao realce (versão, cores, macOS, tela cheia, editor, mermaid, Chrome) e o que falta |
 | `/realce on` · `/realce off` | Liga ou desliga o mod inteiro, sem perder a escolha de cada flag |
 | `/realce <flag> on` · `off` | Liga ou desliga um recurso, por exemplo `/realce coluna off` |
-| `/realce painel` | Abre ou fecha o painel da sessão (uso, plano, linha do tempo, fixadas, arquivos, falhas, agentes) |
+| `/realce painel` | Abre ou fecha o painel da sessão (uso, plano, linha do tempo, fixadas, arquivos, falhas com o porquê, agentes) |
 | `/realce copiar` | Copia a última resposta do Claude (as marcas viram markdown comum) |
-| `/realce resumo` | Mostra e copia um resumo da sessão em markdown: turnos e selos, testes, arquivos, git, falhas |
+| `/realce resumo` | Mostra e copia um resumo da sessão em markdown: turnos (hora, duração, selo), testes, arquivos, git, falhas |
 | `/realce foco` | Alterna o modo foco, que esconde as ferramentas concluídas sem erro |
 | `/realce explica [texto]` | Explica no painel da sessão o texto que você escreveu, ou o trecho selecionado na conversa |
 | `/realce fixar` | Fixa no painel a resposta selecionada, ou a última; de novo, desafixa |
@@ -166,6 +166,8 @@ O mesmo navegador gera o PNG do `/realce print`.
   Terminal.app), sai pelo banner do macOS.
 - **Selo de prova:** testes de um comando em segundo plano não contam; o selo fica em "⚠ sem prova". Entende pytest,
   jest, vitest, bun, mocha, cargo, go test, XCTest, Swift Testing, `node --test`, RSpec e Deno.
+- **Régua depois de um agente em segundo plano:** o Claude Code mede o turno que a notificação do agente abre desde o
+  seu último prompt, e não só esse turno; a régua dele fica com a duração apenas.
 - **Diagrama durante a resposta:** enquanto ela ainda está sendo escrita, o bloco mermaid aparece como código.
 - **Pergunta:** o Claude Code não deixa redesenhar o diálogo de pergunta; o mod só põe uma linha acima dele.
 - **Cartão de agente:** depende do texto da notificação; num formato que o mod não reconhece, fica o desenho do
