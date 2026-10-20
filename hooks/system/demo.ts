@@ -53,7 +53,6 @@ let isArmed = false
 
 async function submitDemo($: EngineInterface): Promise<void> {
   try {
-    await openTurn($)
     const result = await $.prompt.submit({ text: DEMO_PROMPT })
     if ('drop' in result && result.drop !== undefined) throw new Error(result.drop)
   } catch (error) {
@@ -83,6 +82,8 @@ export function registerDemo(on: On): void {
     // Only a turn's first step: a prompt that joined a running turn must not cut that turn's work short.
     if (!isArmed || e.agentId !== undefined || e.index !== 0) return yield* next(e)
     isArmed = false
+    // The mod's own prompt skips its own prompt.submit hook: its turn opens here, when it starts.
+    await openTurn($)
     yield { kind: 'text' as const, index: 0, text: DEMO_TEXT }
     yield { kind: 'stop' as const, stopReason: 'end_turn' as const, usage: null }
     return { turnId: e.turnId, index: e.index, answer: DEMO_TEXT, toolUses: [], stopReason: 'end_turn' as const, usage: null }

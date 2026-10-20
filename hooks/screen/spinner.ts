@@ -197,7 +197,10 @@ const MANY: Partial<Record<Activity, (n: number) => string>> = {
 export function runningWord(calls: readonly Omit<RunningCall, 'id'>[]): string | null {
   const [first] = calls
   if (first === undefined) return null
-  if (calls.some(c => c.activity !== first.activity)) return `Executando ${calls.length} ferramentas`
+  const kinds = [...new Set(calls.map(c => c.activity))]
+  // Two kinds at once read as one phrase ("Lendo e buscando"); more is a count.
+  if (kinds.length === 2) return `${DOING[kinds[0]!]} e ${DOING[kinds[1]!].charAt(0).toLowerCase()}${DOING[kinds[1]!].slice(1)}`
+  if (kinds.length > 2) return `Executando ${calls.length} ferramentas`
   if (calls.length > 1) return MANY[first.activity]?.(calls.length) ?? DOING[first.activity]
   if (first.target === null) return DOING[first.activity]
   // A task is a phrase of its own ("Revisar o diff"), not an object of the verb; a test run's is its last time.

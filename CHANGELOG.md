@@ -2,6 +2,10 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.34
+- Duas ferramentas diferentes em paralelo viram uma frase no spinner: "Lendo e buscando".
+- Nomes longos no spinner são cortados sem partir emoji.
+
 ## 0.4.33
 - "Rodando os testes (última: …)" reconhece o mesmo teste com outro filtro (`pytest -q | tail -1` e
   `cd . && pytest -q 2>&1 | tail -3`).

@@ -192,6 +192,9 @@ describe('/realce demo', () => {
     })
     await $.command.run({ ...RUN, args: 'demo' })
     await clock.settle()
+    // Not before its own turn starts: a demo asked mid-turn must leave that turn's stats alone.
+    expect(written.turn).toBeUndefined()
+    await readStep($)
     expect(written.turn).toMatchObject({ tools: 0, files: [], tests: null, hasEdits: false })
   })
 
