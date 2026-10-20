@@ -2,6 +2,9 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.26
+- A linha do tempo mostra o pedido de um plugin (como o `/realce demo`) pelas palavras dele, sem a moldura em inglês.
+
 ## 0.4.25
 - A régua do turno não mostra "0 arquivos" nem "0 ferramentas".
 - A explicação de um erro fala do comando, não de "você", em uma frase curta.

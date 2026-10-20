@@ -624,6 +624,17 @@ describe('timeline', () => {
     expect((await ui.find({ key: 'turn-u1' }))?.text).toBe('9s · primeiro')
   })
 
+  test("a plugin's prompt is shown by its words, not the engine's frame", async ($, on) => {
+    // Seen live: /realce demo's row read "The realce plugin sent a me…".
+    mock.store(on)
+    mock.clock(on)
+    engine(on)
+    const framed = 'The realce plugin sent a message:\nDemonstração do realce\n\nThis is how Claude Code surfaces a prompt a plugin submits between turns.'
+    await $.prompt.submit({ text: 'Demonstração do realce', origin: { kind: 'composer' }, wait: false })
+    await $.session.append({ message: { type: 'user', role: 'user', content: [{ type: 'text', text: framed }] }, door: 'prompt', origin: { kind: 'composer' }, uuid: 'p1' })
+    expect((await (await mountPane($)).find({ key: 'turn-p1' }))?.text).toBe('realce: Demonstração do realce')
+  })
+
   test('a refused scroll says why', () => {
     expect(scrollRefusal('not person-initiated')).toBe('A linha do tempo rola só em tela cheia.')
     expect(scrollRefusal('none scrolls')).toBe('A linha do tempo rola só em tela cheia.')

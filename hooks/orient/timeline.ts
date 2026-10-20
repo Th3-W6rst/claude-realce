@@ -24,6 +24,15 @@ export function timelineText(row: TimelineRow, tzOffsetMinutes: number | undefin
 }
 
 /** A prompt the person typed, once stored: its row, under the id the transcript scrolls to. */
+// How the engine frames a plugin's prompt for the model: "The <name> plugin sent a message:\n<text>\n\n<a note>".
+const PLUGIN_FRAME = /^The (\S+) plugin sent a message:\s*\n(.*)/
+
+/** A prompt's first line as the person reads it: a plugin's own words under its name, not the frame. */
+export function promptLine(text: string): string {
+  const framed = PLUGIN_FRAME.exec(text)
+  return framed === null ? text.split('\n')[0]!.trim() : `${framed[1]}: ${framed[2]!.trim()}`
+}
+
 export async function recordPrompt($: EngineInterface, e: Args<'session.append'>, stored: ResultOf['session.append']): Promise<void> {
   if (stored.deny !== undefined || e.agentId !== undefined || e.door !== 'prompt') return
   const message = stored.message
@@ -33,7 +42,7 @@ export async function recordPrompt($: EngineInterface, e: Args<'session.append'>
   // A prompt typed over a running turn joins it: that turn keeps one row, the first prompt's.
   const rows = await read($, TIMELINE)
   if (rows.length > 0 && rows[rows.length - 1]!.durationMs === null) return
-  const row: TimelineRow = { requestId: stored.uuid, at: await $.clock.now(), prompt: cut(text.split('\n')[0]!.trim(), PROMPT_CHARS), durationMs: null, seal: null, tests: null }
+  const row: TimelineRow = { requestId: stored.uuid, at: await $.clock.now(), prompt: cut(promptLine(text), PROMPT_CHARS), durationMs: null, seal: null, tests: null }
   await update($, TIMELINE, all => [...all, row].slice(-MAX_KEPT))
 }
 
