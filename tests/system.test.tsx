@@ -287,6 +287,65 @@ describe('welcome hint', () => {
   })
 })
 
+describe('perf files', () => {
+  function sweepWorld(on: On, find: { exitCode: number; stderr: string }) {
+    const runs: string[][] = []
+    const logs: string[] = []
+    mock.env(on, { HOME: '/Users/u' })
+    on('fs.exists', () => ({ value: false }))
+    on('process.run', ($, e) => {
+      runs.push([...e.argv])
+      const done = { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
+      if (e.argv[0] === 'date') return { value: { ...done, stdout: '-0300\n' } }
+      if (e.argv[0] === 'find') return { value: { ...done, ...find } }
+      return { value: { ...done, exitCode: 1 } }
+    })
+    on('config.list', () => ({ value: [] }))
+    on('session.messages', () => ({ value: [] }))
+    on('ui.invalidate', () => ({ value: undefined }))
+    on('ui.open', () => ({ value: { isPlaced: true as const } }))
+    on('ui.toast', () => ({ value: undefined }))
+    on('command.register', ($, e) => ({ value: { command: e.name } }))
+    on('http.fetch', () => ({ deny: 'sem rede' }))
+    on('ui.log', ($, e) => {
+      logs.push(e.text)
+      return { value: undefined }
+    })
+    on('session.start', () => ({ cwd: '/a/b' }))
+    return { runs, logs }
+  }
+
+  test('a session start sweeps the perf files no session wrote for a week', async ($, on) => {
+    mock.store(on, PT)
+    const clock = mock.clock(on)
+    const world = sweepWorld(on, { exitCode: 0, stderr: '' })
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    await clock.settle()
+    expect(world.runs.filter(r => r[0] === 'find')).toEqual([
+      ['find', '/Users/u/.cache/realce', '-maxdepth', '1', '-name', 'perf-*.json', '-mtime', '+7', '-delete'],
+    ])
+    expect(world.logs.filter(l => l.includes('perf'))).toEqual([])
+  })
+
+  test('no cache folder yet is quiet', async ($, on) => {
+    mock.store(on, PT)
+    const clock = mock.clock(on)
+    const quiet = sweepWorld(on, { exitCode: 1, stderr: 'find: /Users/u/.cache/realce: No such file or directory\n' })
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    await clock.settle()
+    expect(quiet.logs.filter(l => l.includes('perf'))).toEqual([])
+  })
+
+  test('a sweep that fails says why', async ($, on) => {
+    mock.store(on, PT)
+    const clock = mock.clock(on)
+    const world = sweepWorld(on, { exitCode: 1, stderr: 'find: -delete: Permission denied\n' })
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    await clock.settle()
+    expect(world.logs).toContain('realce: old perf files not removed (find: -delete: Permission denied)')
+  })
+})
+
 describe('update notice', () => {
   const RAW = 'https://raw.githubusercontent.com/Th3-W6rst/claude-realce/main/.claude-plugin/plugin.json'
 

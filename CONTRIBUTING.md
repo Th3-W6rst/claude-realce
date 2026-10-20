@@ -2,8 +2,10 @@
 
 ## Run and check
 
-The installed copy is a cache (`~/.claude/plugins/cache/…`): editing the folder does not change what is installed.
-To develop, run the session from the folder, which reloads on every edit:
+Installed from a local marketplace (a folder, as `/plugin marketplace add <folder>` does), Claude Code runs the mod
+from that folder itself: every new session loads what the folder holds then, uncommitted edits included. Installed
+from GitHub, it runs a copy in `~/.claude/plugins/cache/`. To develop, run a session from the folder, which reloads on
+every edit:
 
 ```sh
 claude --plugin-dir .                    # a session with the folder's mod
@@ -11,6 +13,7 @@ claude plugin test .                     # the whole suite (~8 s)
 tsc -p .                                 # types (Claude Code writes .claude-plugin/types when it loads the mod)
 claude plugin validate .                 # what Claude Code would refuse at load
 python3 scripts/flags-table.py --check   # the README's flags table matches hooks/flags.ts
+python3 scripts/footprint.py             # the validator reports every engine call, uncut
 ```
 
 Changed a flag? `python3 scripts/flags-table.py` rewrites the README's table. Changed the demo text?
@@ -48,6 +51,16 @@ imports `tests/lang.ts` and pins Portuguese with `PT`; `tests/i18n.test.tsx` cov
    match, and that rule keeps the duration only.
 9. The mod's own `$.prompt.submit` does not go through its own `prompt.submit` hook: the demo's turn opens at
    `turn.step`.
+
+## What the mod reaches
+
+Every engine call that reaches past drawing (processes, files, the network, the model, settings, the store, the
+session, the screen's side effects) goes through `hooks/io.ts`, one short function per call. `claude plugin validate`
+names the function each call sits in and cuts its report at 1,000 characters; catalogues such as
+[awesome-claude-code-mods](https://github.com/karanb192/awesome-claude-code-mods) show that report as the mod's
+footprint, and hold a cut one back. `python3 scripts/footprint.py` fails on a cut and says how much room is left. Calls
+made right in a hook (`$.state`, `$.ui.resolve`, `$.clock.now`) stay there. `$.env.get` takes its name as a literal, so
+`envVar` has one branch per variable.
 
 ## Performance
 

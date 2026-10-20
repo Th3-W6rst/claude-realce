@@ -3,6 +3,7 @@ import type { EngineInterface } from 'claude-code'
 
 import type { CommitCard, Explanation } from '../../types'
 import { shortCardText } from './commit'
+import { redraw } from '../io'
 
 // What the mod learned about single calls (a commit's card, a failure's sentence), by tool_use_id. The state keeps
 // them past a reload; the drawings read the module's copy, so a scroll costs no trip to the engine, and a new note
@@ -53,11 +54,11 @@ export async function loadNotes($: EngineInterface): Promise<void> {
 export async function setExplanation($: EngineInterface, toolUseId: string, explanation: Explanation): Promise<void> {
   explanations.set(toolUseId, explanation)
   await update($, EXPLANATIONS, all => keepNewest({ ...all, [toolUseId]: explanation }))
-  $.ui.invalidate('ui.render')
+  redraw($, 'ui.render')
 }
 
 export async function setCommit($: EngineInterface, toolUseId: string, cards: CommitCard[]): Promise<void> {
   commits.set(toolUseId, cards)
   await update($, COMMITS, all => keepNewest({ ...all, [toolUseId]: cards }))
-  $.ui.invalidate('ui.render')
+  redraw($, 'ui.render')
 }

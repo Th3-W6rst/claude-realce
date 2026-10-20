@@ -6,6 +6,7 @@ import { refreshTheme } from '../theme'
 import { SCREEN } from '../palette'
 import { timed } from '../perf'
 import { fitEnd } from './fit'
+import { openPane } from '../io'
 
 export const FLAGS_PANE = 'realce-flags'
 
@@ -20,7 +21,7 @@ async function toggleFlag($: EngineInterface, id: FlagId, value: boolean): Promi
 }
 
 export async function openFlagsPane($: EngineInterface): Promise<void> {
-  await $.ui.open({ id: FLAGS_PANE, title: 'Realce', focus: true, closeOnEscape: true })
+  await openPane($, { id: FLAGS_PANE, title: 'Realce', focus: true, closeOnEscape: true })
 }
 
 export function registerFlagsPane(on: On): void {

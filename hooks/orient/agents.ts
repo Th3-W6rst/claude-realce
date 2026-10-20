@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { AgentInfo, EngineInterface } from 'claude-code'
 
 import type { AgentRow } from '../../types'
+import { listAgents, logLine } from '../io'
 
 const AGENTS = atom({ plugin: 'realce', key: 'agents' } as const, [])
 
@@ -22,11 +23,11 @@ const sameRows = (a: readonly AgentRow[], b: readonly AgentRow[]) =>
 /** Mirrors `$.agent.list()` into `agents`, writing only on a change so its readers redraw only then. */
 export async function refreshAgents($: EngineInterface): Promise<void> {
   try {
-    const [list, now, known] = await Promise.all([$.agent.list(), $.clock.now(), read($, AGENTS)])
+    const [list, now, known] = await Promise.all([listAgents($), $.clock.now(), read($, AGENTS)])
     if (sameRows(known, rowsOf(list, known, now))) return
     await update($, AGENTS, current => rowsOf(list, current, now))
   } catch (error) {
     // A timer has no dispatch to fail: the failure is reported, never swallowed.
-    $.ui.log(`realce: agents failed: ${error instanceof Error ? error.message : String(error)}`)
+    logLine($, `realce: agents failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 }

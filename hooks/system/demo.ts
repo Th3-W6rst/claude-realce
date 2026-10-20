@@ -3,6 +3,7 @@ import type { Args, EngineInterface, On } from 'claude-code'
 import { getFlags } from '../flags'
 import { pick, tr, type Text } from '../i18n'
 import { screenTurnStart } from '../screen/events'
+import { detach, logLine, storeGet, storeSet, submitPrompt, toast } from '../io'
 
 /** The showcase reply in each language: every aid the mod draws, in one answer the model never writes. */
 export const DEMO_TEXTS: Text = {
@@ -97,12 +98,12 @@ let isArmed = false
 
 async function submitDemo($: EngineInterface): Promise<void> {
   try {
-    const result = await $.prompt.submit({ text: pick(DEMO_PROMPT) })
+    const result = await submitPrompt($, { text: pick(DEMO_PROMPT) })
     if ('drop' in result && result.drop !== undefined) throw new Error(result.drop)
   } catch (error) {
     // Armed with no prompt on its way, the demo would answer the person's next real prompt.
     isArmed = false
-    $.ui.log(`realce: demo not sent (${error instanceof Error ? error.message : String(error)})`)
+    logLine($, `realce: demo not sent (${error instanceof Error ? error.message : String(error)})`)
   }
 }
 
@@ -110,15 +111,15 @@ async function submitDemo($: EngineInterface): Promise<void> {
 export async function demoCommand($: EngineInterface): Promise<void> {
   isArmed = true
   // A command's dispatch holds the turn a submit would wait on: the prompt goes once the command has answered.
-  $.clock.after(0, () => void submitDemo($))
+  detach($, () => void submitDemo($))
 }
 
 /** Once per machine, in the first interactive session after the install: where to start. */
 export async function welcomeHint($: EngineInterface, e: Args<'session.start'>): Promise<void> {
   if (!e.isInteractive || !(await getFlags($)).demo) return
-  if ((await $.store.get('demoHintShown')) === true) return
-  await $.store.set('demoHintShown', true)
-  $.ui.toast(tr('realce installed: /realce demo shows what it does; /realce help lists the commands.', 'realce instalado: /realce demo mostra o que ele faz; /realce ajuda lista os comandos.'))
+  if ((await storeGet($, 'demoHintShown')) === true) return
+  await storeSet($, 'demoHintShown', true)
+  toast($, tr('realce installed: /realce demo shows what it does; /realce help lists the commands.', 'realce instalado: /realce demo mostra o que ele faz; /realce ajuda lista os comandos.'))
 }
 
 // The module's one turn.step hook: a main turn's first step opens its stats if no prompt.submit did, then the demo.
@@ -127,7 +128,7 @@ export function registerDemo(on: On): void {
     try {
       await screenTurnStart($, e)
     } catch (error) {
-      $.ui.log(`realce: turn.step (screen) failed: ${error instanceof Error ? error.message : String(error)}`)
+      logLine($, `realce: turn.step (screen) failed: ${error instanceof Error ? error.message : String(error)}`)
     }
     // Only a turn's first step: a prompt that joined a running turn must not cut that turn's work short.
     if (!isArmed || e.agentId !== undefined || e.index !== 0) return yield* next(e)

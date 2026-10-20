@@ -11,6 +11,7 @@ import { sealOf } from './seal'
 import { asRecord, bashText, EDIT_TOOLS, editCounts, editedPath, failureLine, hasBashEdits, str } from './toolInfo'
 import { rememberTestTime } from './spinner'
 import { rememberTurn } from './turns'
+import { redraw } from '../io'
 
 // The screen area's share of the session's shared events. hooks/events.ts calls each by name (the engine follows $
 // only into declared functions), so these five names stay; a body left empty means the area does not listen.
@@ -127,7 +128,7 @@ export async function screenTurnComplete($: EngineInterface, e: Args<'turn.compl
   await update($, TURNS, turns => keepNewest({ ...turns, [String(e.durationMs)]: stats }, MAX_KEPT, s => s.endedAt))
   rememberTurn(String(e.durationMs), stats)
   // The closing rule reads its stats from the module, not the state: draw it (and the screen with it) once more.
-  $.ui.invalidate('ui.render')
+  redraw($, 'ui.render')
 }
 
 /** Once the row is stored. */

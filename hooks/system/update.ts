@@ -2,6 +2,7 @@ import type { Args, EngineInterface } from 'claude-code'
 
 import { getFlags } from '../flags'
 import { tr } from '../i18n'
+import { detach, fetchUrl, readFile, storeGet, storeSet, toast } from '../io'
 
 const REMOTE = 'https://raw.githubusercontent.com/Th3-W6rst/claude-realce/main/.claude-plugin/plugin.json'
 const CHANGELOG = 'https://github.com/Th3-W6rst/claude-realce/blob/main/CHANGELOG.md'
@@ -38,7 +39,7 @@ const versionOf = (json: string): string | null => {
 export async function localVersion($: EngineInterface): Promise<string | null> {
   for (const path of [`${$.plugin.root}/.claude-plugin/plugin.json`, `${$.plugin.root}/plugin.json`]) {
     try {
-      return versionOf(await $.fs.read(path))
+      return versionOf(await readFile($, path))
     } catch {
       // The other place is tried; neither read is said below, as the check's reason.
     }
@@ -57,7 +58,7 @@ async function runCheck($: EngineInterface): Promise<void> {
   }
   let remote: string | null
   try {
-    const response = await $.http.fetch(REMOTE)
+    const response = await fetchUrl($, REMOTE)
     if (!response.ok) {
       lastStatus = tr(`Update: not checked (GitHub answered ${response.status}).`, `Atualização: não verificada (GitHub respondeu ${response.status}).`)
       return
@@ -72,7 +73,7 @@ async function runCheck($: EngineInterface): Promise<void> {
     lastStatus = tr("Update: not checked (GitHub's version was not read).", 'Atualização: não verificada (versão no GitHub não lida).')
     return
   }
-  await $.store.set('updateCheckedAt', await $.clock.now())
+  await storeSet($, 'updateCheckedAt', await $.clock.now())
   if (compareVersions(remote, local) <= 0) {
     lastStatus = tr(`Update: up to date (${local}).`, `Atualização: em dia (${local}).`)
     return
@@ -80,13 +81,13 @@ async function runCheck($: EngineInterface): Promise<void> {
   lastStatus = tr(`Update: ${remote} is out (installed ${local}). What's new: ${CHANGELOG}`, `Atualização: ${remote} disponível (instalada ${local}). Novidades: ${CHANGELOG}`)
   const marketplace = marketplaceOf($.plugin.root)
   const how = `claude plugin marketplace update ${marketplace} ${tr('and', 'e')} claude plugin update realce@${marketplace}`
-  $.ui.toast(tr(`realce ${remote} is out: ${how}`, `realce ${remote} disponível: ${how}`))
+  toast($, tr(`realce ${remote} is out: ${how}`, `realce ${remote} disponível: ${how}`))
 }
 
 /** At most once a day, in an interactive session, off its start: is there a newer realce on GitHub? */
 export async function checkUpdate($: EngineInterface, e: Args<'session.start'>): Promise<void> {
   if (!e.isInteractive || !(await getFlags($)).atualizacao) return
-  const checkedAt = await $.store.get('updateCheckedAt')
+  const checkedAt = await storeGet($, 'updateCheckedAt')
   if (typeof checkedAt === 'number' && (await $.clock.now()) - checkedAt < DAY_MS) return
-  $.clock.after(0, () => void runCheck($))
+  detach($, () => void runCheck($))
 }

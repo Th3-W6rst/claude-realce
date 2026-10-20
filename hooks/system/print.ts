@@ -9,6 +9,7 @@ import { getFlags } from '../flags'
 import { currentTheme } from '../theme'
 import { estimateHeight, fileUrl, replyHtml, type Picture } from './printHtml'
 import { tr } from '../i18n'
+import { envVar, exists, runProcess, transcript, writeFile } from '../io'
 
 const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
 
@@ -22,19 +23,19 @@ function stamp(epochMs: number, tzOffsetMinutes: number): string {
 
 /** The headless Chrome mermaid-cli installs, else Google Chrome; null when neither is there. */
 export async function findChrome($: EngineInterface, home: string): Promise<string | null> {
-  const found = await $.process.run(['find', `${home}/.cache/puppeteer/chrome-headless-shell`, '-name', 'chrome-headless-shell', '-type', 'f'])
-  for (const path of found.stdout.split('\n').map(l => l.trim()).filter(Boolean)) if (await $.fs.exists(path)) return path
+  const found = await runProcess($, ['find', `${home}/.cache/puppeteer/chrome-headless-shell`, '-name', 'chrome-headless-shell', '-type', 'f'])
+  for (const path of found.stdout.split('\n').map(l => l.trim()).filter(Boolean)) if (await exists($, path)) return path
   const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-  return (await $.fs.exists(chrome)) ? chrome : null
+  return (await exists($, chrome)) ? chrome : null
 }
 
 /** `/realce print`: the last reply as a page beside its PNG, on the Desktop (or in the home without one). */
 export async function printCommand($: EngineInterface): Promise<string> {
-  const reply = [...(await $.session.messages())].reverse().find(m => m.role === 'assistant' && m.text.trim() !== '')
+  const reply = [...(await transcript($))].reverse().find(m => m.role === 'assistant' && m.text.trim() !== '')
   if (reply === undefined) return tr('No reply to print yet.', 'Nenhuma resposta para imprimir ainda.')
-  const home = (await $.env.get('HOME')) ?? ''
+  const home = (await envVar($, 'HOME')) ?? ''
   const desktop = `${home}/Desktop`
-  const dir = (await $.fs.exists(desktop)) ? desktop : home
+  const dir = (await exists($, desktop)) ? desktop : home
   // The session's offset, or the machine's when the session has not read it yet: the name says the person's time.
   const tz = await sessionOffset($)
   const base = `${dir}/realce-${stamp(await $.clock.now(), tz)}`
@@ -44,12 +45,13 @@ export async function printCommand($: EngineInterface): Promise<string> {
     return d?.status === 'ready' ? { file: d.file, width: d.width, height: d.height } : null
   }
   const flags = await getFlags($)
-  await $.fs.write(`${base}.html`, replyHtml(reply.text, PALETTES[currentTheme()], picture, { enfase: flags.enfase, deltas: flags.deltas, numeros: flags.numeros }))
+  await writeFile($, `${base}.html`, replyHtml(reply.text, PALETTES[currentTheme()], picture, { enfase: flags.enfase, deltas: flags.deltas, numeros: flags.numeros }))
   const chrome = await findChrome($, home)
   if (chrome === null) return tr(`The PNG needs headless Chrome; HTML saved at ${base}.html.`, `PNG precisa do Chrome headless; HTML salvo em ${base}.html.`)
   const pictures = parseBlocks(reply.text).flatMap(b => (b.type === 'code' ? [picture(b.source)] : [])).filter((p): p is Picture => p !== null)
   const height = estimateHeight(reply.text, pictures, source => picture(source) !== null)
-  const run = await $.process.run(
+  const run = await runProcess(
+    $,
     [chrome, '--headless', '--disable-gpu', '--hide-scrollbars', `--screenshot=${base}.png`, `--window-size=1000,${height}`, fileUrl(`${base}.html`)],
     { timeoutMs: 30_000 },
   )

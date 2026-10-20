@@ -3,6 +3,7 @@ import type { Args, EngineInterface } from 'claude-code'
 
 import type { Editor, SessionEnv } from '../types'
 import { parseTzOffset } from './format'
+import { envVar, exists, redraw, runProcess } from './io'
 
 const ENV = atom({ plugin: 'realce', key: 'env' } as const, null)
 
@@ -13,7 +14,7 @@ export const cachedEnv = () => current
 
 /** The session's offset from UTC, or the machine's (`date +%z`) when the session has not read it yet. */
 export async function sessionOffset($: EngineInterface): Promise<number> {
-  return current?.tzOffsetMinutes ?? parseTzOffset((await $.process.run(['date', '+%z'])).stdout)
+  return current?.tzOffsetMinutes ?? parseTzOffset((await runProcess($, ['date', '+%z'])).stdout)
 }
 
 // The first one installed wins: links open where the person edits.
@@ -24,7 +25,7 @@ const EDITOR_APPS: readonly (readonly [Editor, string])[] = [
 ]
 
 export async function detectEditor($: EngineInterface): Promise<Editor> {
-  for (const [editor, app] of EDITOR_APPS) if (await $.fs.exists(app)) return editor
+  for (const [editor, app] of EDITOR_APPS) if (await exists($, app)) return editor
   return 'file'
 }
 
@@ -32,20 +33,20 @@ let mermaid: Promise<string | null> | null = null
 
 /** Where `which` finds the mermaid CLI, or null: asked once per load, whoever asks first. */
 export function findMermaid($: EngineInterface): Promise<string | null> {
-  mermaid ??= $.process.run(['which', 'mmdc']).then(w => (w.exitCode === 0 && w.stdout.trim() !== '' ? w.stdout.trim() : null))
+  mermaid ??= runProcess($, ['which', 'mmdc']).then(w => (w.exitCode === 0 && w.stdout.trim() !== '' ? w.stdout.trim() : null))
   return mermaid
 }
 
 /** Records what the session runs in, once per load: directory, home, editor, UTC offset and the mermaid CLI. */
 export async function recordEnv($: EngineInterface, e: Args<'session.start'>): Promise<void> {
   const [home, editor, date, mmdc] = await Promise.all([
-    $.env.get('HOME'),
+    envVar($, 'HOME'),
     detectEditor($),
-    $.process.run(['date', '+%z']),
+    runProcess($, ['date', '+%z']),
     findMermaid($),
   ])
   current = { cwd: e.cwd, home: home ?? '', editor, tzOffsetMinutes: parseTzOffset(date.stdout), mmdc }
   await update($, ENV, () => current)
   // Rows drawn before the env was known read it from the module, not the state: draw them again.
-  $.ui.invalidate('ui.render')
+  redraw($, 'ui.render')
 }

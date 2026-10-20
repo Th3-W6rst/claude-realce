@@ -13,6 +13,7 @@ import { checkUpdate } from './system/update'
 import { refreshLanguage } from './i18n'
 import { retitleSessionPane } from './orient/paneToggle'
 import { refreshTheme } from './theme'
+import { logLine } from './io'
 
 // The engine takes one hook per event without a matcher in a module, and follows $ only into declared
 // functions: each shared event is hooked once here and calls every area's handler by name.
@@ -22,7 +23,7 @@ async function guard($: EngineInterface, event: string, run: () => Promise<void>
   try {
     await run()
   } catch (error) {
-    $.ui.log(`realce: ${event} failed: ${error instanceof Error ? error.message : String(error)}`)
+    logLine($, `realce: ${event} failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 

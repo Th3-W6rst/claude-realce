@@ -9,6 +9,7 @@ import { localVersion, updateStatus } from './system/update'
 import { explanationsSent } from './screen/explainError'
 import { currentTheme, type ThemeKind } from './theme'
 import { perfLines } from './perf'
+import { composePrompt, logLine, redraw } from './io'
 
 const ENV = atom({ plugin: 'realce', key: 'env' } as const, null)
 
@@ -80,7 +81,7 @@ export function buildSection(flags: Flags, hasMermaid: boolean): PromptComposeSe
  * reach the model from the next session on.
  */
 export function refreshPromptSection($: EngineInterface): void {
-  $.ui.invalidate('prompt.section')
+  redraw($, 'prompt.section')
 }
 
 export function registerPrompt(on: On): void {
@@ -94,7 +95,7 @@ export function registerPrompt(on: On): void {
     const hasMermaid = isTaught && (await findMermaid($).then(m => m !== null, () => false))
     // The same goes for the language: the tags and phrases taught are the person's. A setting that cannot be read
     // is said, and the section goes out in the language in force.
-    if (isTaught) await ensureLanguage($).catch(error => $.ui.log(`realce: language not read (${error instanceof Error ? error.message : String(error)})`))
+    if (isTaught) await ensureLanguage($).catch(error => logLine($, `realce: language not read (${error instanceof Error ? error.message : String(error)})`))
     const section = isTaught ? buildSection(await getFlags($), hasMermaid) : null
     lastCompose = { at: new Date(await $.clock.now()).toISOString(), surfaces: e.surfaces, traits: e.traits, isAdded: section !== null }
     return section === null ? composed : { sections: [...composed.sections, section] }
@@ -115,7 +116,7 @@ export async function status($: EngineInterface, isFullscreen?: boolean): Promis
   const stored = await getStoredFlags($)
   const off = FLAGS.filter(f => !stored[f.id]).map(f => pick(f.label))
   const env = await read($, ENV)
-  const { sections } = await $.prompt.compose()
+  const { sections } = await composePrompt($)
   // Always said, for whoever reports a problem: the update line comes only on the day the check runs.
   const version = await localVersion($)
   const isTaught = sections.some(s => s.id === SECTION_ID)

@@ -4,6 +4,7 @@ import { cachedEnv } from '../env'
 import { findChrome } from './print'
 import { compareVersions } from './update'
 import { tr } from '../i18n'
+import { envVar, runProcess, sessionVersion } from '../io'
 
 const MIN_CLAUDE_CODE = '2.1.304'
 
@@ -15,11 +16,11 @@ type Check = { mark: '✔' | '⚠' | '✖'; text: string }
  */
 export async function doctorCommand($: EngineInterface, isFullscreen: boolean): Promise<string> {
   const env = cachedEnv()
-  const home = (await $.env.get('HOME')) ?? ''
+  const home = (await envVar($, 'HOME')) ?? ''
   const [version, colorterm, uname, chrome] = await Promise.all([
-    $.session.version(),
-    $.env.get('COLORTERM'),
-    $.process.run(['uname']).then(r => r.stdout.trim(), () => ''),
+    sessionVersion($),
+    envVar($, 'COLORTERM'),
+    runProcess($, ['uname']).then(r => r.stdout.trim(), () => ''),
     findChrome($, home),
   ])
   const checks: Check[] = [

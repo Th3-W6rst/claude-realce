@@ -1,6 +1,7 @@
 import type { EngineInterface } from 'claude-code'
 
 import { languageVersion, setLanguage, tr, type Lang, type Text } from './i18n'
+import { redraw, storeDelete, storeGet, storeSet } from './io'
 
 export type FlagId =
   | 'enfase' | 'coluna' | 'callouts' | 'tabelas' | 'deltas' | 'respiro'
@@ -107,7 +108,7 @@ const parseStored = (stored: unknown): Flags => {
 
 async function load($: EngineInterface): Promise<{ stored: Flags; isMasterOn: boolean }> {
   if (snapshot === null) {
-    const [stored, master, language] = await Promise.all([$.store.get('flags'), $.store.get('master'), $.store.get('language')])
+    const [stored, master, language] = await Promise.all([storeGet($, 'flags'), storeGet($, 'master'), storeGet($, 'language')])
     snapshot = { stored: parseStored(stored), isMasterOn: (master ?? true) === true }
     // The language the person picked with /realce language rides the same read; none means Claude Code's.
     setLanguage(language === 'en' || language === 'pt' ? language : null)
@@ -132,10 +133,10 @@ export async function setFlag($: EngineInterface, id: FlagId, value: boolean): P
   const stored = { ...current.stored, [id]: value }
   snapshot = { ...current, stored }
   version += 1
-  await $.store.set('flags', stored)
+  await storeSet($, 'flags', stored)
   // A flag changes drawings all over the transcript, not only the ones that read it, and the aids the model is taught.
-  $.ui.invalidate('ui.render')
-  $.ui.invalidate('prompt.section')
+  redraw($, 'ui.render')
+  redraw($, 'prompt.section')
 }
 
 export async function isMasterOn($: EngineInterface): Promise<boolean> {
@@ -145,17 +146,17 @@ export async function isMasterOn($: EngineInterface): Promise<boolean> {
 export async function setMaster($: EngineInterface, value: boolean): Promise<void> {
   snapshot = { ...(await load($)), isMasterOn: value }
   version += 1
-  await $.store.set('master', value)
-  $.ui.invalidate('ui.render')
-  $.ui.invalidate('prompt.section')
+  await storeSet($, 'master', value)
+  redraw($, 'ui.render')
+  redraw($, 'prompt.section')
 }
 
 /** `/realce language`: the person's pick kept in the store, or none to follow Claude Code's language again. */
 export async function pickLanguage($: EngineInterface, next: Lang | null): Promise<void> {
   await load($)
-  if (next === null) await $.store.delete('language')
-  else await $.store.set('language', next)
+  if (next === null) await storeDelete($, 'language')
+  else await storeSet($, 'language', next)
   if (!setLanguage(next)) return
-  $.ui.invalidate('ui.render')
-  $.ui.invalidate('prompt.section')
+  redraw($, 'ui.render')
+  redraw($, 'prompt.section')
 }

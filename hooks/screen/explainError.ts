@@ -4,6 +4,7 @@ import { getFlags } from '../flags'
 import { pick, tr, type Text } from '../i18n'
 import { setExplanation } from './notes'
 import { asRecord, failureLine, shellCommands } from './toolInfo'
+import { complete, detach } from '../io'
 
 // The model's time is the person's: at most this many per load, never the same failure twice.
 const MAX_PER_LOAD = 20
@@ -73,7 +74,7 @@ const cut = (text: string) => ([...text].length <= MAX_CHARS ? text : `${[...tex
 
 async function runExplain($: EngineInterface, toolUseId: string, command: string, output: string): Promise<void> {
   try {
-    const reply = await $.model.complete({ model: 'haiku', system: pick(SYSTEM), prompt: explainPrompt(command, output), maxTokens: 200, timeoutMs: 20_000 })
+    const reply = await complete($, { model: 'haiku', system: pick(SYSTEM), prompt: explainPrompt(command, output), maxTokens: 200, timeoutMs: 20_000 })
     await setExplanation($, toolUseId, reply.isAnswered ? { status: 'ready', text: cut(reply.text.trim().replace(/\s+/g, ' ')) } : { status: 'failed', reason: reply.reason })
   } catch (error) {
     await setExplanation($, toolUseId, { status: 'failed', reason: error instanceof Error ? error.message : String(error) })
@@ -96,5 +97,5 @@ export async function maybeExplain($: EngineInterface, toolUseId: string, comman
   sent += 1
   await setExplanation($, toolUseId, { status: 'pending' })
   // A model call takes seconds: the tool call's dispatch never waits on it.
-  $.clock.after(0, () => void runExplain($, toolUseId, command, output))
+  detach($, () => void runExplain($, toolUseId, command, output))
 }

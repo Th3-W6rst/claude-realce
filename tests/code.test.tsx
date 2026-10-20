@@ -213,6 +213,8 @@ function sessionWorld(on: On, world: World) {
     const done = { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
     if (e.argv[0] === 'date') return { value: { ...done, stdout: '-0300\n' } }
     if (e.argv[0] === 'which') return { value: mmdc === null ? { ...done, exitCode: 1 } : { ...done, stdout: `${mmdc}\n` } }
+    // The session start's sweep of old perf files.
+    if (e.argv[0] === 'find') return { value: done }
     runs.push([...e.argv])
     if (world.mmdcThrows !== undefined) return { deny: world.mmdcThrows }
     return { value: { ...done, ...world.mmdcResult } }

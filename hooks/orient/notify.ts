@@ -6,6 +6,7 @@ import { formatDuration } from '../format'
 import { tr } from '../i18n'
 import { sealLabel, testsLabel, turnStatsFor } from '../screen/turns'
 import { asRecord, str } from '../screen/toolInfo'
+import { detach, logLine, notify, runProcess } from '../io'
 
 // Past this the person has likely looked away: the engine says nothing about the window's focus.
 const LONG_MS = 60_000
@@ -41,10 +42,10 @@ export async function noteTurnStart($: EngineInterface, e: Args<'prompt.submit'>
 
 async function playSound($: EngineInterface, file: string): Promise<void> {
   try {
-    const run = await $.process.run(['afplay', file])
-    if (run.exitCode !== 0) $.ui.log(`realce: the sound did not play (${run.stderr.trim() || `afplay exited with ${run.exitCode}`})`)
+    const run = await runProcess($, ['afplay', file])
+    if (run.exitCode !== 0) logLine($, `realce: the sound did not play (${run.stderr.trim() || `afplay exited with ${run.exitCode}`})`)
   } catch (error) {
-    $.ui.log(`realce: the sound did not play (${error instanceof Error ? error.message : String(error)})`)
+    logLine($, `realce: the sound did not play (${error instanceof Error ? error.message : String(error)})`)
   }
 }
 
@@ -52,7 +53,8 @@ async function playSound($: EngineInterface, file: string): Promise<void> {
 async function systemBanner($: EngineInterface, text: string, title: string): Promise<string | null> {
   try {
     // `--` ends osascript's options: a text that starts with a dash is still the text.
-    const run = await $.process.run(
+    const run = await runProcess(
+      $,
       ['osascript', '-e', 'on run argv', '-e', 'display notification (item 1 of argv) with title (item 2 of argv)', '-e', 'end run', '--', text, title],
       { timeoutMs: 5000 },
     )
@@ -69,15 +71,15 @@ async function bannerInstead($: EngineInterface, text: string, title: string, re
 }
 
 async function send($: EngineInterface, text: string, title: string, sound: string): Promise<void> {
-  const result = await $.ui.notify(text, { title })
+  const result = await notify($, text, { title })
   wasBanner = false
   lastFailure = result.isSent ? null : result.reason
   // A terminal that gives Claude Code no channel (tmux, Terminal.app) still has the system's banner. A notice the
   // person turned off ('disabled') or a hook refused stays unsent.
   // Off the dispatch: a question's dialog never waits on osascript.
-  if (!result.isSent && result.reason.startsWith('no-channel')) $.clock.after(0, () => void bannerInstead($, text, title, result.reason))
+  if (!result.isSent && result.reason.startsWith('no-channel')) detach($, () => void bannerInstead($, text, title, result.reason))
   // afplay lasts as long as the sound: off the event's dispatch.
-  if ((await getFlags($)).som) $.clock.after(0, () => void playSound($, sound))
+  if ((await getFlags($)).som) detach($, () => void playSound($, sound))
 }
 
 /** After screen's turn.complete has recorded the turn's stats. */
@@ -97,7 +99,7 @@ export function registerNotify(on: On): void {
       }
     } catch (error) {
       // The question is the person's: a notice that failed is said, and the dialog opens all the same.
-      $.ui.log(`realce: the question notice failed: ${error instanceof Error ? error.message : String(error)}`)
+      logLine($, `realce: the question notice failed: ${error instanceof Error ? error.message : String(error)}`)
     }
     return next(e)
   })

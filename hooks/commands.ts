@@ -14,6 +14,7 @@ import { toPlainMarkdown } from './text/inline'
 import { cachedEnv, sessionOffset } from './env'
 import { reportCommand } from './orient/report'
 import { doctorCommand } from './system/doctor'
+import { copyText, registerCommand, transcript } from './io'
 
 const usage = () =>
   tr(
@@ -70,14 +71,14 @@ const help = () =>
 
 /** `/realce copiar`: the last reply on the clipboard, its typed marks as plain markdown. */
 async function copyLastReply($: EngineInterface): Promise<string> {
-  const reply = [...(await $.session.messages())].reverse().find(m => m.role === 'assistant' && m.text.trim() !== '')
+  const reply = [...(await transcript($))].reverse().find(m => m.role === 'assistant' && m.text.trim() !== '')
   if (reply === undefined) return tr('No reply to copy yet.', 'Nenhuma resposta para copiar ainda.')
-  const copied = await $.ui.copy({ text: toPlainMarkdown(reply.text) })
+  const copied = await copyText($, { text: toPlainMarkdown(reply.text) })
   return copied.isCopied ? tr('Last reply copied.', 'Última resposta copiada.') : tr(`Could not copy: ${copied.reason}.`, `Não deu para copiar: ${copied.reason}.`)
 }
 
 export async function registerRealceCommand($: EngineInterface): Promise<void> {
-  await $.command.register({
+  await registerCommand($, {
     name: 'realce',
     description: tr("Turns realce's reading aids on and off", 'Liga e desliga os recursos de leitura do realce'),
     argumentHint: usage(),

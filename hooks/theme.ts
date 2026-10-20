@@ -3,6 +3,7 @@ import type { EngineInterface } from 'claude-code'
 import { bumpVersion, getFlags } from './flags'
 import { applyPalette } from './palette'
 import { PALETTES, type ThemeKind } from './palettes'
+import { envVar, listConfig, logLine, readFile, redraw, runProcess } from './io'
 
 export type { ThemeKind }
 
@@ -30,19 +31,19 @@ export async function refreshTheme($: EngineInterface, value?: string): Promise<
   const kind = await resolveTheme($, value)
   if (kind === current) return
   applyTheme(kind)
-  $.ui.invalidate('ui.render')
+  redraw($, 'ui.render')
 }
 
 /** macOS's appearance: `defaults` answers "Dark", and fails when the key is absent, which means light. */
 async function systemIsDark($: EngineInterface): Promise<boolean> {
-  const run = await $.process.run(['defaults', 'read', '-g', 'AppleInterfaceStyle'])
+  const run = await runProcess($, ['defaults', 'read', '-g', 'AppleInterfaceStyle'])
   return run.exitCode === 0 && run.stdout.trim() === 'Dark'
 }
 
 /** A `custom:<name>` theme's base, from `~/.claude/themes/<name>.json`. */
 async function customBase($: EngineInterface, name: string): Promise<string> {
-  const home = (await $.env.get('HOME')) ?? ''
-  const parsed: unknown = JSON.parse(await $.fs.read(`${home}/.claude/themes/${name}.json`))
+  const home = (await envVar($, 'HOME')) ?? ''
+  const parsed: unknown = JSON.parse(await readFile($, `${home}/.claude/themes/${name}.json`))
   const base = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>).base : undefined
   if (typeof base !== 'string') throw new Error('no "base" field')
   return base
@@ -61,12 +62,12 @@ async function classOf($: EngineInterface, value: string): Promise<ThemeKind> {
  */
 export async function resolveTheme($: EngineInterface, value?: string): Promise<ThemeKind> {
   if (!(await getFlags($)).tema) return 'dark'
-  const theme = value ?? (await $.config.list()).find(row => row.key === 'theme')?.value
+  const theme = value ?? (await listConfig($)).find(row => row.key === 'theme')?.value
   if (typeof theme !== 'string') return 'dark'
   try {
     return await classOf($, theme)
   } catch (error) {
-    $.ui.log(`realce: theme ${theme} not read (${error instanceof Error ? error.message : String(error)}); using the dark one`)
+    logLine($, `realce: theme ${theme} not read (${error instanceof Error ? error.message : String(error)}); using the dark one`)
     return 'dark'
   }
 }

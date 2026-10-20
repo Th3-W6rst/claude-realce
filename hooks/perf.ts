@@ -1,5 +1,6 @@
 import type { EngineInterface } from 'claude-code'
 import { tr } from './i18n'
+import { detach, envVar, every, logLine, runProcess, sessionId, writeFile } from './io'
 
 // How long each drawing hook takes and how often it runs, kept in the module (a reload starts it over):
 // `/realce status` shows it and ~/.cache/realce/perf-<session>.json keeps the last 10 seconds' picture.
@@ -42,12 +43,24 @@ export function perfLines(): string[] {
 async function writePerf($: EngineInterface): Promise<void> {
   if (!isDirty) return
   isDirty = false
-  const home = (await $.env.get('HOME')) ?? ''
+  const home = (await envVar($, 'HOME')) ?? ''
   // One file per session: several sessions running the mod never mix their numbers.
-  const session = await $.session.id()
-  await $.fs.write(`${home}/.cache/realce/perf-${session}.json`, JSON.stringify({ at: new Date(await $.clock.now()).toISOString(), session, draws: perfSummary() }, null, 2))
+  const session = await sessionId($)
+  await writeFile($, `${home}/.cache/realce/perf-${session}.json`, JSON.stringify({ at: new Date(await $.clock.now()).toISOString(), session, draws: perfSummary() }, null, 2))
+}
+
+// A file per session piles up (dozens a day while developing): one a week has not touched goes when a session starts.
+const KEEP_DAYS = 7
+
+async function prunePerf($: EngineInterface): Promise<void> {
+  const home = await envVar($, 'HOME')
+  if (home === null || home === '') return
+  const run = await runProcess($, ['find', `${home}/.cache/realce`, '-maxdepth', '1', '-name', 'perf-*.json', '-mtime', `+${KEEP_DAYS}`, '-delete'])
+  // No folder yet (the first session writes it) is no failure.
+  if (run.exitCode !== 0 && !/No such file/.test(run.stderr)) logLine($, `realce: old perf files not removed (${run.stderr.trim() || `find exited with ${run.exitCode}`})`)
 }
 
 export async function startPerfLog($: EngineInterface): Promise<void> {
-  $.clock.every(10_000, () => void writePerf($))
+  every($, 10_000, () => void writePerf($))
+  detach($, () => void prunePerf($).catch(error => logLine($, `realce: old perf files not removed (${error instanceof Error ? error.message : String(error)})`)))
 }

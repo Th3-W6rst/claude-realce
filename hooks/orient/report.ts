@@ -8,6 +8,7 @@ import { formatClock, formatDuration, plural, testCount } from '../format'
 import { allCommits, explanationFor } from '../screen/notes'
 import { shortPath } from '../screen/toolInfo'
 import { sealLabel } from '../screen/turns'
+import { copyText } from '../io'
 
 const TIMELINE = atom({ plugin: 'realce', key: 'timeline' } as const, [])
 const FILES = atom({ plugin: 'realce', key: 'files' } as const, [])
@@ -93,7 +94,7 @@ export async function reportCommand($: EngineInterface, cwd: string, tzOffsetMin
     timeline, files, commits: allCommits(), failures, cwd, tzOffsetMinutes, isTimelineFull: timeline.length >= 50, isFailuresFull: failures.length >= 20,
     ...(why?.status === 'ready' ? { lastWhy: why.text } : {}),
   })
-  const copied = await $.ui.copy({ text })
+  const copied = await copyText($, { text })
   // The clipboard takes the markdown; the transcript shows it as text, where the marks would print as written.
   const plain = text.replace(/\*\*/g, '').replace(/`/g, '').replace(/^## /gm, '')
   const said = copied.isCopied ? tr('Summary copied as markdown.', 'Resumo copiado em markdown.') : tr(`Could not copy (${copied.reason}).`, `Não deu para copiar (${copied.reason}).`)

@@ -5,6 +5,7 @@ import type { TimelineRow } from '../../types'
 import { formatClock, formatDuration } from '../format'
 import { sealLabel, turnStatsFor } from '../screen/turns'
 import { tr } from '../i18n'
+import { scrollTo, toast } from '../io'
 
 const TIMELINE = atom({ plugin: 'realce', key: 'timeline' } as const, [])
 
@@ -66,6 +67,6 @@ export function scrollRefusal(deny: string): string {
 
 /** From a press in the pane: the transcript moves to the row, or the person is told why it cannot. */
 export async function scrollToRow($: EngineInterface, requestId: string): Promise<void> {
-  const result = await $.ui.scroll({ to: { requestId } })
-  if (result.deny !== undefined) $.ui.toast(scrollRefusal(result.deny))
+  const result = await scrollTo($, { to: { requestId } })
+  if (result.deny !== undefined) toast($, scrollRefusal(result.deny))
 }

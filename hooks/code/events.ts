@@ -5,6 +5,7 @@ import type { SessionEnv } from '../../types'
 
 import { getFlags } from '../flags'
 import { diagramDir, findMermaid, storeDiagram, type Mermaid } from './diagram'
+import { detach, transcript } from '../io'
 
 const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
 const ENV = atom({ plugin: 'realce', key: 'env' } as const, null)
@@ -25,7 +26,7 @@ export async function queueTranscriptDiagrams($: EngineInterface): Promise<void>
   if (!(await getFlags($)).diagramas) return
   const env = await read($, ENV)
   if (env === null || env.mmdc === null) return
-  const messages = await $.session.messages()
+  const messages = await transcript($)
   const found = messages.flatMap(m => (m.role === 'assistant' ? findMermaid(m.text) : []))
   const known = await read($, DIAGRAMS)
   await queueDiagrams($, found.filter(m => known[m.hash] === undefined || known[m.hash]?.status === 'rendering'), env)
@@ -59,5 +60,5 @@ async function queueDiagrams($: EngineInterface, found: readonly Mermaid[], env:
   const { mmdc } = env
   const dir = diagramDir(env.home)
   // mmdc takes seconds (a headless Chrome): the event's dispatch never waits on it.
-  for (const m of fresh) $.clock.after(0, () => void storeDiagram($, m.source, m.hash, mmdc, dir))
+  for (const m of fresh) detach($, () => void storeDiagram($, m.source, m.hash, mmdc, dir))
 }

@@ -6,6 +6,7 @@ import { CELL_ASPECT, CELL_PX, DIAGRAM_SCALE, MERMAID } from '../palette'
 import { parseBlocks } from '../text/blocks'
 import { currentTheme } from '../theme'
 import { tr } from '../i18n'
+import { exists, readFile, runProcess, writeFile } from '../io'
 
 const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
 
@@ -70,21 +71,21 @@ export const diagramDir = (home: string) => `${home}/.cache/realce/diagrams`
 /** Renders one diagram to `<dir>/<hash>.png` with mmdc (a cached picture is reused) and reads its size. */
 export async function generateDiagram($: EngineInterface, source: string, hash: string, mmdc: string, dir: string): Promise<Diagram> {
   const png = `${dir}/${hash}.png`
-  if (!(await $.fs.exists(png))) {
+  if (!(await exists($, png))) {
     const input = `${dir}/${hash}.mmd`
     const config = `${dir}/mermaid-${currentTheme()}.json`
     // fs.write creates the folder; mmdc then writes the picture beside the source.
-    await $.fs.write(config, JSON.stringify(MERMAID.config))
-    await $.fs.write(input, source)
+    await writeFile($, config, JSON.stringify(MERMAID.config))
+    await writeFile($, input, source)
     // Natural size at scale 2: mmdc 12 has no width option, and --size would blow small diagrams up to the screen.
-    const run = await $.process.run([mmdc, '-i', input, '-o', png, '-c', config, '-b', String(MERMAID.config.themeVariables.background), '-s', String(DIAGRAM_SCALE), '-q'])
+    const run = await runProcess($, [mmdc, '-i', input, '-o', png, '-c', config, '-b', String(MERMAID.config.themeVariables.background), '-s', String(DIAGRAM_SCALE), '-q'])
     if (run.exitCode !== 0) {
       const line = run.stderr.split('\n').map(l => l.trim()).find(l => l !== '')
       // mmdc leads with `Error: `, which the block's own "Invalid diagram:" already says.
       return { status: 'failed', error: line?.replace(/^Error:\s*/, '') ?? tr(`mmdc exited with code ${run.exitCode}.`, `O mmdc saiu com o código ${run.exitCode}.`) }
     }
   }
-  const size = pngSize((await $.fs.read(png, { as: 'bytes' })).base64)
+  const size = pngSize((await readFile($, png, 'bytes')).base64)
   return size === null ? { status: 'failed', error: tr('mmdc wrote no readable PNG.', 'O mmdc não gerou um PNG legível.') } : { status: 'ready', file: png, ...size }
 }
 
