@@ -4,7 +4,7 @@ import type { On } from 'claude-code'
 
 import { parseTaskNotification } from '../hooks/screen/agents'
 import { formatScore, parseTestSummary } from '../hooks/screen/score'
-import { activityOf, isTestCommand, runningWord, SPINNER_WORDS, translateSpinnerMessage } from '../hooks/screen/spinner'
+import { activityOf, isTestCommand, runningWord, SPINNER_WORDS, testKey, translateSpinnerMessage } from '../hooks/screen/spinner'
 import { summarizeGroup, summarizeTool } from '../hooks/screen/tools'
 import { isAnswerExit, isAnswerStyle } from '../hooks/screen/explainError'
 import { shellCommands } from '../hooks/screen/toolInfo'
@@ -1125,6 +1125,13 @@ describe('spinner', () => {
     await call
     await ui.redraw(spinning)
     expect(word).toBe('Executando')
+  })
+
+  test('the same tests make the same key, whatever wraps or redirects them', () => {
+    for (const command of ['npm test', 'npm test > out.log', 'npm test >out.log 2>&1', 'npm test 2>/dev/null', 'npm test < /dev/null', 'timeout 120 npm test', 'CI=1 npm test', 'cd app && npm test | tail -3'])
+      expect([command, testKey(command)]).toEqual([command, 'npm test'])
+    expect(testKey('pytest -q tests/other')).toBe('pytest -q tests/other')
+    expect(testKey('ls')).toBeNull()
   })
 
   test('a test run says how long the same command took last time', async ($, on) => {

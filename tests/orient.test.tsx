@@ -1039,6 +1039,25 @@ describe('session report', () => {
     expect(text).not.toContain('**')
   })
 
+  test("the report's why follows the erros flag, as the pane does", async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    // The specific tool answers before the engine's catch-all below it.
+    on('tool.call', { tool: 'Bash' }, () => ({ isError: true as const, result: 'Exit code 1\ncat: x: No such file', text: 'Exit code 1\ncat: x: No such file' }))
+    engine(on)
+    on('ui.copy', () => ({ value: { isCopied: true as const } }))
+    on('session.cwd', () => ({ value: '/a/b' }))
+    on('process.run', () => ({ value: { exitCode: 0, stdout: '-0300\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+    on('ui.invalidate', () => ({ value: undefined }))
+    on('model.complete', () => ({ value: { isAnswered: true, text: 'O arquivo x não existe.', usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }) as never)
+    await $.tool.call({ tool: 'Bash', command: 'cat x', tool_use_id: 'r1' })
+    await clock.settle()
+    const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
+    expect((await $.command.run({ ...RUN, args: 'resumo' })).text).toContain('Por quê: O arquivo x não existe.')
+    await $.command.run({ ...RUN, args: 'erros off' })
+    expect((await $.command.run({ ...RUN, args: 'resumo' })).text).not.toContain('Por quê')
+  })
+
   test('an empty session says so', () => {
     expect(reportText({ timeline: [], files: [], commits: [], failures: [], cwd: '/a', tzOffsetMinutes: -180 })).toBe('## Resumo da sessão\n\nNada aconteceu ainda nesta sessão.')
   })

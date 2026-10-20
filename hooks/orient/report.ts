@@ -2,6 +2,7 @@ import { atom, read } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
 import type { Failure, FileTouch, TimelineRow } from '../../types'
+import { getFlags } from '../flags'
 import { formatClock, formatDuration, plural, testCount } from '../format'
 import { allCommits, explanationFor } from '../screen/notes'
 import { shortPath } from '../screen/toolInfo'
@@ -78,7 +79,8 @@ export function reportText(r: ReportInput): string {
 /** `/realce resumo`: the report shown, and on the clipboard. */
 export async function reportCommand($: EngineInterface, cwd: string, tzOffsetMinutes: number): Promise<string> {
   const [timeline, files, failures] = await Promise.all([read($, TIMELINE), read($, FILES), read($, FAILURES)])
-  const lastId = failures[failures.length - 1]?.toolUseId
+  // The why follows the erros flag, as the pane's does.
+  const lastId = (await getFlags($)).erros ? failures[failures.length - 1]?.toolUseId : undefined
   const why = lastId === undefined ? null : explanationFor(lastId)
   const text = reportText({
     timeline, files, commits: allCommits(), failures, cwd, tzOffsetMinutes, isTimelineFull: timeline.length >= 50, isFailuresFull: failures.length >= 20,

@@ -13,7 +13,7 @@ Plugin (mod) do Claude Code que deixa a tela mais fácil de ler. Cada recurso te
 *Gerada pelo próprio mod: `/realce demo` e depois `/realce print`; os números da tabela são só de exemplo. No tema
 claro: [demo-claro.png](images/demo-claro.png).*
 
-Versão atual: 0.4.38 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
+Versão atual: 0.4.39 · novidades no [CHANGELOG](CHANGELOG.md) · repositório:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (dúvidas e problemas em *Issues*).
 
 ## Requisitos

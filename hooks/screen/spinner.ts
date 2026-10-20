@@ -106,13 +106,22 @@ export function isTestCommand(command: string): boolean {
 const lastTestSeconds = new Map<string, number>()
 const MAX_REMEMBERED = 50
 
-// Redirections say where the output goes, not which run it is: `2>&1`, `>out.log`, `&>`.
-const REDIRECTION = /^(\d*[<>]+&?\d*|&>+)$/
+// Redirections say where the output goes, not which run it is: an operator alone takes the next word as its target
+// (`> out.log`, `< /dev/null`), one glued to it carries it (`>out.log`, `2>/dev/null`, `2>&1`).
+const REDIRECT_ALONE = /^(\d*|&)[<>]+$/
+const REDIRECT_GLUED = /^(\d*|&)[<>]+\S+$/
 
-/** The run a command makes, for its time: its test command alone, without a `cd` before or a filter after it. */
+/** The run a command makes, for its time: its test command alone, past wrappers and env, without redirections. */
 export function testKey(command: string): string | null {
   const run = shellCommands(command).find(isTestRun)
-  return run === undefined ? null : run.filter(w => !REDIRECTION.test(w)).join(' ')
+  if (run === undefined) return null
+  const words = programWords(run)
+  const kept: string[] = []
+  for (let i = 0; i < words.length; i++) {
+    if (REDIRECT_ALONE.test(words[i]!)) i++
+    else if (!REDIRECT_GLUED.test(words[i]!)) kept.push(words[i]!)
+  }
+  return kept.join(' ')
 }
 
 /** A test run settled with its time: the next run of the same tests says it. */
