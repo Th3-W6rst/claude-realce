@@ -22,7 +22,7 @@ export const FLAGS: readonly FlagSpec[] = [
   { id: 'tabelas', group: 'Texto', label: 'Tabelas coloridas', description: 'Cabeçalho em destaque, linhas alternadas, números à direita', isDefaultOn: true },
   { id: 'deltas', group: 'Texto', label: 'Deltas automáticos', description: '"de 87 para 106" ganha (+19)', isDefaultOn: true },
   { id: 'respiro', group: 'Texto', label: 'Respiro entre itens', description: 'Linha em branco entre itens de lista que quebram linha', isDefaultOn: true },
-  { id: 'numeros', group: 'Texto', label: 'Números humanos', description: '"102761 ms" ganha "(1m 43s)" ao lado', isDefaultOn: true },
+  { id: 'numeros', group: 'Texto', label: 'Números humanos', description: '"102761 ms" ganha "(1m 42s)" ao lado', isDefaultOn: true },
   { id: 'highlight', group: 'Código', label: 'Highlighter próprio', description: 'Cores neon em ts, py, sh, json, yaml, swift, sql e diff', isDefaultOn: true },
   { id: 'copiar', group: 'Código', label: 'Copiar com um clique', description: 'Botão copiar em cada bloco de código', isDefaultOn: true },
   { id: 'dobrar', group: 'Código', label: 'Dobrar o que é longo', description: 'Blocos com mais de 25 linhas aparecem dobrados', isDefaultOn: true },

@@ -709,6 +709,17 @@ describe('explain this', () => {
     expect(await ui.find({ text: 'Resposta do primeiro.' })).toBeUndefined()
   })
 
+  test('the explanation closes from the pane', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    explainWorld(on, { text: 'abc' })
+    await $.command.run({ ...RUN, args: 'explica' })
+    await clock.settle()
+    const ui = await mountPane($)
+    await ui.press({ key: 'close-explain' })
+    expect(await ui.find({ text: 'Explicação' })).toBeUndefined()
+  })
+
   test('a long selection is cut to 4000 characters', async ($, on) => {
     mock.store(on)
     const clock = mock.clock(on)

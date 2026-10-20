@@ -20,6 +20,10 @@ async function runExplain($: EngineInterface, excerpt: string): Promise<void> {
   await update($, EXPLAIN, panel => (panel === null || panel.excerpt !== excerpt ? panel : { ...panel, ...next }))
 }
 
+export async function closeExplanation($: EngineInterface): Promise<void> {
+  await update($, EXPLAIN, () => null)
+}
+
 /** `/realce explica`: the selected text explained in the session pane, by a fast model, off the command. */
 export async function explainCommand($: EngineInterface): Promise<string> {
   const selection = await $.ui.selection()

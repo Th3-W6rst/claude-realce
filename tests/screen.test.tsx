@@ -506,7 +506,7 @@ describe('error explained', () => {
     await $.tool.call({ tool: 'Bash', command: 'cat b', tool_use_id: 'b2' })
     await clock.settle()
     const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
-    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Erros explicados pelo Haiku nesta carga: 2 de 20\./)
+    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Erros explicados pelo Haiku nesta sessão: 2 de 20\./)
   })
 
   test('the 21st error is not sent', async ($, on) => {

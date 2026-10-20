@@ -3,6 +3,7 @@ import type { On } from 'claude-code'
 
 import type { AgentRow, ExplainPanel, FileTouch, Pin, PlanItem, TimelineRow, UsageReading } from '../../types'
 import { usageLine } from './limits'
+import { closeExplanation } from './explain'
 import { pathHref } from '../code/links'
 import { formatClock } from '../format'
 import { SCREEN, type ScreenTone } from '../palette'
@@ -113,7 +114,12 @@ export function registerSessionPane(on: On): void {
         )}
         {explain !== null && (
           <Box flexDirection="column" marginBottom={1}>
-            {heading('Explicação')}
+            <Box flexDirection="row" width={cols}>
+              <Box flexGrow={1}>{heading('Explicação')}</Box>
+              <Button plain key="close-explain" dimColor onPress={() => void closeExplanation($)}>
+                Fechar
+              </Button>
+            </Box>
             <Text dimColor wrap="truncate-end">{fitEnd(`“${explain.excerpt.replace(/\s+/g, ' ')}”`, cols)}</Text>
             {explain.status === 'pending' ? (
               <Text dimColor>Explicando…</Text>
