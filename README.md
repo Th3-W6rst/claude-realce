@@ -5,6 +5,7 @@ Plugin (mod) do Claude Code que deixa a tela mais fácil de ler. Cada recurso te
 - cores por sentido nas respostas, tabelas, caixas de decisão e risco, diagramas como imagem;
 - código com highlighter próprio e diffs com destaque por palavra;
 - ferramentas legíveis num relance e um **selo de prova** que diz se o que o Claude afirmou foi testado;
+- um spinner que diz o que está rodando ("Rodando os testes (última: 25s)") e o porquê de cada erro de comando;
 - avisos quando ele termina ou pergunta, e um painel com o uso, a linha do tempo e os arquivos da sessão.
 
 ![Demonstração do realce](images/demo.png)

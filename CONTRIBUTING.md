@@ -31,6 +31,10 @@ README (precisa do mermaid-cli, que traz o Chrome headless).
 6. O system prompt de uma sessão em que o mod entrou por hot reload não é recomposto.
 7. `ToolUse.isRunning` pode ficar `true` numa chamada já resolvida (um Bash que mexeu em arquivos): o que está
    rodando é `isStillRunning` (`hooks/screen/tools.tsx`), sem `output` ainda.
+8. A régua acha as contas do turno pelo `durationMs` (o `TurnDuration` não traz id de turno). No turno que uma
+   notificação de agente abre, o `TurnDuration` mede desde o último prompt da pessoa e o `turn.complete` só o turno:
+   os dois não batem, e essa régua fica só com a duração.
+9. O `$.prompt.submit` do próprio mod não passa pelo hook `prompt.submit` dele: o turno da demo abre no `turn.step`.
 
 ## Desempenho
 
