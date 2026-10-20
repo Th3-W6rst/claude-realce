@@ -106,15 +106,29 @@ export function isTestCommand(command: string): boolean {
 const lastTestSeconds = new Map<string, number>()
 const MAX_REMEMBERED = 50
 
-/** A test run settled with its time: the next run of the same command says it. */
+// Redirections say where the output goes, not which run it is: `2>&1`, `>out.log`, `&>`.
+const REDIRECTION = /^(\d*[<>]+&?\d*|&>+)$/
+
+/** The run a command makes, for its time: its test command alone, without a `cd` before or a filter after it. */
+export function testKey(command: string): string | null {
+  const run = shellCommands(command).find(isTestRun)
+  return run === undefined ? null : run.filter(w => !REDIRECTION.test(w)).join(' ')
+}
+
+/** A test run settled with its time: the next run of the same tests says it. */
 export function rememberTestTime(command: string, seconds: number): void {
-  lastTestSeconds.delete(command)
-  lastTestSeconds.set(command, seconds)
+  const key = testKey(command)
+  if (key === null) return
+  lastTestSeconds.delete(key)
+  lastTestSeconds.set(key, seconds)
   if (lastTestSeconds.size > MAX_REMEMBERED) lastTestSeconds.delete(lastTestSeconds.keys().next().value!)
 }
 
 const TARGET_CHARS = 32
-const cut = (text: string): string => (text.length > TARGET_CHARS ? `${text.slice(0, TARGET_CHARS - 1)}…` : text)
+function cut(text: string): string {
+  const chars = [...text]
+  return chars.length > TARGET_CHARS ? `${chars.slice(0, TARGET_CHARS - 1).join('')}…` : text
+}
 
 function hostOf(url: string): string {
   const m = /^\w+:\/\/([^/?#]+)/.exec(url)
@@ -141,7 +155,8 @@ export function activityOf(call: { tool: string } & Record<string, unknown>): Om
   if (call.tool === 'Bash') {
     const command = str(input.command) ?? ''
     const activity = bashActivity(command)
-    const last = activity === 'test' ? lastTestSeconds.get(command) : undefined
+    const key = activity === 'test' ? testKey(command) : null
+    const last = key === null ? undefined : lastTestSeconds.get(key)
     return { activity, target: last === undefined ? null : `última: ${formatSeconds(last)}` }
   }
   if (call.tool === 'Grep' || call.tool === 'Glob') {

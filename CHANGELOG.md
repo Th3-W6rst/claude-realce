@@ -2,6 +2,10 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.33
+- "Rodando os testes (última: …)" reconhece o mesmo teste com outro filtro (`pytest -q | tail -1` e
+  `cd . && pytest -q 2>&1 | tail -3`).
+
 ## 0.4.32
 - `/realce resumo` mostra quanto durou cada turno.
 - A régua do turno da demo mostra a hora, como as outras.

@@ -1057,6 +1057,8 @@ describe('spinner', () => {
     expect(activityOf({ tool: 'WebFetch', url: 'https://docs.example.com/a/b', prompt: 'x' })).toEqual({ activity: 'web', target: 'docs.example.com' })
     expect(activityOf({ tool: 'Agent', description: 'Revisar o diff', prompt: 'x' })).toEqual({ activity: 'agent', target: 'Revisar o diff' })
     expect(activityOf({ tool: 'Read', file_path: `/a/${'x'.repeat(60)}.ts` }).target).toBe(`${'x'.repeat(31)}…`)
+    // Cut by characters, never inside an emoji's surrogate pair.
+    expect(activityOf({ tool: 'Read', file_path: `/a/${'🙂'.repeat(40)}.ts` }).target).toBe(`${'🙂'.repeat(31)}…`)
     expect(activityOf({ tool: 'Skill', skill: 'superpowers:brainstorming' })).toEqual({ activity: 'skill', target: 'superpowers:brainstorming' })
     expect(activityOf({ tool: 'TodoWrite', todos: [] })).toEqual({ activity: 'plan', target: null })
     expect(activityOf({ tool: 'TaskUpdate', taskId: '7' })).toEqual({ activity: 'plan', target: null })
@@ -1106,17 +1108,14 @@ describe('spinner', () => {
   test('a test run says how long the same command took last time', async ($, on) => {
     mock.store(on)
     mock.clock(on)
+    // The first call settles at once; each later one waits for its own release.
     let calls = 0
-    let release = () => {}
-    const held = new Promise<void>(resolve => (release = resolve))
-    let releaseOther = () => {}
-    const heldOther = new Promise<void>(resolve => (releaseOther = resolve))
+    const releases: (() => void)[] = []
     on('tool.call', async () => {
-      calls++
-      if (calls === 2) await held
-      if (calls === 3) await heldOther
+      if (calls++ > 0) await new Promise<void>(resolve => releases.push(resolve))
       return { result: BASH_OK('===== 12 passed in 6.20s =====') }
     })
+    const release = () => releases.shift()?.()
     let word = ''
     on('ui.render', { component: 'Spinner' }, ($, e) => {
       word = e.props.word
@@ -1131,10 +1130,16 @@ describe('spinner', () => {
     expect(word).toBe('Rodando os testes (última: 6,2s)')
     release()
     await again
+    // The same run behind another output filter is the same run.
+    const filtered = $.tool.call({ tool: 'Bash', command: 'cd . && pytest -q 2>&1 | tail -3' })
+    await ui.redraw(spinning)
+    expect(word).toBe('Rodando os testes (última: 6,2s)')
+    release()
+    await filtered
     const other = $.tool.call({ tool: 'Bash', command: 'pytest -q tests/other' })
     await ui.redraw(spinning)
     expect(word).toBe('Rodando os testes')
-    releaseOther()
+    release()
     await other
   })
 
