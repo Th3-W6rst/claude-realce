@@ -5,7 +5,7 @@ import type { On, ProcessRunResult } from 'claude-code'
 import { hashSource, imageCells, pngSize } from '../hooks/code/diagram'
 import { highlight } from '../hooks/code/highlight'
 import { pathHref } from '../hooks/code/links'
-import { MERMAID_CONFIG } from '../hooks/palette'
+import { MERMAID as MERMAID_PALETTE } from '../hooks/palette'
 
 describe('code', () => {
   const kinds = (src: string, lang: string) => highlight(src, lang).flat().filter(t => t.kind).map(t => [t.text, t.kind])
@@ -201,6 +201,7 @@ function sessionWorld(on: On, world: World) {
   on('ui.invalidate', () => ({ value: undefined }))
   // The session pane opens at start by default.
   on('ui.open', () => ({ value: { isPlaced: true as const } }))
+  on('config.list', () => ({ value: [] }))
   on('session.start', () => ({ cwd: '/a/b' }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('ui.log', ($, e) => {
@@ -260,11 +261,12 @@ describe('diagram generation', () => {
     await appendReply($, DIAGRAM_REPLY)
     await clock.settle()
     expect(world.writes[`${DIR}/${hash}.mmd`]).toBe(MERMAID)
-    expect(JSON.parse(world.writes[`${DIR}/mermaid.json`] ?? '')).toEqual(MERMAID_CONFIG)
+    expect(JSON.parse(world.writes[`${DIR}/mermaid-dark.json`] ?? '')).toEqual(MERMAID_PALETTE.config)
     expect(world.runs).toEqual([
-      [MMDC, '-i', `${DIR}/${hash}.mmd`, '-o', `${DIR}/${hash}.png`, '-c', `${DIR}/mermaid.json`, '-b', '#111111', '-s', '2', '-q'],
+      [MMDC, '-i', `${DIR}/${hash}.mmd`, '-o', `${DIR}/${hash}.png`, '-c', `${DIR}/mermaid-dark.json`, '-b', '#111111', '-s', '2', '-q'],
     ])
-    expect(world.reads).toEqual([`${DIR}/${hash}.png`])
+    // The update check reads plugin.json at start too; the diagram reads only its picture.
+    expect(world.reads.filter(r => r.startsWith(DIR))).toEqual([`${DIR}/${hash}.png`])
   })
 
   test('an existing picture is ready without running mmdc', async ($, on) => {

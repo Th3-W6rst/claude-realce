@@ -1,12 +1,15 @@
 import type { EngineInterface, On } from 'claude-code'
 
-import { codeAppend, codePromptSubmit, codeSessionStart, codeToolCall, codeTurnComplete } from './code/events'
+import { codeAppend, codePromptSubmit, codeSessionStart, codeToolCall, codeTurnComplete, queueTranscriptDiagrams } from './code/events'
 import { registerRealceCommand } from './commands'
 import { recordEnv } from './env'
 import { startPerfLog } from './perf'
 import { refreshPromptSection } from './prompt'
 import { orientAppend, orientPromptSubmit, orientSessionStart, orientToolCall, orientTurnComplete } from './orient/events'
 import { screenAppend, screenPromptSubmit, screenSessionStart, screenToolCall, screenTurnComplete } from './screen/events'
+import { welcomeHint } from './system/demo'
+import { checkUpdate } from './system/update'
+import { refreshTheme } from './theme'
 
 // The engine takes one hook per event without a matcher in a module, and follows $ only into declared
 // functions: each shared event is hooked once here and calls every area's handler by name.
@@ -22,6 +25,8 @@ async function guard($: EngineInterface, event: string, run: () => Promise<void>
 
 export function registerEvents(on: On): void {
   on('session.start', async ($, e, next) => {
+    // First: every drawing after this one paints in the person's theme.
+    await guard($, 'session.start (tema)', () => refreshTheme($))
     await guard($, 'session.start (ambiente)', () => recordEnv($, e))
     await guard($, 'session.start (comando)', () => registerRealceCommand($))
     await guard($, 'session.start (prompt)', async () => refreshPromptSection($))
@@ -29,7 +34,20 @@ export function registerEvents(on: On): void {
     await guard($, 'session.start (código)', () => codeSessionStart($, e))
     await guard($, 'session.start (tela)', () => screenSessionStart($, e))
     await guard($, 'session.start (orientação)', () => orientSessionStart($, e))
+    await guard($, 'session.start (boas-vindas)', () => welcomeHint($, e))
+    await guard($, 'session.start (atualização)', () => checkUpdate($, e))
     return next(e)
+  })
+
+  // The theme picked in /config (or by a plugin): repaint, and draw the transcript's diagrams in it.
+  on('config.set', { key: 'theme' }, async ($, e, next) => {
+    const result = await next(e)
+    if (result.deny === undefined && typeof result.value === 'string') {
+      const value = result.value
+      await guard($, 'config.set (tema)', () => refreshTheme($, value))
+      await guard($, 'config.set (diagramas)', () => queueTranscriptDiagrams($))
+    }
+    return result
   })
 
   on('prompt.submit', async ($, e, next) => {

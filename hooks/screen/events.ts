@@ -4,7 +4,11 @@ import type { Args, EngineInterface, ResultOf } from 'claude-code'
 import type { Failure, FileTouch, TurnStats } from '../../types'
 import { getFlags, isMasterOn } from '../flags'
 import { parseTestSummary } from './score'
-import { asRecord, bashText, EDIT_TOOLS, editCounts, editedPath, str } from './toolInfo'
+import { commitCards, shortCardText } from './commit'
+import { loadNotes, setCommit } from './notes'
+import { maybeExplain } from './explainError'
+import { sealOf } from './seal'
+import { asRecord, bashText, EDIT_TOOLS, editCounts, editedPath, failureLine, hasBashEdits, str } from './toolInfo'
 import { rememberTurn } from './turns'
 
 // The screen area's share of the session's shared events. hooks/events.ts calls each by name (the engine follows $
@@ -27,31 +31,29 @@ function keepNewest<V>(record: Record<string, V>, max: number, timeOf: (v: V) =>
   return Object.fromEntries(entries.sort((a, b) => timeOf(a[1]) - timeOf(b[1])).slice(-max))
 }
 
-/** The line that says what went wrong: the output's last, past the engine's "Exit code N". */
-function failureLine(text: string): string {
-  const lines = text.split('\n').map(l => l.trimEnd()).filter(l => l.trim() !== '' && !/^Exit code \d+$/.test(l.trim()))
-  return (lines[lines.length - 1] ?? '').slice(0, 300)
+export async function screenSessionStart($: EngineInterface, e: Args<'session.start'>): Promise<void> {
+  await loadNotes($)
 }
-
-export async function screenSessionStart($: EngineInterface, e: Args<'session.start'>): Promise<void> {}
 
 export async function screenPromptSubmit($: EngineInterface, e: Args<'prompt.submit'>): Promise<void> {
   // A prompt typed over a running turn joins it: that turn's stats go on.
   if (e.turnId !== undefined) return
   const flags = await getFlags($)
-  if (!flags.separador) return
+  if (!flags.separador && !flags.selo) return
   const startedAt = await $.clock.now()
-  await update($, TURN, () => ({ startedAt, tools: 0, files: [], tests: null }))
+  await update($, TURN, () => ({ startedAt, tools: 0, files: [], tests: null, hasEdits: false, testsSinceEdit: null }))
 }
 
-/** After the call settled; subagents' calls too (`e.agentId`). */
+/** After the call settled; subagents' calls too (`e.agentId`), which only the proof seal weighs. */
 export async function screenToolCall($: EngineInterface, e: Args<'tool.call'>, result: ResultOf['tool.call']): Promise<void> {
-  if (e.agentId !== undefined || result.deny !== undefined) return
+  if (result.deny !== undefined) return
+  const isSubagent = e.agentId !== undefined
   const at = await $.clock.now()
   const isError = result.isError === true
   const path = EDIT_TOOLS.has(e.tool) && !isError ? editedPath(e) : null
   const output = e.tool === 'Bash' ? (str(result.text) ?? bashText(result.result)) : ''
   const tests = e.tool === 'Bash' ? parseTestSummary(output) : null
+  const isEdit = path !== null || (e.tool === 'Bash' && !isError && hasBashEdits(result.result))
 
   if ((await read($, TURN)) !== null) {
     await update($, TURN, turn =>
@@ -59,11 +61,23 @@ export async function screenToolCall($: EngineInterface, e: Args<'tool.call'>, r
         ? null
         : {
             ...turn,
-            tools: turn.tools + 1,
-            files: path === null || turn.files.includes(path) ? turn.files : [...turn.files, path],
-            tests: tests ?? turn.tests,
+            ...(isSubagent
+              ? {}
+              : {
+                  tools: turn.tools + 1,
+                  files: path === null || turn.files.includes(path) ? turn.files : [...turn.files, path],
+                  tests: tests ?? turn.tests,
+                }),
+            hasEdits: turn.hasEdits || isEdit,
+            // An edit takes the proof back; tests the same command printed count after its edits (`fmt && test`).
+            testsSinceEdit: tests ?? (isEdit ? null : turn.testsSinceEdit),
           },
     )
+  }
+  if (isSubagent) return
+  if (e.tool === 'Bash' && !isError && (await getFlags($)).commits) {
+    const cards = commitCards(result.result)
+    if (cards.length > 0) await setCommit($, e.tool_use_id, cards.map(shortCardText).join(' · '))
   }
 
   // The session pane's lists follow the master switch alone: the pane opens by command whatever the flags.
@@ -77,6 +91,7 @@ export async function screenToolCall($: EngineInterface, e: Args<'tool.call'>, r
     })
   }
   if (e.tool === 'Bash' && isError) {
+    await maybeExplain($, e.tool_use_id, (str(asRecord(e).command) ?? '').trim(), output, result.result)
     const failure: Failure = { command: (str(asRecord(e).command) ?? '').trim().slice(0, 300), line: failureLine(output), at }
     await update($, FAILURES, failures => [...failures, failure].slice(-MAX_FAILURES))
   }
@@ -89,9 +104,10 @@ export async function screenTurnComplete($: EngineInterface, e: Args<'turn.compl
   if (turn === null) return
   await update($, TURN, () => null)
   const flags = await getFlags($)
-  if (!flags.separador) return
+  if (!flags.separador && !flags.selo) return
   // TurnDuration carries no turn id: its durationMs is the key both sides share.
-  const stats: TurnStats = { endedAt: await $.clock.now(), tools: turn.tools, files: turn.files.length, tests: turn.tests }
+  const seal = flags.selo ? sealOf(turn, e.answer) : null
+  const stats: TurnStats = { endedAt: await $.clock.now(), tools: turn.tools, files: turn.files.length, tests: turn.tests, seal }
   await update($, TURNS, turns => keepNewest({ ...turns, [String(e.durationMs)]: stats }, MAX_KEPT, s => s.endedAt))
   rememberTurn(String(e.durationMs), stats)
   // The closing rule reads its stats from the module, not the state: draw it (and the screen with it) once more.

@@ -8,6 +8,7 @@ import { registerPaneToggle } from './orient/paneToggle'
 import { registerOrient } from './orient/register'
 import { registerPrompt } from './prompt'
 import { registerScreen } from './screen/register'
+import { registerDemo } from './system/demo'
 import { registerText } from './text/register'
 
 // Shared events are hooked once in events.ts; each area hooks its own drawings. Every feature asks its flag first.
@@ -21,4 +22,5 @@ export const register: Register = on => {
   registerCode(on)
   registerScreen(on)
   registerOrient(on)
+  registerDemo(on)
 }

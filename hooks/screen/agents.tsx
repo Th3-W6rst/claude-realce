@@ -2,7 +2,7 @@ import type { Elements, RenderElement, RenderPropsOf } from 'claude-code'
 
 import type { AgentRow } from '../../types'
 import { formatDuration, plural } from '../format'
-import { SCREEN } from '../palette'
+import { SCREEN, type ScreenTone } from '../palette'
 
 type T = Pick<Elements['terminal'], 'Box' | 'Text'>
 
@@ -53,11 +53,11 @@ export function noticeOf(props: RenderPropsOf['UserMessage']): TaskNotice | null
   return { status, name, result: null, ...(props.task?.durationMs !== undefined ? { durationMs: props.task.durationMs } : {}) }
 }
 
-const STATUS: Record<string, { label: string; color: string }> = {
-  completed: { label: 'Concluído', color: SCREEN.ok },
-  failed: { label: 'Falhou', color: SCREEN.bad },
-  killed: { label: 'Parado', color: SCREEN.warn },
-  stopped: { label: 'Parado', color: SCREEN.warn },
+const STATUS: Record<string, { label: string; tone: ScreenTone }> = {
+  completed: { label: 'Concluído', tone: 'ok' },
+  failed: { label: 'Falhou', tone: 'bad' },
+  killed: { label: 'Parado', tone: 'warn' },
+  stopped: { label: 'Parado', tone: 'warn' },
 }
 
 const formatTokens = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k tokens` : plural(n, 'token', 'tokens'))
@@ -67,7 +67,8 @@ export function agentCard(t: T, notice: TaskNotice, agent: AgentRow | null, task
   const { Box, Text } = t
   const name = notice.name ?? agent?.description ?? ''
   const title = agent !== null && agent.type !== '' ? `${agent.type}: ${name}` : name
-  const status = STATUS[notice.status] ?? { label: notice.status, color: SCREEN.dim }
+  const status = STATUS[notice.status] ?? { label: notice.status, tone: 'dim' as const }
+  const statusColor = SCREEN[status.tone]
   const durationMs = notice.durationMs ?? taskDurationMs
   const facts = [
     durationMs !== undefined ? formatDuration(durationMs) : null,
@@ -80,7 +81,7 @@ export function agentCard(t: T, notice: TaskNotice, agent: AgentRow | null, task
         <Text wrap="truncate-end">
           <Text color={SCREEN.agent}>{`◆ ${title}`}</Text>
           <Text color={SCREEN.dim}> · </Text>
-          <Text color={status.color}>{status.label}</Text>
+          <Text color={statusColor}>{status.label}</Text>
           {facts.length > 0 && <Text color={SCREEN.dim}>{` · ${facts.join(' · ')}`}</Text>}
         </Text>
       </Box>

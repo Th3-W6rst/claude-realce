@@ -4,11 +4,13 @@ import type { EngineInterface, On } from 'claude-code'
 import { getFlags } from '../flags'
 import { SCREEN } from '../palette'
 import { fitSegments, wrapLines, type Segment } from './fit'
+import { awayText, hideAway } from './away'
 import { planBar, planProgress, type PlanProgress } from './plan'
 import { timed } from '../perf'
 
 const PENDING = atom({ plugin: 'realce', key: 'pending' } as const, null)
 const PLAN = atom({ plugin: 'realce', key: 'plan' } as const, [])
+const AWAY = atom({ plugin: 'realce', key: 'away' } as const, null)
 
 // `[ Ocultar ]` and the cell between it and the text.
 const HIDE_CELLS = 12
@@ -36,7 +38,7 @@ export function registerBand(on: On): void {
     const { hasSurvey, isWorking, maxRows, bodyColumns } = e.props
     if (hasSurvey || maxRows < 1) return next(e)
     const flags = await getFlags($)
-    if (!flags.pendencias && !flags.plano) return next(e)
+    if (!flags.pendencias && !flags.plano && !flags.ausencia) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
     const pending = flags.pendencias && !isWorking ? await read($, PENDING) : null
     if (pending !== null && pending.items.length > 0 && bodyColumns > HIDE_CELLS) {
@@ -48,6 +50,23 @@ export function registerBand(on: On): void {
           </Box>
           <Box marginLeft={1}>
             <Button key="hide-pending" onPress={() => void hidePending($)}>
+              Ocultar
+            </Button>
+          </Box>
+        </Box>
+      )
+    }
+    const away = flags.ausencia ? await read($, AWAY) : null
+    if (away !== null && bodyColumns > HIDE_CELLS) {
+      return (
+        <Box flexDirection="row" width={bodyColumns}>
+          <Box width={bodyColumns - HIDE_CELLS}>
+            <Text color={SCREEN.plan} wrap="truncate-end">
+              {awayText(away)}
+            </Text>
+          </Box>
+          <Box marginLeft={1}>
+            <Button key="hide-away" onPress={() => void hideAway($)}>
               Ocultar
             </Button>
           </Box>

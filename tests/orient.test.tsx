@@ -1,7 +1,10 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
-import type { AgentInfo, On, RenderPropsOf } from 'claude-code'
+import type { AgentInfo, On, PromptEditInput, RenderPropsOf } from 'claude-code'
 
+import { awaySummary, awayText } from '../hooks/orient/away'
+import { togglePin } from '../hooks/orient/pins'
+import { questionHeader } from '../hooks/orient/question'
 import { extractPending } from '../hooks/orient/pending'
 import { applyPlanCall, planRow, type PlanItem } from '../hooks/orient/plan'
 
@@ -58,6 +61,7 @@ function startStandIns(on: On, agents: () => AgentInfo[] = () => []): { opened: 
     opened.push(e.id)
     return { value: { isPlaced: true as const } }
   })
+  on('config.list', () => ({ value: [] }))
   on('session.start', () => ({ cwd: '/a/b' }))
   return { opened, logs }
 }
@@ -162,6 +166,7 @@ describe('band', () => {
 
   test('the person\'s next prompt clears what needed you', async ($, on) => {
     mock.store(on)
+    mock.clock(on)
     engine(on)
     await finish($, ANSWER)
     const ui = await mountBand($)
@@ -332,5 +337,421 @@ describe('session pane', () => {
     const { opened } = startStandIns(on)
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
     expect(opened).toEqual([])
+  })
+})
+
+describe('finish notice', () => {
+  function notifyWorld(on: On, result: unknown = { isSent: true, channel: 'osc9' }) {
+    const sent: { text: string; title?: string }[] = []
+    const played: string[][] = []
+    on('ui.notify', ($, e) => {
+      sent.push({ text: e.text, ...(e.title === undefined ? {} : { title: e.title }) })
+      return { value: result as never }
+    })
+    on('process.run', ($, e) => {
+      if (e.argv[0] === 'afplay') played.push([...e.argv])
+      return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+    })
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '===== 12 passed in 0.50s =====', stderr: '', interrupted: false } }))
+    on('ui.log', () => ({ value: undefined }))
+    engine(on)
+    return { sent, played }
+  }
+
+  const longTurn = async ($: Engine, durationMs: number, extra: { isAborted?: boolean } = {}) => {
+    await $.prompt.submit({ text: 'oi', origin: { kind: 'composer' }, wait: false })
+    await $.tool.call({ tool: 'Edit', file_path: '/a/b/x.ts', old_string: 'a', new_string: 'b' })
+    await $.tool.call({ tool: 'Bash', command: 'pytest' })
+    await $.turn.complete({ answer: 'Pronto.', durationMs, isAborted: false, turnId: 't1', reason: 'answer', ...extra })
+  }
+
+  test('a long turn notifies with its duration, tests and seal', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    const { sent, played } = notifyWorld(on)
+    await longTurn($, 61_000)
+    expect(sent).toEqual([{ text: '1m 1s · ✔ testes · ✔ provado', title: 'Claude terminou' }])
+    expect(played).toEqual([])
+  })
+
+  test('a short turn does not', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    const { sent } = notifyWorld(on)
+    await longTurn($, 59_000)
+    expect(sent).toEqual([])
+  })
+
+  test('an aborted turn does not', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    const { sent } = notifyWorld(on)
+    await longTurn($, 61_000, { isAborted: true })
+    expect(sent).toEqual([])
+  })
+
+  test("a subagent's turn does not", async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    const { sent } = notifyWorld(on)
+    await $.turn.complete({ answer: 'x', durationMs: 90_000, isAborted: false, turnId: 't2', reason: 'answer', agentId: 'sub1' })
+    expect(sent).toEqual([])
+  })
+
+  test('a question after a minute of work notifies', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    const { sent } = notifyWorld(on)
+    await $.prompt.submit({ text: 'oi', origin: { kind: 'composer' }, wait: false })
+    await clock.advance(61_000)
+    await $.tool.call({ tool: 'AskUserQuestion', questions: [{ question: 'Qual nome?', header: 'Nome', options: [], multiSelect: false }] })
+    expect(sent).toEqual([{ text: 'Qual nome?', title: 'Claude precisa de você' }])
+  })
+
+  test('a question right away does not', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    const { sent } = notifyWorld(on)
+    await $.prompt.submit({ text: 'oi', origin: { kind: 'composer' }, wait: false })
+    await $.tool.call({ tool: 'AskUserQuestion', questions: [{ question: 'Qual nome?', header: 'Nome', options: [], multiSelect: false }] })
+    expect(sent).toEqual([])
+  })
+
+  test('som plays a system sound with the notice', async ($, on) => {
+    mock.store(on, { flags: { som: true } })
+    const clock = mock.clock(on)
+    const { played } = notifyWorld(on)
+    await longTurn($, 61_000)
+    await clock.settle()
+    expect(played).toEqual([['afplay', '/System/Library/Sounds/Glass.aiff']])
+  })
+
+  test('a refused notice shows in status', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    notifyWorld(on, { isSent: false, reason: 'disabled' })
+    on('prompt.compose', () => ({ sections: [] }))
+    await longTurn($, 61_000)
+    const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
+    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Último aviso não enviado: disabled\./)
+  })
+
+  test('avisos off sends nothing', async ($, on) => {
+    mock.store(on, { flags: { avisos: false } })
+    mock.clock(on)
+    const { sent } = notifyWorld(on)
+    await longTurn($, 61_000)
+    expect(sent).toEqual([])
+  })
+})
+
+describe('while you were away', () => {
+  const PASSED = { runner: 'bun', passed: 159, failed: 0, skipped: 0, unit: 'testes' as const }
+  const stats = (files: number, tests: typeof PASSED | null = null) => ({ endedAt: 0, tools: 3, files, tests, seal: null })
+
+  test('a short gap or no finished turn makes no summary', () => {
+    expect(awaySummary(9 * 60_000, 0, [stats(1)], 0)).toBeNull()
+    expect(awaySummary(32 * 60_000, 0, [], 0)).toBeNull()
+  })
+
+  test('the summary names what happened, the parts it has', () => {
+    const s = awaySummary(32 * 60_000, 0, [stats(2), stats(3, PASSED)], 1)
+    expect(s && awayText(s)).toBe('↺ Enquanto você estava fora (32 min): 2 turnos · 5 arquivos · ✔ 159 testes · 1 decisão esperando')
+    const one = awaySummary(12 * 60_000, 0, [{ ...stats(1), seal: 'unproved' as const }], 2)
+    expect(one && awayText(one)).toBe('↺ Enquanto você estava fora (12 min): 1 turno · 1 arquivo · ⚠ sem prova · 2 decisões esperando')
+    const bare = awaySummary(15 * 60_000, 0, [stats(0)], 0)
+    expect(bare && awayText(bare)).toBe('↺ Enquanto você estava fora (15 min): 1 turno')
+  })
+
+  // The kit raises prompt.edit as the engine does, though its typed `$` lists no call for it.
+  const edit = ($: Engine) =>
+    ($.prompt as unknown as { edit: (e: PromptEditInput) => Promise<unknown> }).edit({ origin: { kind: 'composer' }, text: '', cursor: 0, start: 0, end: 0, inputText: 'a' })
+
+  async function awayWorld($: Engine, on: On, minutes: number) {
+    mock.store(on)
+    const clock = mock.clock(on, { now: Date.UTC(2026, 9, 19, 20, 0) })
+    engine(on)
+    on('prompt.edit', ($, e) => ({ text: e.text + e.inputText, cursor: e.cursor + e.inputText.length }))
+    await $.prompt.submit({ text: 'faz tudo', origin: { kind: 'composer' }, wait: false })
+    await $.tool.call({ tool: 'Edit', file_path: '/a/b/x.ts', old_string: 'a', new_string: 'b' })
+    await clock.advance(minutes * 60_000)
+    await finish($, 'Feito.')
+    return clock
+  }
+
+  test('the band shows it on the first keystroke back, and a submit clears it', async ($, on) => {
+    await awayWorld($, on, 32)
+    await edit($)
+    const ui = await mountBand($)
+    expect(await ui.find({ text: '↺ Enquanto você estava fora (32 min): 1 turno · 1 arquivo' })).toBeDefined()
+    await $.prompt.submit({ text: 'valeu', origin: { kind: 'composer' }, wait: false })
+    expect(await ui.find({ text: /Enquanto você estava fora/ })).toBeUndefined()
+  })
+
+  test('typing while the turn ran means you were there', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on, { now: Date.UTC(2026, 9, 19, 20, 0) })
+    engine(on)
+    on('prompt.edit', ($, e) => ({ text: e.text + e.inputText, cursor: e.cursor + e.inputText.length }))
+    await $.prompt.submit({ text: 'faz tudo', origin: { kind: 'composer' }, wait: false })
+    await clock.advance(15 * 60_000)
+    await edit($)
+    await clock.advance(2 * 60_000)
+    await finish($, 'Feito.')
+    await clock.advance(60_000)
+    await edit($)
+    expect(await (await mountBand($)).find({ text: /Enquanto você estava fora/ })).toBeUndefined()
+  })
+
+  test('typing soon after the turn shows nothing', async ($, on) => {
+    await awayWorld($, on, 3)
+    await edit($)
+    expect(await (await mountBand($)).find({ text: /Enquanto você estava fora/ })).toBeUndefined()
+  })
+
+  test('what needs you comes first', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on, { now: Date.UTC(2026, 9, 19, 20, 0) })
+    engine(on)
+    on('prompt.edit', ($, e) => ({ text: e.text + e.inputText, cursor: e.cursor + e.inputText.length }))
+    await $.prompt.submit({ text: 'faz tudo', origin: { kind: 'composer' }, wait: false })
+    await clock.advance(20 * 60_000)
+    await finish($, ANSWER)
+    await edit($)
+    const ui = await mountBand($)
+    expect(await ui.find({ text: /Precisa de você/ })).toBeDefined()
+    expect(await ui.find({ text: /Enquanto você estava fora/ })).toBeUndefined()
+  })
+
+  test('the band fits 40 columns on one line', async ($, on) => {
+    await awayWorld($, on, 32)
+    await edit($)
+    const line = (await (await mountBand($, { bodyColumns: 40 })).findAll({ type: 'Text' })).find(t => t.text.startsWith('↺'))
+    expect(line?.props.wrap).toBe('truncate-end')
+  })
+
+  test('ausencia off shows nothing', async ($, on) => {
+    mock.store(on, { flags: { ausencia: false } })
+    const clock = mock.clock(on)
+    engine(on)
+    on('prompt.edit', ($, e) => ({ text: e.text + e.inputText, cursor: e.cursor + e.inputText.length }))
+    await $.prompt.submit({ text: 'faz tudo', origin: { kind: 'composer' }, wait: false })
+    await clock.advance(30 * 60_000)
+    await finish($, 'Feito.')
+    await edit($)
+    expect(await (await mountBand($)).find({ text: /Enquanto você estava fora/ })).toBeUndefined()
+  })
+})
+
+describe('timeline', () => {
+  async function promptRow($: Engine, text: string, uuid: string) {
+    await $.prompt.submit({ text, origin: { kind: 'composer' }, wait: false })
+    await $.session.append({ message: { type: 'user', role: 'user', content: [{ type: 'text', text }] }, door: 'prompt', origin: { kind: 'composer' }, uuid })
+  }
+
+  test('a prompt opens a row, its turn completes it', async ($, on) => {
+    mock.store(on)
+    mock.clock(on, { now: Date.UTC(2026, 9, 19, 23, 41) })
+    engine(on)
+    startStandIns(on)
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    await promptRow($, 'Renomeia o parâmetro b', 'u1')
+    const ui = await mountPane($)
+    expect((await ui.find({ key: 'turn-u1' }))?.text).toBe('20:41 · Renomeia o parâmetro b')
+    await $.turn.complete({ answer: 'Feito.', durationMs: 12_000, isAborted: false, turnId: 't1', reason: 'answer' })
+    expect((await ui.find({ key: 'turn-u1' }))?.text).toBe('20:41 · 12s · Renomeia o parâmetro b')
+  })
+
+  // The kit has no transcript to scroll ($.ui.scroll to a row answers "no implementation"): the scroll itself is
+  // checked live; here, each row is the button that asks for it.
+  test('each row is a button to its prompt', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    engine(on)
+    await promptRow($, 'oi', 'u7')
+    const row = await (await mountPane($)).find({ key: 'turn-u7' })
+    expect(row?.type).toBe('Button')
+  })
+
+  test('a prompt typed over a running turn joins its row', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    engine(on)
+    await promptRow($, 'primeiro', 'u1')
+    await $.prompt.submit({ text: 'e mais isso', origin: { kind: 'composer' }, wait: false, turnId: 'running' })
+    await $.session.append({ message: { type: 'user', role: 'user', content: [{ type: 'text', text: 'e mais isso' }] }, door: 'prompt', origin: { kind: 'composer' }, uuid: 'u2' })
+    await $.turn.complete({ answer: 'ok', durationMs: 9_000, isAborted: false, turnId: 't1', reason: 'answer' })
+    const ui = await mountPane($)
+    expect(await ui.find({ key: 'turn-u2' })).toBeUndefined()
+    expect((await ui.find({ key: 'turn-u1' }))?.text).toBe('9s · primeiro')
+  })
+
+  test('a reminder or a tool result opens no row', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    engine(on)
+    await $.session.append({ message: { type: 'user', role: 'user', isMeta: true, content: [{ type: 'text', text: 'lembrete' }] }, door: 'prompt', origin: { kind: 'composer' }, uuid: 'm1' })
+    expect(await (await mountPane($)).find({ key: 'turn-m1' })).toBeUndefined()
+  })
+
+  test('linha off hides the section', async ($, on) => {
+    mock.store(on, { flags: { linha: false } })
+    mock.clock(on)
+    engine(on)
+    await promptRow($, 'oi', 'u1')
+    expect(await (await mountPane($)).find({ key: 'turn-u1' })).toBeUndefined()
+  })
+})
+
+describe('question header', () => {
+  const QUESTIONS = [
+    { question: 'Público ou privado?', header: 'Repo', multiSelect: false, options: [{ label: 'Público (Recomendado)', description: 'x' }, { label: 'Privado', description: 'y' }] },
+    { question: 'Nome?', header: 'Nome', multiSelect: false, options: [{ label: 'a', description: 'b' }, { label: 'c', description: 'd' }] },
+  ]
+
+  test('the header counts the questions and names the recommended option', () => {
+    expect(questionHeader(QUESTIONS)).toBe('◆ O Claude precisa de você · 2 perguntas · recomendada: Público')
+    expect(questionHeader([QUESTIONS[1]])).toBe('◆ O Claude precisa de você · 1 pergunta')
+    expect(questionHeader([{ ...QUESTIONS[1], options: [{ label: 'Sim (Recommended)', description: '' }] }])).toBe('◆ O Claude precisa de você · 1 pergunta · recomendada: Sim')
+  })
+
+  // The kit cannot make the engine's own dialog node, which the tree must hold once: the wrapper is checked live.
+})
+
+describe('explain this', () => {
+  const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
+  const USAGE = { input_tokens: 10, output_tokens: 10, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+
+  function explainWorld(on: On, selection: { text: string } | undefined, answer: Record<string, unknown> = { isAnswered: true, text: 'É uma forma de repintar só um pedaço.', usage: USAGE }) {
+    const asked: { model: string; system?: unknown; prompt: unknown; maxTokens?: number; timeoutMs?: number }[] = []
+    on('ui.selection', () => ({ value: selection as never }))
+    on('model.complete', ($, e) => {
+      asked.push(e as never)
+      return ('deny' in answer ? answer : { value: answer }) as never
+    })
+    on('ui.open', () => ({ value: { isPlaced: true as const } }))
+    return asked
+  }
+
+  test('no selection says how', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    explainWorld(on, undefined)
+    expect((await $.command.run({ ...RUN, args: 'explica' })).text).toBe('Selecione um trecho da conversa (em tela cheia) e rode de novo.')
+  })
+
+  test('a selection is explained in the pane', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    const asked = explainWorld(on, { text: 'ui.blit repinta um Raster' })
+    expect((await $.command.run({ ...RUN, args: 'explica' })).text).toBe('Explicando no painel.')
+    const ui = await mountPane($)
+    expect(await ui.find({ text: 'Explicando…' })).toBeDefined()
+    await clock.settle()
+    expect(asked[0]).toMatchObject({ model: 'haiku', maxTokens: 400, timeoutMs: 30000 })
+    expect(String(asked[0]!.system)).toBe('Explique em português simples, em até 4 frases, para quem não é especialista.')
+    expect(String(asked[0]!.prompt)).toBe('ui.blit repinta um Raster')
+    expect(await ui.find({ text: 'Explicação' })).toBeDefined()
+    expect(await ui.find({ text: 'É uma forma de repintar só um pedaço.' })).toBeDefined()
+  })
+
+  test('a late answer to an older request does not replace the newer one', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    let selection = { text: 'primeiro' }
+    let release: (v: unknown) => void = () => {}
+    on('ui.selection', () => ({ value: selection }))
+    on('ui.open', () => ({ value: { isPlaced: true as const } }))
+    on('model.complete', ($, e) =>
+      String((e as { prompt: unknown }).prompt) === 'primeiro'
+        ? (new Promise(r => (release = r)) as never)
+        : ({ value: { isAnswered: true, text: 'Resposta do segundo.', usage: USAGE } } as never),
+    )
+    await $.command.run({ ...RUN, args: 'explica' })
+    await clock.advance(1)
+    selection = { text: 'segundo' }
+    await $.command.run({ ...RUN, args: 'explica' })
+    await clock.settle()
+    release({ value: { isAnswered: true, text: 'Resposta do primeiro.', usage: USAGE } })
+    await clock.settle()
+    const ui = await mountPane($)
+    expect(await ui.find({ text: 'Resposta do segundo.' })).toBeDefined()
+    expect(await ui.find({ text: 'Resposta do primeiro.' })).toBeUndefined()
+  })
+
+  test('a long selection is cut to 4000 characters', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    const asked = explainWorld(on, { text: 'x'.repeat(9000) })
+    await $.command.run({ ...RUN, args: 'explica' })
+    await clock.settle()
+    expect(String(asked[0]!.prompt).length).toBe(4000)
+  })
+
+  test('a model failure shows why', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    explainWorld(on, { text: 'abc' }, { isAnswered: false, reason: 'empty-reply', usage: USAGE })
+    await $.command.run({ ...RUN, args: 'explica' })
+    await clock.settle()
+    expect(await (await mountPane($)).find({ text: 'Sem explicação: empty-reply' })).toBeDefined()
+  })
+
+  test('explica off says how to turn it on', async ($, on) => {
+    mock.store(on, { flags: { explica: false } })
+    mock.clock(on)
+    explainWorld(on, { text: 'abc' })
+    expect((await $.command.run({ ...RUN, args: 'explica' })).text).toBe('Recurso desligado: Explica isso. /realce explica on liga.')
+  })
+})
+
+describe('pins', () => {
+  const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
+  const pin = (n: number) => ({ requestId: `r${n}`, at: n, preview: `resposta ${n}` })
+
+  test('a pin toggles, and the oldest of 21 goes', () => {
+    expect(togglePin([], pin(1))).toEqual([pin(1)])
+    expect(togglePin([pin(1), pin(2)], pin(1))).toEqual([pin(2)])
+    const full = Array.from({ length: 20 }, (_, i) => pin(i))
+    const more = togglePin(full, pin(99))
+    expect(more).toHaveLength(20)
+    expect(more[0]).toEqual(pin(1))
+    expect(more[19]).toEqual(pin(99))
+  })
+
+  async function reply($: Engine, text: string, uuid: string) {
+    await $.session.append({ message: { type: 'assistant', role: 'assistant', content: [{ type: 'text', text }] }, door: 'response', origin: { kind: 'model', model: 'm' }, uuid })
+  }
+
+  test('/realce fixar pins the last reply, then unpins it', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    on('ui.selection', () => ({ value: undefined as never }))
+    expect((await $.command.run({ ...RUN, args: 'fixar' })).text).toBe('Nenhuma resposta para fixar ainda.')
+    await reply($, 'Primeira resposta\nmais', 'a1')
+    await reply($, 'Resposta importante sobre o deploy', 'a2')
+    expect((await $.command.run({ ...RUN, args: 'fixar' })).text).toBe('Resposta fixada.')
+    const ui = await mountPane($)
+    expect((await ui.find({ key: 'pin-a2' }))?.text).toMatch(/Resposta importante sobre o deploy$/)
+    expect((await ui.find({ key: 'pin-a2' }))?.type).toBe('Button')
+    expect((await $.command.run({ ...RUN, args: 'fixar' })).text).toBe('Resposta desafixada.')
+    expect(await ui.find({ key: 'pin-a2' })).toBeUndefined()
+  })
+
+  test('a selection in a reply pins that reply', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    on('ui.selection', () => ({ value: { text: 'Primeira resposta', requestId: 'a1' } }))
+    await reply($, 'Primeira resposta', 'a1')
+    await reply($, 'Segunda', 'a2')
+    await $.command.run({ ...RUN, args: 'fixar' })
+    const ui = await mountPane($)
+    expect(await ui.find({ key: 'pin-a1' })).toBeDefined()
+    expect(await ui.find({ key: 'pin-a2' })).toBeUndefined()
+  })
+
+  test('fixar off says how to turn it on', async ($, on) => {
+    mock.store(on, { flags: { fixar: false } })
+    expect((await $.command.run({ ...RUN, args: 'fixar' })).text).toBe('Recurso desligado: Fixar respostas. /realce fixar on liga.')
   })
 })

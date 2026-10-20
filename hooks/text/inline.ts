@@ -1,12 +1,13 @@
+import { humanizeAmount } from '../format'
 import type { ProseKind } from '../palette'
-import { scanDeltas } from './deltas'
+import { parseNumber, scanDeltas } from './deltas'
 
 // One run of text and the kinds painting it, outermost first: the renderer
 // merges their paints in order, so an inner kind overrides an outer one.
 export type Span = { text: string; kinds: ProseKind[]; href?: string }
 
-/** `enfase` off: no guesses but paths and links, no labels; `deltas` off: no delta spans. Both default on. */
-export type InlineOpts = { enfase?: boolean; deltas?: boolean }
+/** `enfase` off: no guesses but paths and links, no labels; `deltas` off: no delta spans; `numeros` on: human readings. */
+export type InlineOpts = { enfase?: boolean; deltas?: boolean; numeros?: boolean }
 
 /** What a run of spans shows, its marks gone. */
 export const plainText = (spans: readonly Span[]): string => spans.map(s => s.text).join('')
@@ -82,6 +83,23 @@ const QUOTED = /"[^"\n]{1,160}"|“[^”\n]{1,160}”/gu
 
 const LOOKS_LIKE_PATH = new RegExp(`^(?:${PATH})$`, 'u')
 
+const UNIT_AFTER = /^ ?(ms|s|bytes|B|tokens)(?![\p{L}\p{N}_])/u
+
+/** The reading of a number and the unit that follows it ("102761" + " ms"), or one glued to it ("102761ms"). */
+function humanReading(number: string, after: string): { label: string; unitText: string } | null {
+  const glued = /^(\d+)(ms|s)$/.exec(number)
+  const unitAfter = glued === null ? UNIT_AFTER.exec(after) : null
+  const unit = glued?.[2] ?? unitAfter?.[1]
+  if (unit === undefined) return null
+  const parsed = parseNumber(glued?.[1] ?? number)
+  if (parsed === null || parsed.unit !== '') return null
+  const label = humanizeAmount(parsed.value, unit)
+  if (label === null) return null
+  const unitText = unitAfter?.[0] ?? ''
+  // Already read for the person ("102761 ms (1m 42s)"): no second reading.
+  return after.slice(unitText.length).startsWith(` (${label}`) ? null : { label, unitText }
+}
+
 // Bare prose with its deltas cut out, each a span of its own after the second number.
 function prose(text: string, outer: ProseKind[], opts: InlineOpts): Span[] {
   if (outer.length > 0 || opts.deltas === false) return heuristics(text, outer, opts)
@@ -132,9 +150,19 @@ function heuristics(text: string, outer: ProseKind[], opts: InlineOpts): Span[] 
     // `i` lets "go" match the case-sensitive list; only the exact spelling counts.
     if (kind === 'statusWarn' && !WARN_WORDS.some(w => w.toLowerCase() === m[0].toLowerCase()) && !WARN_EXACT_RE.test(m[0])) continue
     const start = m.index ?? 0
+    // A human reading already took the text up to `at` (a unit after its number).
+    if (start < at) continue
     if (start > at) spans.push({ text: text.slice(at, start), kinds: [] })
     spans.push(kind === 'link' ? { text: m[0], kinds: [kind], href: m[0] } : { text: m[0], kinds: [kind] })
     at = start + m[0].length
+    if (kind === 'number' && opts.numeros === true) {
+      const reading = humanReading(m[0], text.slice(at))
+      if (reading !== null) {
+        if (reading.unitText !== '') spans.push({ text: reading.unitText, kinds: [] })
+        spans.push({ text: ` (${reading.label})`, kinds: ['aside'] })
+        at += reading.unitText.length
+      }
+    }
   }
   if (at < text.length) spans.push({ text: text.slice(at), kinds: [] })
   return spans

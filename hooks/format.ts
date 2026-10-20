@@ -27,3 +27,23 @@ export function parseTzOffset(text: string): number {
   if (m === null) throw new Error(`realce: unexpected \`date +%z\` output "${text.trim()}"`)
   return (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3]))
 }
+
+/**
+ * A raw amount as a person reads it, or null when the raw one already reads well: long durations, big sizes and
+ * token counts. Shown beside the number, never in its place.
+ */
+export function humanizeAmount(value: number, unit: string): string | null {
+  if (unit === 'ms') return value >= 10_000 ? formatDuration(value) : null
+  if (unit === 's') return value >= 90 ? formatDuration(value * 1000) : null
+  if (unit === 'bytes' || unit === 'B') {
+    if (value < 10_000) return null
+    if (value < 1024 ** 2) return `${Math.round(value / 1024)} KB`
+    if (value < 1024 ** 3) return `${formatDecimal(value / 1024 ** 2, 1)} MB`
+    return `${formatDecimal(value / 1024 ** 3, 1)} GB`
+  }
+  if (unit === 'tokens') {
+    if (value < 10_000) return null
+    return value < 1_000_000 ? `${formatDecimal(value / 1000, 1)} mil` : `${formatDecimal(value / 1_000_000, 1)} mi`
+  }
+  return null
+}

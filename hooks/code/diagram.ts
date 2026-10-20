@@ -2,8 +2,9 @@ import { atom, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
 import type { Diagram } from '../../types'
-import { CELL_ASPECT, CELL_PX, DIAGRAM_SCALE, MERMAID_CONFIG } from '../palette'
+import { CELL_ASPECT, CELL_PX, DIAGRAM_SCALE, MERMAID } from '../palette'
 import { parseBlocks } from '../text/blocks'
+import { currentTheme } from '../theme'
 
 const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
 
@@ -17,7 +18,13 @@ export const isMermaid = (language: string) => language.toLowerCase() === 'merma
 
 /** The reply's mermaid blocks, parsed as the drawing parses them so both name a diagram by the same hash. */
 export function findMermaid(text: string): Mermaid[] {
-  return parseBlocks(text).flatMap(b => (b.type === 'code' && isMermaid(b.language) ? [{ source: b.source, hash: hashSource(b.source) }] : []))
+  return parseBlocks(text).flatMap(b => (b.type === 'code' && isMermaid(b.language) ? [{ source: b.source, hash: diagramHash(b.source) }] : []))
+}
+
+/** The diagram's name in the state and the cache: one picture per theme class, the dark one as it always was. */
+export function diagramHash(source: string): string {
+  const kind = currentTheme()
+  return kind === 'dark' ? hashSource(source) : `${hashSource(source)}-${kind}`
 }
 
 /** FNV-1a (32 bits) of the source, in hex, then its length: a file name that only this source maps to in practice. */
@@ -64,12 +71,12 @@ export async function generateDiagram($: EngineInterface, source: string, hash: 
   const png = `${dir}/${hash}.png`
   if (!(await $.fs.exists(png))) {
     const input = `${dir}/${hash}.mmd`
-    const config = `${dir}/mermaid.json`
+    const config = `${dir}/mermaid-${currentTheme()}.json`
     // fs.write creates the folder; mmdc then writes the picture beside the source.
-    await $.fs.write(config, JSON.stringify(MERMAID_CONFIG))
+    await $.fs.write(config, JSON.stringify(MERMAID.config))
     await $.fs.write(input, source)
     // Natural size at scale 2: mmdc 12 has no width option, and --size would blow small diagrams up to the screen.
-    const run = await $.process.run([mmdc, '-i', input, '-o', png, '-c', config, '-b', '#111111', '-s', String(DIAGRAM_SCALE), '-q'])
+    const run = await $.process.run([mmdc, '-i', input, '-o', png, '-c', config, '-b', String(MERMAID.config.themeVariables.background), '-s', String(DIAGRAM_SCALE), '-q'])
     if (run.exitCode !== 0) {
       const line = run.stderr.split('\n').map(l => l.trim()).find(l => l !== '')
       // mmdc leads with `Error: `, which the block's own "Diagrama inválido:" already says.

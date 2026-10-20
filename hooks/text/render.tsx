@@ -16,7 +16,7 @@ function paintOf(ctx: RenderCtx, span: Span): Paint & { bold?: boolean } {
   return Object.assign({}, ...span.kinds.filter(k => k !== 'path').map(k => (MARKS.has(k) ? { bold: true } : PROSE[k])))
 }
 
-export const inlineOpts = (ctx: RenderCtx): InlineOpts => ({ enfase: ctx.flags.enfase, deltas: ctx.flags.deltas })
+export const inlineOpts = (ctx: RenderCtx): InlineOpts => ({ enfase: ctx.flags.enfase, deltas: ctx.flags.deltas, numeros: ctx.flags.numeros })
 
 /** One reply block's markdown as a tree of colored rows. */
 export function renderReply(ctx: RenderCtx, blocks: readonly Block[]): RenderElement {

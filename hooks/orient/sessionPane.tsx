@@ -1,12 +1,14 @@
 import { atom, read } from 'claude-code'
 import type { On } from 'claude-code'
 
-import type { AgentRow, FileTouch, PlanItem } from '../../types'
+import type { AgentRow, ExplainPanel, FileTouch, Pin, PlanItem, TimelineRow } from '../../types'
 import { formatClock } from '../format'
-import { SCREEN } from '../palette'
+import { SCREEN, type ScreenTone } from '../palette'
 import { fitEnd, fitSegments, fitStart, type Segment } from './fit'
 import type { SESSION_PANE } from './paneToggle'
 import { timed } from '../perf'
+import { getFlags } from '../flags'
+import { scrollToRow, timelineText } from './timeline'
 
 const PENDING = atom({ plugin: 'realce', key: 'pending' } as const, null)
 const PLAN = atom({ plugin: 'realce', key: 'plan' } as const, [])
@@ -14,28 +16,32 @@ const FILES = atom({ plugin: 'realce', key: 'files' } as const, [])
 const FAILURES = atom({ plugin: 'realce', key: 'failures' } as const, [])
 const AGENTS = atom({ plugin: 'realce', key: 'agents' } as const, [])
 const ENV = atom({ plugin: 'realce', key: 'env' } as const, null)
+const TIMELINE = atom({ plugin: 'realce', key: 'timeline' } as const, [])
+const EXPLAIN = atom({ plugin: 'realce', key: 'explain' } as const, null)
+const PINS = atom({ plugin: 'realce', key: 'pins' } as const, [])
 
 // A literal, so the module scan can name the pane's matcher; the type ties it to the toggle's id.
 const PANE_ID: typeof SESSION_PANE = 'realce-sessao'
 
 const MAX_FILES = 12
 const MAX_FAILURES = 5
+const MAX_TURNS = 20
 const ACTIVE_AGENT = new Set(['running', 'pending', 'waiting'])
 
-const PLAN_MARK: Record<PlanItem['status'], { glyph: string; color: string }> = {
-  completed: { glyph: '✓', color: SCREEN.ok },
-  in_progress: { glyph: '▸', color: SCREEN.plan },
-  pending: { glyph: '○', color: SCREEN.dim },
+const PLAN_MARK: Record<PlanItem['status'], { glyph: string; tone: ScreenTone }> = {
+  completed: { glyph: '✓', tone: 'ok' },
+  in_progress: { glyph: '▸', tone: 'plan' },
+  pending: { glyph: '○', tone: 'dim' },
 }
 
-const AGENT_STATUS: Record<string, { label: string; color: string }> = {
-  running: { label: 'Rodando', color: SCREEN.run },
-  pending: { label: 'Na fila', color: SCREEN.dim },
-  waiting: { label: 'Aguardando', color: SCREEN.warn },
-  idle: { label: 'Ocioso', color: SCREEN.dim },
-  completed: { label: 'Concluído', color: SCREEN.ok },
-  failed: { label: 'Falhou', color: SCREEN.bad },
-  killed: { label: 'Parado', color: SCREEN.warn },
+const AGENT_STATUS: Record<string, { label: string; tone: ScreenTone }> = {
+  running: { label: 'Rodando', tone: 'run' },
+  pending: { label: 'Na fila', tone: 'dim' },
+  waiting: { label: 'Aguardando', tone: 'warn' },
+  idle: { label: 'Ocioso', tone: 'dim' },
+  completed: { label: 'Concluído', tone: 'ok' },
+  failed: { label: 'Falhou', tone: 'bad' },
+  killed: { label: 'Parado', tone: 'warn' },
 }
 
 const relative = (path: string, cwd: string | undefined) =>
@@ -53,12 +59,12 @@ function fileSegments(f: FileTouch, cwd: string | undefined, cols: number): Segm
 }
 
 function agentSegments(a: AgentRow, tzOffsetMinutes: number | undefined): Segment[] {
-  const status = AGENT_STATUS[a.status] ?? { label: a.status, color: SCREEN.dim }
+  const status = AGENT_STATUS[a.status] ?? { label: a.status, tone: 'dim' }
   const segments: Segment[] = [
     { text: '◆ ', color: SCREEN.agent },
     { text: a.description },
     { text: ` · ${a.type} · `, color: SCREEN.dim },
-    { text: status.label, color: status.color },
+    { text: status.label, color: SCREEN[status.tone] },
   ]
   // Since when, not for how long: a clock time stays true without redrawing the pane every second.
   if (tzOffsetMinutes !== undefined) segments.push({ text: ` · desde ${formatClock(a.firstSeenAt, tzOffsetMinutes)}`, color: SCREEN.dim })
@@ -67,18 +73,22 @@ function agentSegments(a: AgentRow, tzOffsetMinutes: number | undefined): Segmen
 
 export function registerSessionPane(on: On): void {
   on('ui.render', { component: 'Pane', requestId: PANE_ID }, async ($, e) => timed('Pane:sessao', async () => {
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
     const cols = e.props.bodyColumns
-    const [pending, plan, files, failures, agents, env] = await Promise.all([
+    const flags = await getFlags($)
+    const [pending, plan, files, failures, agents, env, timeline, explain, pins] = await Promise.all([
       read($, PENDING),
       read($, PLAN),
       read($, FILES),
       read($, FAILURES),
       read($, AGENTS),
       read($, ENV),
+      flags.linha ? read($, TIMELINE) : Promise.resolve([] as TimelineRow[]),
+      flags.explica ? read($, EXPLAIN) : Promise.resolve(null as ExplainPanel | null),
+      flags.fixar ? read($, PINS) : Promise.resolve([] as Pin[]),
     ])
     const items = pending?.items ?? []
-    if (plan.length + items.length + files.length + failures.length + agents.length === 0) {
+    if (plan.length + items.length + files.length + failures.length + agents.length + timeline.length + pins.length === 0 && explain === null) {
       return <Text dimColor>Nada por aqui ainda.</Text>
     }
     const row = (segments: readonly Segment[]) => (
@@ -91,13 +101,26 @@ export function registerSessionPane(on: On): void {
     const sorted = [...agents].sort((a, b) => Number(ACTIVE_AGENT.has(b.status)) - Number(ACTIVE_AGENT.has(a.status)))
     return (
       <Box flexDirection="column" width={cols}>
+        {explain !== null && (
+          <Box flexDirection="column" marginBottom={1}>
+            {heading('Explicação')}
+            <Text dimColor wrap="truncate-end">{fitEnd(`“${explain.excerpt.replace(/\s+/g, ' ')}”`, cols)}</Text>
+            {explain.status === 'pending' ? (
+              <Text dimColor>Explicando…</Text>
+            ) : explain.status === 'failed' ? (
+              <Text dimColor>{`Sem explicação: ${explain.text}`}</Text>
+            ) : (
+              <Text>{explain.text}</Text>
+            )}
+          </Box>
+        )}
         {plan.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
             {heading(`Plano ${done}/${plan.length}`)}
             {plan.map(p => {
               const mark = PLAN_MARK[p.status]
               const text = p.status === 'in_progress' ? (p.activeForm ?? p.text) : p.text
-              return row([{ text: `${mark.glyph} `, color: mark.color }, { text, ...(p.status === 'completed' ? { color: SCREEN.dim } : {}) }])
+              return row([{ text: `${mark.glyph} `, color: SCREEN[mark.tone] }, { text, ...(p.status === 'completed' ? { color: SCREEN.dim } : {}) }])
             })}
           </Box>
         )}
@@ -105,6 +128,29 @@ export function registerSessionPane(on: On): void {
           <Box flexDirection="column" marginBottom={1}>
             {heading('Precisa de você')}
             {items.map(item => row([{ text: `• ${item}`, color: SCREEN.warn }]))}
+          </Box>
+        )}
+        {pins.length > 0 && (
+          <Box flexDirection="column" marginBottom={1}>
+            {heading(`Fixadas (${pins.length})`)}
+            {[...pins].reverse().map(p => (
+              <Button plain key={`pin-${p.requestId}`} dimColor onPress={() => void scrollToRow($, p.requestId)}>
+                {fitEnd(env === null ? p.preview : `${formatClock(p.at, env.tzOffsetMinutes)} · ${p.preview}`, cols)}
+              </Button>
+            ))}
+          </Box>
+        )}
+        {timeline.length > 0 && (
+          <Box flexDirection="column" marginBottom={1}>
+            {heading(`Turnos (${timeline.length})`)}
+            {timeline
+              .slice(-MAX_TURNS)
+              .reverse()
+              .map(r => (
+                <Button plain key={`turn-${r.requestId}`} dimColor onPress={() => void scrollToRow($, r.requestId)}>
+                  {fitEnd(timelineText(r, env?.tzOffsetMinutes), cols)}
+                </Button>
+              ))}
           </Box>
         )}
         {files.length > 0 && (

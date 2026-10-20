@@ -3,6 +3,10 @@ import type { Args, EngineInterface, ResultOf } from 'claude-code'
 
 import { getFlags } from '../flags'
 import { refreshAgents } from './agents'
+import { noteInput, noteTurnEnd } from './away'
+import { noteTurnStart, notifyFinish } from './notify'
+import { notePinnable } from './pins'
+import { completeTimeline, recordPrompt } from './timeline'
 import { openSessionPane } from './paneToggle'
 import { extractPending } from './pending'
 import { applyPlanCall } from './plan'
@@ -27,8 +31,9 @@ export async function orientSessionStart($: EngineInterface, e: Args<'session.st
 export async function orientPromptSubmit($: EngineInterface, e: Args<'prompt.submit'>): Promise<void> {
   // Only the person's own prompt answers what the band asked; cleared whatever pendencias says, so turning it on
   // later never shows a stale ask.
-  if (e.isMeta === true || (await read($, PENDING)) === null) return
-  await update($, PENDING, () => null)
+  if (e.isMeta !== true && (await read($, PENDING)) !== null) await update($, PENDING, () => null)
+  await noteTurnStart($, e)
+  await noteInput($, e)
 }
 
 /** After the call settled; subagents' calls too (`e.agentId`). */
@@ -43,6 +48,9 @@ export async function orientToolCall($: EngineInterface, e: Args<'tool.call'>, r
 /** The main loop's turns and subagents' (`e.agentId`). */
 export async function orientTurnComplete($: EngineInterface, e: Args<'turn.complete'>): Promise<void> {
   if (e.agentId !== undefined) return
+  await notifyFinish($, e)
+  await noteTurnEnd($, e)
+  await completeTimeline($, e)
   const flags = await getFlags($)
   if (!flags.pendencias) return
   const items = extractPending(e.answer)
@@ -50,4 +58,7 @@ export async function orientTurnComplete($: EngineInterface, e: Args<'turn.compl
 }
 
 /** Once the row is stored. */
-export async function orientAppend($: EngineInterface, e: Args<'session.append'>, stored: ResultOf['session.append']): Promise<void> {}
+export async function orientAppend($: EngineInterface, e: Args<'session.append'>, stored: ResultOf['session.append']): Promise<void> {
+  await recordPrompt($, e, stored)
+  await notePinnable($, e, stored)
+}

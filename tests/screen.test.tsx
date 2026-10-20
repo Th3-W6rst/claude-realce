@@ -6,6 +6,8 @@ import { parseTaskNotification } from '../hooks/screen/agents'
 import { formatScore, parseTestSummary } from '../hooks/screen/score'
 import { SPINNER_WORDS, translateSpinnerMessage } from '../hooks/screen/spinner'
 import { summarizeGroup, summarizeTool } from '../hooks/screen/tools'
+import { cardText, commitCards } from '../hooks/screen/commit'
+import { claimsDone, sealOf } from '../hooks/screen/seal'
 import { turnRule } from '../hooks/screen/turns'
 import type { AgentRow } from '../types'
 
@@ -24,6 +26,7 @@ async function startSession($: Engine, on: On): Promise<void> {
   on('process.run', ($, e) => ({
     value: { exitCode: e.argv[0] === 'date' ? 0 : 1, stdout: e.argv[0] === 'date' ? '-0300\n' : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
   }))
+  on('config.list', () => ({ value: [] }))
   on('session.start', () => ({ cwd: '/a/b' }))
   await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
 }
@@ -249,7 +252,7 @@ describe('test score', () => {
 
 describe('turn rule', () => {
   test('the rule fits its width and drops what does not fit', () => {
-    const stats = { endedAt: Date.UTC(2026, 9, 19, 18, 41), tools: 14, files: 3, tests: { runner: 'jest', passed: 3, failed: 0, skipped: 0, unit: 'testes' as const } }
+    const stats = { endedAt: Date.UTC(2026, 9, 19, 18, 41), tools: 14, files: 3, tests: { runner: 'jest', passed: 3, failed: 0, skipped: 0, unit: 'testes' as const }, seal: null }
     const wide = turnRule(stats, 385_600, 80, -180)
     expect(wide.startsWith('── 15:41 · 6m 25s · 14 ferramentas · 3 arquivos · ✔ testes ──')).toBe(true)
     expect(wide.length).toBe(80)
@@ -276,7 +279,7 @@ describe('turn rule', () => {
     await $.turn.complete({ ...TURN, durationMs: 385_600 })
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'TurnDuration', props: { word: 'Baked', durationMs: 385_600 }, viewport: { columns: 100, rows: 40 } })
     const rule = (await drawnText(ui, 'realce-turn')) ?? ''
-    expect(rule).toContain('── 15:41 · 6m 25s · 2 ferramentas · 1 arquivo · ✖ 2 testes falharam ──')
+    expect(rule).toContain('── 15:41 · 6m 25s · ✖ afirmou com testes falhando · 2 ferramentas · ✖ 2 testes falharam ──')
     expect(rule.length).toBe(98)
   })
 
@@ -293,7 +296,7 @@ describe('turn rule', () => {
     const sub = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'TurnDuration', props: { word: 'Baked', durationMs: 5_000 }, viewport: { columns: 40, rows: 40 } })
     expect(await drawnText(sub, 'realce-turn')).toBe(`── 5s ${'─'.repeat(32)}`)
     const main = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'TurnDuration', props: { word: 'Baked', durationMs: 12_000 }, viewport: { columns: 60, rows: 40 } })
-    expect(await drawnText(main, 'realce-turn')).toContain('── 12s · 1 ferramenta · 0 arquivos · ✔ testes ──')
+    expect(await drawnText(main, 'realce-turn')).toContain('── 12s · ✔ provado · 1 ferramenta · ✔ testes ──')
   })
 
   test("the person's prompt stays the engine's own row", async ($, on) => {
@@ -312,6 +315,369 @@ describe('turn rule', () => {
     expect(await end.find({ text: 'engine' })).toBeDefined()
     const prompt = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'UserMessage', props: { text: 'oi', origin: { kind: 'composer' }, isExpanded: false } })
     expect(await prompt.find({ key: 'realce-prompt-rule' })).toBeUndefined()
+  })
+})
+
+const PASSED = { runner: 'pytest', passed: 12, failed: 0, skipped: 0, unit: 'testes' as const }
+const FAILED = { ...PASSED, passed: 10, failed: 2 }
+
+const GIT_STDOUT = '[main 9cd805a] realce 0.3.0: tudo\n 8 files changed, 120 insertions(+), 3 deletions(-)\n'
+
+describe('commit card', () => {
+  test('a commit, a push, a PR and a merge read as one line each', () => {
+    const commit = commitCards({ stdout: GIT_STDOUT, stderr: '', gitOperation: { commit: { sha: '9cd805a1b2c3', kind: 'committed', branch: 'main' } } })
+    expect(commit.map(cardText)).toEqual(['● commit 9cd805a · main · realce 0.3.0: tudo · 8 arquivos +120 −3'])
+    const both = commitCards({ stdout: GIT_STDOUT, stderr: '', gitOperation: { commit: { sha: '9cd805a1b2c3', kind: 'amended' }, push: { branch: 'main' } } })
+    expect(both.map(cardText)).toEqual(['● amend 9cd805a · main · realce 0.3.0: tudo · 8 arquivos +120 −3', '↑ push main'])
+    expect(commitCards({ stdout: '', gitOperation: { pr: { number: 12, url: 'https://github.com/o/r/pull/12', action: 'created' } } }).map(cardText)).toEqual(['⇡ PR #12 criado · https://github.com/o/r/pull/12'])
+    expect(commitCards({ stdout: '', gitOperation: { branch: { ref: 'feat/x', action: 'merged' } } }).map(cardText)).toEqual(['⎇ mesclou feat/x'])
+    expect(commitCards({ stdout: 'ok' })).toEqual([])
+  })
+
+  const gitRow = (output: unknown, columns = 100) => ({
+    plugin: 'realce' as const,
+    surface: 'terminal' as const,
+    component: 'ToolUse' as const,
+    props: { tool_use_id: 'g1', tool: 'Bash', input: { command: 'git commit -m "realce 0.3.0: tudo"' }, isRunning: false, isErrored: false, isInterrupted: false, output },
+    viewport: { columns, rows: 40 },
+  })
+  const OUTPUT = { stdout: GIT_STDOUT, stderr: '', interrupted: false, gitOperation: { commit: { sha: '9cd805a1b2c3', kind: 'committed', branch: 'main' } } }
+
+  test('a Bash row with a git operation draws the card', async ($, on) => {
+    mock.store(on)
+    engineRow(on, 'ToolUse')
+    const ui = await $.ui.mount(gitRow(OUTPUT))
+    expect(await drawnText(ui, 'realce-tool')).toBe('● commit 9cd805a · main · realce 0.3.0: tudo · 8 arquivos +120 −3')
+  })
+
+  test('without a git operation, or with commits off, the command row', async ($, on) => {
+    mock.store(on, { flags: { commits: false } })
+    engineRow(on, 'ToolUse')
+    expect(await drawnText(await $.ui.mount(gitRow(OUTPUT)), 'realce-tool')).toMatch(/^▶ git commit/)
+  })
+
+  test('a folded group names the commit it holds', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    engineRow(on, 'ToolGroup')
+    on('tool.call', { tool: 'Bash' }, () => ({ result: OUTPUT }))
+    await $.tool.call({ tool: 'Bash', command: 'git commit -m x', tool_use_id: 'g1' })
+    const calls = [
+      { tool_use_id: 'p1', tool: 'Bash', input: { command: 'pytest' }, isRunning: false, isErrored: false, isInterrupted: false },
+      { tool_use_id: 'g1', tool: 'Bash', input: { command: 'git commit -m x' }, isRunning: false, isErrored: false, isInterrupted: false },
+    ]
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+    expect(await drawnText(ui, 'realce-group')).toBe('◇ Rodou 2 comandos · ● commit 9cd805a')
+  })
+
+  test('a group draw reads no state once the cards are known', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    engineRow(on, 'ToolGroup')
+    let reads = 0
+    on('state.get', ($, e, next) => {
+      if ((e as { key?: string }).key === 'commits' || (e as { key?: string }).key === 'explanations') reads++
+      return next(e)
+    })
+    on('tool.call', { tool: 'Bash' }, () => ({ result: OUTPUT }))
+    await $.tool.call({ tool: 'Bash', command: 'git commit -m x', tool_use_id: 'g1' })
+    const calls = [{ tool_use_id: 'g1', tool: 'Bash', input: { command: 'git commit -m x' }, isRunning: false, isErrored: false, isInterrupted: false }]
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+    const before = reads
+    for (let i = 0; i < 3; i++) await ui.redraw({ calls, isActive: false, isExpanded: false })
+    expect(reads - before).toBe(0)
+    expect(await drawnText(ui, 'realce-group')).toBe('◇ Rodou 1 comando · ● commit 9cd805a')
+  })
+
+  test('the card fits 40 columns on one line', async ($, on) => {
+    mock.store(on)
+    engineRow(on, 'ToolUse')
+    const ui = await $.ui.mount(gitRow(OUTPUT, 40))
+    const card = (await ui.findAll({ type: 'Text' })).find(t => t.text.startsWith('● commit'))
+    expect(card?.props.wrap).toBe('truncate-end')
+  })
+})
+
+const USAGE = { input_tokens: 120, output_tokens: 14, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+
+describe('error explained', () => {
+  type Ask = { model: string; system?: unknown; prompt: unknown; maxTokens?: number; timeoutMs?: number }
+
+  function explainWorld(on: On, answer: (req: Ask) => unknown) {
+    const asked: Ask[] = []
+    on('model.complete', ($, e) => {
+      asked.push(e as unknown as Ask)
+      const r = answer(e as unknown as Ask) as Record<string, unknown>
+      return ('deny' in r ? r : { value: r }) as never
+    })
+    on('tool.call', { tool: 'Bash' }, ($, e) => {
+      const command = String(e.command)
+      if (command.startsWith('grep') || command.startsWith('test ')) return { isError: true as const, result: 'Exit code 1', text: 'Exit code 1' }
+      if (command === 'quiet') return { isError: true as const, result: '', text: '' }
+      if (command === 'stopped') return { isError: true as const, result: { stdout: 'parcial', stderr: '', interrupted: true }, text: 'Interrompido' }
+      return { isError: true as const, result: `Exit code 1\n${command}: No such file or directory`, text: `Exit code 1\n${command}: No such file or directory` }
+    })
+    return asked
+  }
+
+  const failedRow = (id: string, command: string) => ({
+    plugin: 'realce' as const,
+    surface: 'terminal' as const,
+    component: 'ToolUse' as const,
+    requestId: id,
+    props: { tool_use_id: id, tool: 'Bash', input: { command }, isRunning: false, isErrored: true, isInterrupted: false },
+  })
+  const why = async (ui: { findAll: (q: { type: string }) => Promise<{ text: string }[]> }) => (await ui.findAll({ type: 'Text' })).map(t => t.text).find(t => t.startsWith('  ↳'))
+
+  test('a failed command gets one sentence', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    engineRow(on, 'ToolUse')
+    const asked = explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
+    await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
+    const ui = await $.ui.mount(failedRow('b1', 'cat sumiu.txt'))
+    expect(await why(ui)).toBe('  ↳ Explicando…')
+    await clock.settle()
+    expect(await why(ui)).toBe('  ↳ Por quê: O arquivo não existe.')
+    expect(asked).toHaveLength(1)
+    expect(asked[0]).toMatchObject({ model: 'haiku', maxTokens: 200, timeoutMs: 20000 })
+    expect(String(asked[0]!.system)).toContain('Explique em UMA frase curta, em português simples')
+    expect(String(asked[0]!.prompt)).toContain('cat sumiu.txt')
+  })
+
+  test('a folded group shows the sentence of its failed command', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    engineRow(on, 'ToolGroup')
+    explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
+    await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
+    await clock.settle()
+    const calls = [{ tool_use_id: 'b1', tool: 'Bash', input: { command: 'cat sumiu.txt' }, isRunning: false, isErrored: true, isInterrupted: false }]
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+    expect(await why(ui)).toBe('  ↳ Por quê: O arquivo não existe.')
+  })
+
+  test('a long answer is cut to two lines', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    engineRow(on, 'ToolUse')
+    explainWorld(on, () => ({ isAnswered: true, text: `O comando falhou ${'porque sim '.repeat(40)}`, usage: USAGE }))
+    await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
+    await clock.settle()
+    const line = (await why(await $.ui.mount(failedRow('b1', 'cat sumiu.txt')))) ?? ''
+    expect([...line].length).toBeLessThanOrEqual(2 + '↳ Por quê: '.length + 200)
+    expect(line.endsWith('…')).toBe(true)
+  })
+
+  test('an explanation a reload cut short says so', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    engineRow(on, 'ToolUse')
+    explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    on('config.list', () => ({ value: [] }))
+    on('session.start', () => ({ cwd: '/a/b' }))
+    mock.env(on, { HOME: '/Users/u' })
+    on('fs.exists', () => ({ value: false }))
+    await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    expect(await why(await $.ui.mount(failedRow('b1', 'cat sumiu.txt')))).toBe('  ↳ Sem explicação: interrompida ao recarregar o mod')
+  })
+
+  test('the same error is explained once', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
+    await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b2' })
+    await clock.settle()
+    expect(asked).toHaveLength(1)
+  })
+
+  test('the 21st error is not sent', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    for (let i = 0; i < 21; i++) await $.tool.call({ tool: 'Bash', command: `cat f${i}`, tool_use_id: `b${i}` })
+    await clock.settle()
+    expect(asked).toHaveLength(20)
+  })
+
+  test('a model failure says why, once', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    engineRow(on, 'ToolUse')
+    const asked = explainWorld(on, () => ({ isAnswered: false, reason: 'api-error', status: 529, error: { kind: 'overloaded' }, usage: USAGE }))
+    await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
+    await clock.settle()
+    expect(await why(await $.ui.mount(failedRow('b1', 'cat a')))).toBe('  ↳ Sem explicação: api-error')
+    expect(asked).toHaveLength(1)
+  })
+
+  test('a call that throws says why', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    engineRow(on, 'ToolUse')
+    explainWorld(on, () => ({ deny: 'sem rede' }))
+    await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
+    await clock.settle()
+    expect(await why(await $.ui.mount(failedRow('b1', 'cat a')))).toMatch(/^ {2}↳ Sem explicação: .*sem rede/)
+  })
+
+  test('answer-style failures are not explained', async ($, on) => {
+    mock.store(on)
+    const clock = mock.clock(on)
+    const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    for (const [i, command] of ['grep foo x.ts', 'test -f a && echo sim', 'quiet', 'stopped'].entries()) await $.tool.call({ tool: 'Bash', command, tool_use_id: `q${i}` })
+    await clock.settle()
+    expect(asked).toHaveLength(0)
+  })
+
+  test('erros off sends nothing', async ($, on) => {
+    mock.store(on, { flags: { erros: false } })
+    const clock = mock.clock(on)
+    const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
+    await clock.settle()
+    expect(asked).toHaveLength(0)
+  })
+})
+
+describe('focus mode', () => {
+  const row = (tool: string, input: unknown, state: Partial<{ isRunning: boolean; isErrored: boolean }> = {}, id = 'f1') => ({
+    plugin: 'realce' as const,
+    surface: 'terminal' as const,
+    component: 'ToolUse' as const,
+    requestId: id,
+    props: { tool_use_id: id, tool, input, isRunning: false, isErrored: false, isInterrupted: false, ...state },
+  })
+  const isHidden = async (ui: { find: (q: { key: string }) => Promise<unknown> }) => (await ui.find({ key: 'realce-hidden' })) !== undefined
+
+  test('foco hides a finished row and its result, keeps a running or failed one', async ($, on) => {
+    mock.store(on, { flags: { foco: true } })
+    engineRow(on, 'ToolUse')
+    engineRow(on, 'ToolResult')
+    expect(await isHidden(await $.ui.mount(row('Read', { file_path: '/a/b/x.ts' }, {}, 'r1')))).toBe(true)
+    expect(await isHidden(await $.ui.mount(row('Read', { file_path: '/a/b/x.ts' }, { isRunning: true }, 'r2')))).toBe(false)
+    expect(await isHidden(await $.ui.mount(row('Bash', { command: 'false' }, { isErrored: true }, 'r3')))).toBe(false)
+    expect(await isHidden(await $.ui.mount(row('Skill', { skill: 'x' }, {}, 'r4')))).toBe(true)
+    expect(await isHidden(await $.ui.mount(row('Skill', { skill: 'x' }, { isErrored: true }, 'r5')))).toBe(false)
+    const result = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolResult', requestId: 'r1', props: { tool_use_id: 'r1', tool: 'Read', output: {}, isErrored: false } })
+    expect(await isHidden(result)).toBe(true)
+    const failed = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolResult', requestId: 'r3', props: { tool_use_id: 'r3', tool: 'Bash', output: 'x', isErrored: true } })
+    expect(await failed.find({ text: 'engine' })).toBeDefined()
+  })
+
+  test('foco keeps an interrupted row', async ($, on) => {
+    mock.store(on, { flags: { foco: true } })
+    engineRow(on, 'ToolUse')
+    const ui = await $.ui.mount({ ...row('Bash', { command: 'sleep 9' }, {}, 'i1'), props: { ...row('Bash', { command: 'sleep 9' }, {}, 'i1').props, isInterrupted: true } })
+    expect(await isHidden(ui)).toBe(false)
+  })
+
+  test('foco hides a finished group, keeps one with an error', async ($, on) => {
+    mock.store(on, { flags: { foco: true } })
+    engineRow(on, 'ToolGroup')
+    const calls = [{ tool: 'Read', input: { file_path: '/x.ts' }, isRunning: false, isErrored: false, isInterrupted: false }]
+    expect(await isHidden(await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } }))).toBe(true)
+    const withError = [{ ...calls[0]!, isErrored: true }]
+    expect(await isHidden(await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', requestId: 'g2', props: { calls: withError, isActive: false, isExpanded: false } }))).toBe(false)
+  })
+
+  test('foco off draws as before', async ($, on) => {
+    mock.store(on)
+    engineRow(on, 'ToolUse')
+    expect(await isHidden(await $.ui.mount(row('Read', { file_path: '/a/b/x.ts' })))).toBe(false)
+  })
+
+  test('/realce foco toggles the mode', async ($, on) => {
+    mock.store(on)
+    const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }
+    on('ui.invalidate', () => ({ value: undefined }))
+    expect((await $.command.run({ ...RUN, args: 'foco' })).text).toBe('Modo foco ligado.')
+    expect((await $.command.run({ ...RUN, args: 'foco' })).text).toBe('Modo foco desligado.')
+  })
+})
+
+describe('proof seal', () => {
+  test('a claim of delivery is found, a negated one is not', () => {
+    for (const text of ['Pronto: 159 testes passam', '> [!FEITO] Publicado', 'Corrigido e testado.', 'Fixed the bug', 'Tudo verde agora.']) expect(claimsDone(text)).toBe(true)
+    for (const text of ['Ainda não está pronto', 'Vou rodar os testes.', 'not done yet', 'O que falta?', 'Não está corrigido ainda.']) expect(claimsDone(text)).toBe(false)
+  })
+
+  test('contracted, short and cross-sentence negations read right', () => {
+    for (const text of ["It isn't done yet.", "This isn't fixed.", "It hasn't been implemented.", 'Nem terminei.', 'Não sei se está pronto.', 'Nunca funcionando direito.']) expect(claimsDone(text)).toBe(false)
+    for (const text of ['Não encontrei erros. Pronto.', 'Os testes ainda passam.', 'Não achei nada estranho, está pronto.']) expect(claimsDone(text)).toBe(true)
+  })
+
+  test('the seal weighs the claim against the tests after the last edit', () => {
+    expect(sealOf({ hasEdits: true, testsSinceEdit: null, tests: PASSED }, 'Pronto.')).toBe('unproved')
+    expect(sealOf({ hasEdits: true, testsSinceEdit: FAILED, tests: FAILED }, 'Pronto.')).toBe('failing')
+    expect(sealOf({ hasEdits: true, testsSinceEdit: PASSED, tests: PASSED }, 'Pronto.')).toBe('proved')
+    expect(sealOf({ hasEdits: false, testsSinceEdit: null, tests: null }, 'Pronto.')).toBeNull()
+    expect(sealOf({ hasEdits: false, testsSinceEdit: PASSED, tests: PASSED }, 'Pronto.')).toBe('proved')
+    expect(sealOf({ hasEdits: true, testsSinceEdit: PASSED, tests: PASSED }, 'Vou olhar o resto.')).toBeNull()
+  })
+
+  async function turnWith($: Engine, on: On, calls: readonly object[], answer: string, flags: Record<string, boolean> = {}, columns = 100) {
+    mock.store(on, { flags })
+    mock.clock(on)
+    engineEvents(on)
+    engineRow(on, 'TurnDuration')
+    await $.prompt.submit({ text: 'oi', origin: { kind: 'composer' }, wait: false })
+    for (const call of calls) await $.tool.call(call as Parameters<Engine['tool']['call']>[0])
+    await $.turn.complete({ ...TURN, answer, durationMs: 7_000 })
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'TurnDuration', props: { word: 'Baked', durationMs: 7_000 }, viewport: { columns, rows: 40 } })
+    return (await drawnText(ui, 'realce-turn')) ?? ''
+  }
+
+  const EDIT = { tool: 'Edit', file_path: '/a/b/x.ts', old_string: 'a', new_string: 'b' }
+  const GREEN = { tool: 'Bash', command: 'pytest' }
+
+  test('an edit after the tests makes them stale', async ($, on) => {
+    expect(await turnWith($, on, [EDIT, GREEN, EDIT], 'Pronto.')).toContain('── 7s · ⚠ sem prova ·')
+  })
+
+  test('tests after the last edit prove it', async ($, on) => {
+    expect(await turnWith($, on, [EDIT, GREEN], 'Pronto.')).toContain('── 7s · ✔ provado ·')
+  })
+
+  test('a sed -i after the tests makes them stale', async ($, on) => {
+    on('tool.call', { tool: 'Bash', command: 'sed -i s/a/b/ x.ts' }, () => ({
+      result: { ...BASH_OK(''), bashEditDiff: { files: [{ filePath: '/a/b/x.ts', hunks: [] }], moreFiles: 0 } },
+    }))
+    expect(await turnWith($, on, [EDIT, GREEN, { tool: 'Bash', command: 'sed -i s/a/b/ x.ts' }], 'Pronto.')).toContain('⚠ sem prova')
+  })
+
+  test("a subagent's tests prove a subagent's edit", async ($, on) => {
+    expect(await turnWith($, on, [inSubagent(EDIT), inSubagent(GREEN)], 'Pronto.')).toContain('✔ provado')
+  })
+
+  test("a subagent's edit after the tests makes them stale", async ($, on) => {
+    expect(await turnWith($, on, [GREEN, inSubagent(EDIT)], 'Pronto.')).toContain('⚠ sem prova')
+  })
+
+  test('no claim, no seal', async ($, on) => {
+    expect(await turnWith($, on, [EDIT], 'Vou olhar o resto amanhã.')).not.toMatch(/provado|sem prova|afirmou/)
+  })
+
+  test('the seal survives a narrow rule', async ($, on) => {
+    const rule = await turnWith($, on, [EDIT, GREEN], 'Pronto.', {}, 30)
+    expect(rule).toContain('7s · ✔ provado')
+    expect([...rule].length).toBeLessThanOrEqual(28)
+  })
+
+  test('a failing seal keeps a short form on a narrow rule', async ($, on) => {
+    const rule = await turnWith($, on, [EDIT, { tool: 'Bash', command: 'npm test' }], 'Pronto.', {}, 40)
+    expect(rule).toContain('7s · ✖ falhando')
+    expect([...rule].length).toBeLessThanOrEqual(38)
+  })
+
+  test('selo on with separador off draws the seal alone', async ($, on) => {
+    expect(await turnWith($, on, [EDIT, GREEN], 'Pronto.', { separador: false }, 40)).toBe(`── ✔ provado ${'─'.repeat(25)}`)
+  })
+
+  test('selo off draws no seal', async ($, on) => {
+    expect(await turnWith($, on, [EDIT, GREEN], 'Pronto.', { selo: false })).not.toContain('provado')
   })
 })
 

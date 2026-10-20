@@ -1,9 +1,9 @@
 import type { RenderElement } from 'claude-code'
 
-import { BLOCK, CODE, CODE_BACKGROUND, FOLD_AT, FOLD_SHOW, PROSE } from '../palette'
+import { BG, BLOCK, CODE, FOLD_AT, FOLD_SHOW, PROSE } from '../palette'
 import type { Block } from '../text/blocks'
 import type { RenderCtx } from '../text/ctx'
-import { hashSource, imageCells, isMermaid } from './diagram'
+import { diagramHash, imageCells, isMermaid } from './diagram'
 import { highlight, isKnownLanguage } from './highlight'
 
 export type CodeBlock = Extract<Block, { type: 'code' }>
@@ -17,7 +17,7 @@ export function renderCodeBlock(ctx: RenderCtx, block: CodeBlock, index: number)
 /** A mermaid block: the picture once mmdc made it, else the code and where the picture stands. */
 function renderDiagram(ctx: RenderCtx, block: CodeBlock, index: number): RenderElement {
   const { Box, Text, Image } = ctx.t
-  const diagram = ctx.diagrams[hashSource(block.source)]
+  const diagram = ctx.diagrams[diagramHash(block.source)]
   if (diagram?.status === 'ready') {
     const { columns, rows } = imageCells(diagram, Math.max(1, ctx.columns - 2))
     return <Image source={{ file: diagram.file, format: 'png' }} alt="Diagrama" columns={columns} rows={rows} />
@@ -75,7 +75,7 @@ function renderCode(ctx: RenderCtx, block: CodeBlock, index: number): RenderElem
     )
   }
   return (
-    <Box flexDirection="column" backgroundColor={CODE_BACKGROUND} paddingX={1}>
+    <Box flexDirection="column" {...(BG.code === undefined ? {} : { backgroundColor: BG.code })} paddingX={1}>
       {header}
       {highlight(shown, block.language).map(line => (
         <Text>

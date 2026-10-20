@@ -1,12 +1,20 @@
 import type { EngineInterface, On } from 'claude-code'
 
-import { FLAG_GROUPS, FLAGS, getStoredFlags, isMasterOn, setFlag } from '../flags'
+import { FLAG_GROUPS, FLAGS, getStoredFlags, isMasterOn, setFlag, type FlagId } from '../flags'
+import { refreshTheme } from '../theme'
 import { timed } from '../perf'
 
 export const FLAGS_PANE = 'realce-flags'
 
-// One letter per flag, in the table's order: a press of it toggles that flag while the pane holds the keys.
-const HOTKEYS = 'abcdefghijklmnopqrs'
+// One key per flag, in the table's order: a press of it toggles that flag while the pane holds the keys. The
+// engine takes one lowercase letter or one digit: 36 keys, one for each flag.
+const HOTKEYS = 'abcdefghijklmnopqrstuvwxyz0123456789'
+
+async function toggleFlag($: EngineInterface, id: FlagId, value: boolean): Promise<void> {
+  await setFlag($, id, value)
+  // The theme is read once per change of it: turning tema over repaints now.
+  if (id === 'tema') await refreshTheme($)
+}
 
 export async function openFlagsPane($: EngineInterface): Promise<void> {
   await $.ui.open({ id: FLAGS_PANE, title: 'Realce', focus: true, closeOnEscape: true })
@@ -24,7 +32,13 @@ export function registerFlagsPane(on: On): void {
           <Box flexDirection="column" marginTop={1}>
             <Text color="#24D3E0">{group}</Text>
             {FLAGS.filter(f => f.group === group).map(f => (
-              <Button key={`flag-${f.id}`} plain hotkey={HOTKEYS[FLAGS.indexOf(f)]} onPress={() => setFlag($, f.id, !flags[f.id])}>
+              <Button
+                key={`flag-${f.id}`}
+                plain
+                hotkey={HOTKEYS[FLAGS.indexOf(f)]}
+                {...(FLAGS.indexOf(f) === 0 ? { autoFocus: true as const } : {})}
+                onPress={() => toggleFlag($, f.id, !flags[f.id])}
+              >
                 {flags[f.id] ? '[x] ' : '[ ] '}
                 {f.label}
                 <Text dimColor> · {f.description}</Text>
@@ -33,7 +47,7 @@ export function registerFlagsPane(on: On): void {
           </Box>
         ))}
         <Box marginTop={1}>
-          <Text dimColor>Esc fecha · a letra alterna</Text>
+          <Text dimColor>Letra ou número alterna · Tab e Enter também · Esc fecha</Text>
         </Box>
       </Box>
     )

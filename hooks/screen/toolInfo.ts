@@ -47,6 +47,20 @@ export function editCounts(tool: string, input: unknown, output?: unknown): Edit
   }
 }
 
+/** Whether a Bash call changed files in the working tree (`sed -i`, a heredoc, a formatter), as the engine saw it. */
+export function hasBashEdits(output: unknown): boolean {
+  const diff = asRecord(asRecord(output).bashEditDiff)
+  const files = Array.isArray(diff.files) ? diff.files.length : 0
+  const changed = Array.isArray(diff.changedFiles) ? diff.changedFiles.length : 0
+  return files + changed + (typeof diff.moreFiles === 'number' ? diff.moreFiles : 0) > 0
+}
+
+/** The line that says what went wrong: the output's last, past the engine's "Exit code N", at most 300 characters. */
+export function failureLine(text: string): string {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l !== '' && !/^Exit code \d+$/.test(l))
+  return (lines[lines.length - 1] ?? '').slice(0, 300)
+}
+
 /** What a Bash call printed: the stored record's streams, or the text the model read when it errored. */
 export function bashText(output: unknown): string {
   if (typeof output === 'string') return output

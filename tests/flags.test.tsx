@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On, PromptComposeInput, RenderPropsOf } from 'claude-code'
 
-import { FLAGS, type Flags } from '../hooks/flags'
+import { featureOff, FLAGS, type Flags } from '../hooks/flags'
 import { formatClock, formatDuration, parseTzOffset, plural } from '../hooks/format'
 import { buildSection } from '../hooks/prompt'
 
@@ -22,11 +22,11 @@ const allFlags = (value: boolean) => Object.fromEntries(FLAGS.map(f => [f.id, va
 const baseSections = (on: On) => on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'base', scope: 'shared' as const }] }))
 
 describe('commands', () => {
-  test('every flag starts on', async ($, on) => {
+  test('every flag starts on except foco and som', async ($, on) => {
     mock.store(on)
     mock.clock(on)
     baseSections(on)
-    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: nenhum\./)
+    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Modo foco, Som nos avisos\./)
   })
 
   test('/realce coluna off turns one flag off', async ($, on) => {
@@ -34,7 +34,7 @@ describe('commands', () => {
     mock.clock(on)
     baseSections(on)
     expect((await $.command.run({ ...RUN, args: 'coluna off' })).text).toBe('Desligado: Coluna de leitura.')
-    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Coluna de leitura\./)
+    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Coluna de leitura, Modo foco, Som nos avisos\./)
   })
 
   test('/realce off and on keep each flag as it was', async ($, on) => {
@@ -53,7 +53,7 @@ describe('commands', () => {
   test('/realce with anything else answers the usage', async ($, on) => {
     mock.store(on)
     const text = (await $.command.run({ ...RUN, args: 'xyz' })).text ?? ''
-    expect(text).toMatch(/^Uso: \/realce \[on\|off\|status\|painel\|<recurso> on\|off\]/)
+    expect(text).toMatch(/^Uso: \/realce \[on\|off\|status\|painel\|foco\|explica\|fixar\|print\|demo\|<recurso> on\|off\]/)
     expect(text).toMatch(/coluna/)
   })
 
@@ -100,10 +100,37 @@ describe('flags pane', () => {
     expect(await label('flag-coluna')).toBe('[ ] Coluna de leitura · Prosa limitada a 100 colunas')
   })
 
+  test('the pane lists 36 flags under 5 groups, each on its own key', async ($, on) => {
+    mock.store(on)
+    on('prompt.compose', () => ({ sections: [] }))
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
+    for (const group of ['Texto', 'Código', 'Ferramentas', 'Orientação', 'Sistema']) expect(await ui.find({ type: 'Text', text: group })).toBeDefined()
+    expect(await ui.find({ key: 'flag-atualizacao' })).toBeDefined()
+    const buttons = await ui.findAll({ type: 'Button' })
+    expect(buttons).toHaveLength(36)
+    expect(new Set(buttons.map(b => b.props.hotkey)).size).toBe(36)
+    expect(await ui.find({ type: 'Text', text: 'Letra ou número alterna · Tab e Enter também · Esc fecha' })).toBeDefined()
+  })
+
+  test('pressing a new flag toggles it', async ($, on) => {
+    mock.store(on)
+    mock.clock(on)
+    on('prompt.compose', () => ({ sections: [] }))
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
+    await ui.press({ key: 'flag-selo' })
+    expect((await $.command.run({ ...RUN, args: 'status' })).text).toMatch(/Recursos desligados: Selo de prova, Modo foco/)
+  })
+
   test('with the master off the pane says so', async ($, on) => {
     mock.store(on, { master: false })
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
     expect(await ui.find({ type: 'Text', text: 'Realce desligado: /realce on liga.' })).toBeDefined()
+  })
+})
+
+describe('feature commands', () => {
+  test('a feature that is off says how to turn it on', () => {
+    expect(featureOff('explica')).toBe('Recurso desligado: Explica isso. /realce explica on liga.')
   })
 })
 
@@ -176,7 +203,8 @@ describe('session env', () => {
         isStderrTruncated: false,
       },
     }))
-    on('session.start', () => ({ cwd: '/a/b' }))
+    on('config.list', () => ({ value: [] }))
+  on('session.start', () => ({ cwd: '/a/b' }))
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
     const text = (await $.command.run({ ...RUN, args: 'status' })).text ?? ''
     expect(text).toMatch(/Editor dos links: cursor\. Diagramas: mmdc em \/opt\/homebrew\/bin\/mmdc\./)

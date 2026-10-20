@@ -3,6 +3,9 @@ import type { EngineInterface, On, PromptComposeSection } from 'claude-code'
 
 import { findMermaid } from './env'
 import { FLAGS, getFlags, getStoredFlags, isMasterOn, type Flags } from './flags'
+import { lastNotifyFailure } from './orient/notify'
+import { updateStatus } from './system/update'
+import { currentTheme, type ThemeKind } from './theme'
 import { perfLines } from './perf'
 
 const ENV = atom({ plugin: 'realce', key: 'env' } as const, null)
@@ -78,6 +81,15 @@ export function registerPrompt(on: On): void {
   })
 }
 
+const THEME_NAMES: Record<ThemeKind, string> = {
+  dark: 'escuro',
+  light: 'claro',
+  'dark-cb': 'escuro para daltônicos',
+  'light-cb': 'claro para daltônicos',
+  'dark-ansi': 'ANSI escuro',
+  'light-ansi': 'ANSI claro',
+}
+
 export async function status($: EngineInterface): Promise<string> {
   const last = lastCompose
   const stored = await getStoredFlags($)
@@ -94,6 +106,9 @@ export async function status($: EngineInterface): Promise<string> {
     env === null
       ? 'Ambiente da sessão: ainda não lido.'
       : `Editor dos links: ${env.editor}. Diagramas: ${env.mmdc === null ? 'mmdc não encontrado' : `mmdc em ${env.mmdc}`}.`,
+    `Cores: tema ${THEME_NAMES[currentTheme()]}.`,
+    ...(lastNotifyFailure() === null ? [] : [`Último aviso não enviado: ${lastNotifyFailure()}.`]),
+    ...(updateStatus() === null ? [] : [updateStatus()!]),
     ...perfLines(),
   ].join('\n')
 }

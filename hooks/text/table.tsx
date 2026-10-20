@@ -1,6 +1,6 @@
 import type { RenderElement } from 'claude-code'
 
-import { TABLE } from '../palette'
+import { BG, TABLE } from '../palette'
 import type { RenderCtx } from './ctx'
 import { parseInline, plainText, type Span } from './inline'
 import { drawSpans, inlineOpts } from './render'
@@ -178,7 +178,7 @@ export function renderTable(ctx: RenderCtx, table: ParsedTable, key = 'table'): 
         {head.map((label, j) => cell(j, <Text {...TABLE.header}>{label}</Text>))}
       </Box>
       {body.map((row, i) => (
-        <Box key={`${key}-row-${i}`} flexDirection="row" width={total} {...(i % 2 === 1 ? { backgroundColor: TABLE.zebra } : {})}>
+        <Box key={`${key}-row-${i}`} flexDirection="row" width={total} {...(i % 2 === 1 ? { backgroundColor: BG.zebra } : {})}>
           {row.map((spans, j) => cell(j, <Text>{spans.length === 0 ? ' ' : drawSpans(ctx, spans)}</Text>))}
         </Box>
       ))}

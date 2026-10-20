@@ -17,6 +17,11 @@ const ENV = atom({ plugin: 'realce', key: 'env' } as const, null)
  * short mid-render. A PNG already in the cache comes back without running mmdc.
  */
 export async function codeSessionStart($: EngineInterface, e: Args<'session.start'>): Promise<void> {
+  await queueTranscriptDiagrams($)
+}
+
+/** Every diagram in the transcript not yet drawn for the theme in force: at start, and after a theme change. */
+export async function queueTranscriptDiagrams($: EngineInterface): Promise<void> {
   if (!(await getFlags($)).diagramas) return
   const env = await read($, ENV)
   if (env === null || env.mmdc === null) return

@@ -18,7 +18,7 @@ const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
 const FOLDS = { plugin: 'realce', key: 'folds' } as const
 
 // With all of these off the reply is the engine's own drawing.
-const REPLY_FLAGS: readonly FlagId[] = ['enfase', 'coluna', 'callouts', 'tabelas', 'deltas', 'respiro', 'highlight', 'copiar', 'dobrar', 'caminhos', 'diagramas']
+const REPLY_FLAGS: readonly FlagId[] = ['enfase', 'coluna', 'callouts', 'tabelas', 'deltas', 'respiro', 'highlight', 'copiar', 'dobrar', 'caminhos', 'diagramas', 'numeros']
 
 export function registerText(on: On): void {
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => timed('AssistantMessage', async () => {

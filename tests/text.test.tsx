@@ -3,6 +3,7 @@ import type { On } from 'claude-code'
 
 import { calloutKind, parseBlocks } from '../hooks/text/blocks'
 import { findDeltas, parseNumber } from '../hooks/text/deltas'
+import { humanizeAmount } from '../hooks/format'
 import { parseInline, toPlainMarkdown } from '../hooks/text/inline'
 import { cellWidth, fitColumns, isNumericColumn, parseTable } from '../hooks/text/table'
 
@@ -408,5 +409,40 @@ describe('breathing room', () => {
     mock.store(on, { flags: { respiro: false } })
     const ui = await mountList($, `- ${LONG}\n- ${LONG}`)
     expect((await ui.find({ key: 'block-1' }))?.props.marginTop).toBe(0)
+  })
+})
+
+describe('human numbers', () => {
+  test('a raw amount gets its human reading', () => {
+    expect(humanizeAmount(102_761, 'ms')).toBe('1m 42s')
+    expect(humanizeAmount(12_000, 'ms')).toBe('12s')
+    expect(humanizeAmount(850, 'ms')).toBeNull()
+    expect(humanizeAmount(9_999, 'ms')).toBeNull()
+    expect(humanizeAmount(95, 's')).toBe('1m 35s')
+    expect(humanizeAmount(45, 's')).toBeNull()
+    expect(humanizeAmount(15_360, 'bytes')).toBe('15 KB')
+    expect(humanizeAmount(1_572_864, 'B')).toBe('1,5 MB')
+    expect(humanizeAmount(73_201, 'tokens')).toBe('73,2 mil')
+    expect(humanizeAmount(1_250_000, 'tokens')).toBe('1,3 mi')
+    expect(humanizeAmount(9_999, 'tokens')).toBeNull()
+  })
+
+  test('the reading rides beside the number, after its unit', () => {
+    const spans = parseInline('levou 102761 ms no total', [], true, { numeros: true })
+    const at = spans.findIndex(s => s.kinds.includes('aside'))
+    expect(spans[at]?.text).toBe(' (1m 42s)')
+    expect(spans.slice(0, at).map(s => s.text).join('')).toBe('levou 102761 ms')
+    expect(spans.map(s => s.text).join('')).toBe('levou 102761 ms (1m 42s) no total')
+    expect(parseInline('gastou 73201 tokens', [], true, { numeros: true }).some(s => s.text === ' (73,2 mil)')).toBe(true)
+    expect(parseInline('levou 102761ms', [], true, { numeros: true }).some(s => s.text === ' (1m 42s)')).toBe(true)
+  })
+
+  test('a number that already says its reading gets no second one', () => {
+    expect(parseInline('levou 102761 ms (1m 42s)', [], true, { numeros: true }).some(s => s.kinds.includes('aside'))).toBe(false)
+  })
+
+  test('numeros off, or a number in code, is left alone', () => {
+    expect(parseInline('levou 102761 ms', [], true, { numeros: false }).some(s => s.kinds.includes('aside'))).toBe(false)
+    expect(parseInline('`102761 ms`', [], true, { numeros: true }).some(s => s.kinds.includes('aside'))).toBe(false)
   })
 })
