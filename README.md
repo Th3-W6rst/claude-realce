@@ -75,6 +75,12 @@ A **turn** is one message of yours and everything Claude does until it answers.
 
 ## In a session
 
+![A turn recorded in a real session](images/session.gif)
+
+*A turn recorded in a real session (Claude Code 2.1.304, sped up while Claude thinks;
+[MP4](images/session.mp4)): the tool rows with the word diff and the test score, the reply colored by meaning, the
+rule that closes the turn with its proof seal, the detailed transcript (ctrl+o) and the session pane.*
+
 ![A session where Claude fixes a failing test](images/session.png)
 
 *A real session in Ghostty, on a small test project: the reply colored by meaning, the rule that closes the turn, and
