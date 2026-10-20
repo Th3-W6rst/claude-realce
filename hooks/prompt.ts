@@ -4,7 +4,7 @@ import type { EngineInterface, On, PromptComposeSection } from 'claude-code'
 import { findMermaid } from './env'
 import { FLAGS, getFlags, getStoredFlags, isMasterOn, type Flags } from './flags'
 import { lastNotifyFailure, lastNotifyWasBanner } from './orient/notify'
-import { updateStatus } from './system/update'
+import { localVersion, updateStatus } from './system/update'
 import { explanationsSent } from './screen/explainError'
 import { currentTheme, type ThemeKind } from './theme'
 import { perfLines } from './perf'
@@ -104,8 +104,11 @@ export async function status($: EngineInterface, isFullscreen?: boolean): Promis
   const off = FLAGS.filter(f => !stored[f.id]).map(f => f.label)
   const env = await read($, ENV)
   const { sections } = await $.prompt.compose()
+  // Always said, for whoever reports a problem: the update line comes only on the day the check runs.
+  const version = await localVersion($)
   return [
     `Realce ${(await isMasterOn($)) ? 'ligado' : 'desligado'}.`,
+    ...(version === null ? [] : [`Versão instalada: ${version}.`]),
     `Recursos desligados: ${off.length === 0 ? 'nenhum' : off.join(', ')}.`,
     `System prompt montado agora: ${sections.some(s => s.id === SECTION_ID) ? 'leva' : 'não leva'} a seção de leitura.`,
     last === undefined

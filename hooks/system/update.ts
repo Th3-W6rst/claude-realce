@@ -34,7 +34,7 @@ const versionOf = (json: string): string | null => {
 }
 
 /** The installed copy's version: plugin.json under the plugin's directory, where this mod keeps it. */
-async function localVersion($: EngineInterface): Promise<string | null> {
+export async function localVersion($: EngineInterface): Promise<string | null> {
   for (const path of [`${$.plugin.root}/.claude-plugin/plugin.json`, `${$.plugin.root}/plugin.json`]) {
     try {
       return versionOf(await $.fs.read(path))

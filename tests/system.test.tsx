@@ -367,6 +367,8 @@ describe('update notice', () => {
     await start($)
     await clock.settle()
     expect(fetched).toEqual([])
+    // With no check this load, the status still says which version runs.
+    expect(await status($)).toContain('Versão instalada: 0.4.0.')
   })
 
   test('a network failure shows only in status', async ($, on) => {

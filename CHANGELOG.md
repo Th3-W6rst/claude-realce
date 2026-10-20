@@ -2,6 +2,10 @@
 
 Versões de 19 e 20/10/2026. As que só mudaram coisas internas não aparecem.
 
+## 0.4.40
+- `/realce status` diz sempre a versão instalada (bom para reportar um problema).
+- README: quando uma seta ganha diferença.
+
 ## 0.4.39
 - "(última: …)" reconhece o mesmo teste com `CI=1`, `timeout 120` ou a saída redirecionada (`> saida.log`).
 - O porquê no `/realce resumo` some com a flag `erros` desligada, como no painel.
