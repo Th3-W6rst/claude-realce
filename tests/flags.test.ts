@@ -110,7 +110,7 @@ describe('commands', () => {
   test('/realce with anything else answers the usage', async ($, on) => {
     mock.store(on, PT)
     const text = (await $.command.run({ ...RUN, args: 'xyz' })).text ?? ''
-    expect(text).toMatch(/^Uso: \/realce \[ajuda\|diagnostico\|on\|off\|status\|painel\|copiar\|resumo\|foco\|explica\|fixar\|print\|demo\|idioma\|<recurso> on\|off\]/)
+    expect(text).toMatch(/^Uso: \/realce \[ajuda\|diagnostico\|on\|off\|status\|painel\|pergunta\|copiar\|resumo\|foco\|explica\|fixar\|print\|demo\|idioma\|<recurso> on\|off\]/)
     expect(text).toMatch(/coluna/)
   })
 
@@ -157,15 +157,15 @@ describe('flags pane', () => {
     expect(await label('flag-coluna')).toBe('[ ] Coluna de leitura · Prosa limitada a 100 colunas')
   })
 
-  test('the pane lists 38 flags under 5 groups, 36 of them on a key', async ($, on) => {
+  test('the pane lists 39 flags under 5 groups, 36 of them on a key', async ($, on) => {
     mock.store(on, PT)
     on('prompt.compose', () => ({ sections: [] }))
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-flags', props: PANE })
     for (const group of ['Texto', 'Código', 'Ferramentas', 'Orientação', 'Sistema']) expect(await ui.find({ type: 'Text', text: group })).toBeDefined()
     expect(await ui.find({ key: 'flag-atualizacao' })).toBeDefined()
     const buttons = (await ui.findAll({ type: 'Button' })).filter(b => b.key?.startsWith('flag-'))
-    expect(buttons).toHaveLength(38)
-    // The engine takes 36 keys (a–z, 0–9): the 37th flag is reached with Tab and Enter.
+    expect(buttons).toHaveLength(39)
+    // The engine takes 36 keys (a–z, 0–9): the 37th flag on is reached with Tab and Enter.
     expect(new Set(buttons.map(b => b.props.hotkey).filter(k => k !== undefined)).size).toBe(36)
     expect(await ui.find({ type: 'Text', text: 'Letra ou número alterna · Tab e Enter também · Esc fecha' })).toBeDefined()
   })

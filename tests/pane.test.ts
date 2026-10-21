@@ -30,16 +30,23 @@ describe('session pane', () => {
     await clock.advance(2000)
     const ui = await mountPane($)
     const texts = (await ui.findAll({ type: 'Text' })).map(el => el.text)
-    expect(texts).toContain('Plano 0/2')
+    expect(texts).toContain('Plano 0/2 ▱▱▱▱▱▱▱▱▱▱')
     expect(texts).toContain('▸ Escrevendo testes')
     expect(texts).toContain('○ Implementar')
     expect(texts).toContain('• o GO para subir')
-    expect(texts).toContain('Arquivos (2)')
-    expect(texts.indexOf('hooks/x.ts +3 −1')).toBeLessThan(texts.indexOf('old.ts +1 −0'))
-    expect(texts).toContain('npm test')
+    expect(texts).toContain('✗ npm test')
     expect(texts).toContain('2 failing')
+    // The overview keeps the agents still at work; the finished ones are a count.
     const rows = texts.filter(t => t.startsWith('◆ ') && t.length > 2)
-    expect(rows).toEqual(['◆ Revisar desenho · Explore · Rodando · desde 15:41', '◆ Varrer docs · general-purpose · Concluído · desde 15:41'])
+    expect(rows).toEqual(['◆ Revisar desenho · Explore · Rodando · desde 15:41'])
+    expect(texts).toContain('+1 concluídos')
+    // A row per other tab, under its digit: a button there would vanish under its own press and drop the focus.
+    expect(texts).toContain('3 · Arquivos (2) · +4 −1')
+    expect(await ui.find({ key: 'see-files' })).toBeUndefined()
+    await ui.press({ key: 'tab-files' })
+    const tab = (await ui.findAll({ type: 'Text' })).map(el => el.text)
+    expect(tab).toContain('Arquivos (2) · +4 −1')
+    expect(tab.indexOf('hooks/x.ts +3 −1')).toBeLessThan(tab.indexOf('old.ts +1 −0'))
     expect(logs).toEqual([])
   })
 
@@ -82,6 +89,7 @@ describe('session pane', () => {
       value: { value: [{ path: '/x/uma/pasta/bem/funda/arquivo.ts', added: 12, removed: 3, edits: 1, at: 1 }], version: 1 },
     }))
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-sessao', props: { ...PANE, bodyColumns: 24 } })
+    await ui.press({ key: 'tab-files' })
     const texts = (await ui.findAll({ type: 'Text' })).map(el => el.text)
     expect(texts).toContain('…funda/arquivo.ts +12 −3')
     for (const t of texts) expect([...t].length).toBeLessThanOrEqual(24)
@@ -175,11 +183,19 @@ describe('pane links', () => {
     await $.tool.call({ tool: 'Edit', file_path: '/a/b/x.ts', old_string: 'a', new_string: 'b' })
     await $.tool.call({ tool: 'Bash', command: 'npm test', tool_use_id: 'b1' })
     const ui = await mountPane($)
+    expect((await ui.find({ key: 'fail-b1' }))?.type).toBe('Button')
+    await ui.press({ key: 'tab-files' })
     const links = (await ui.findAll({ type: 'Link' })).map(l => l.props.href)
     expect(links).toContain('file:///a/b/x.ts')
-    expect((await ui.find({ key: 'fail-b1' }))?.type).toBe('Button')
   })
 })
+
+// The session pane open on its Turns tab: the timeline and the pins.
+async function turnsPane($: Engine) {
+  const ui = await mountPane($)
+  await ui.press({ key: 'tab-turns' })
+  return ui
+}
 
 describe('timeline', () => {
   async function promptRow($: Engine, text: string, uuid: string) {
@@ -194,7 +210,7 @@ describe('timeline', () => {
     startStandIns(on)
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
     await promptRow($, 'Renomeia o parâmetro b', 'u1')
-    const ui = await mountPane($)
+    const ui = await turnsPane($)
     expect((await ui.find({ key: 'turn-u1' }))?.text).toBe('20:41 · Renomeia o parâmetro b')
     await $.turn.complete({ answer: 'Feito.', durationMs: 12_000, isAborted: false, turnId: 't1', reason: 'answer' })
     expect((await ui.find({ key: 'turn-u1' }))?.text).toBe('20:41 · 12s · Renomeia o parâmetro b')
@@ -207,7 +223,7 @@ describe('timeline', () => {
     mock.clock(on)
     engine(on)
     await promptRow($, 'oi', 'u7')
-    const row = await (await mountPane($)).find({ key: 'turn-u7' })
+    const row = await (await turnsPane($)).find({ key: 'turn-u7' })
     expect(row?.type).toBe('Button')
   })
 
@@ -219,7 +235,7 @@ describe('timeline', () => {
     await $.prompt.submit({ text: 'e mais isso', origin: { kind: 'composer' }, wait: false, turnId: 'running' })
     await $.session.append({ message: { type: 'user', role: 'user', content: [{ type: 'text', text: 'e mais isso' }] }, door: 'prompt', origin: { kind: 'composer' }, uuid: 'u2' })
     await $.turn.complete({ answer: 'ok', durationMs: 9_000, isAborted: false, turnId: 't1', reason: 'answer' })
-    const ui = await mountPane($)
+    const ui = await turnsPane($)
     expect(await ui.find({ key: 'turn-u2' })).toBeUndefined()
     expect((await ui.find({ key: 'turn-u1' }))?.text).toBe('9s · primeiro')
   })
@@ -232,7 +248,7 @@ describe('timeline', () => {
     const framed = 'The realce plugin sent a message:\nDemonstração do realce\n\nThis is how Claude Code surfaces a prompt a plugin submits between turns.'
     await $.prompt.submit({ text: 'Demonstração do realce', origin: { kind: 'composer' }, wait: false })
     await $.session.append({ message: { type: 'user', role: 'user', content: [{ type: 'text', text: framed }] }, door: 'prompt', origin: { kind: 'composer' }, uuid: 'p1' })
-    expect((await (await mountPane($)).find({ key: 'turn-p1' }))?.text).toBe('realce: Demonstração do realce')
+    expect((await (await turnsPane($)).find({ key: 'turn-p1' }))?.text).toBe('realce: Demonstração do realce')
   })
 
   test('a refused scroll says why', () => {
@@ -246,7 +262,7 @@ describe('timeline', () => {
     mock.clock(on)
     engine(on)
     await $.session.append({ message: { type: 'user', role: 'user', isMeta: true, content: [{ type: 'text', text: 'lembrete' }] }, door: 'prompt', origin: { kind: 'composer' }, uuid: 'm1' })
-    expect(await (await mountPane($)).find({ key: 'turn-m1' })).toBeUndefined()
+    expect(await (await turnsPane($)).find({ key: 'turn-m1' })).toBeUndefined()
   })
 
   test('linha off hides the section', async ($, on) => {
@@ -254,7 +270,7 @@ describe('timeline', () => {
     mock.clock(on)
     engine(on)
     await promptRow($, 'oi', 'u1')
-    expect(await (await mountPane($)).find({ key: 'turn-u1' })).toBeUndefined()
+    expect(await (await turnsPane($)).find({ key: 'turn-u1' })).toBeUndefined()
   })
 })
 
@@ -283,7 +299,7 @@ describe('pins', () => {
     await reply($, 'Primeira resposta\nmais', 'a1')
     await reply($, 'Resposta importante sobre o deploy', 'a2')
     expect((await $.command.run({ ...RUN, args: 'fixar' })).text).toBe('Resposta fixada.')
-    const ui = await mountPane($)
+    const ui = await turnsPane($)
     expect((await ui.find({ key: 'pin-a2' }))?.text).toMatch(/Resposta importante sobre o deploy$/)
     expect((await ui.find({ key: 'pin-a2' }))?.type).toBe('Button')
     expect((await $.command.run({ ...RUN, args: 'fixar' })).text).toBe('Resposta desafixada.')
@@ -297,7 +313,7 @@ describe('pins', () => {
     await reply($, 'Primeira resposta', 'a1')
     await reply($, 'Segunda', 'a2')
     await $.command.run({ ...RUN, args: 'fixar' })
-    const ui = await mountPane($)
+    const ui = await turnsPane($)
     expect(await ui.find({ key: 'pin-a1' })).toBeDefined()
     expect(await ui.find({ key: 'pin-a2' })).toBeUndefined()
   })
@@ -343,17 +359,18 @@ describe('explain this', () => {
     const clock = mock.clock(on)
     const asked = explainWorld(on, { text: 'ui.blit repinta um Raster' })
     expect((await $.command.run({ ...RUN, args: 'explica' })).text).toBe('Explicando no painel.')
+    // The pane opens on the Agent tab, the excerpt as the question.
     const ui = await mountPane($)
     expect(await ui.find({ text: 'Explicando…' })).toBeDefined()
+    expect(await ui.find({ text: '› ui.blit repinta um Raster' })).toBeDefined()
     await clock.settle()
     expect(asked[0]).toMatchObject({ model: 'haiku', maxTokens: 400, timeoutMs: 30000 })
     expect(String(asked[0]!.system)).toBe('Explique em português simples, em até 4 frases, para quem não é especialista.')
     expect(String(asked[0]!.prompt)).toBe('ui.blit repinta um Raster')
-    expect(await ui.find({ text: 'Explicação' })).toBeDefined()
-    expect(await ui.find({ text: 'É uma forma de repintar só um pedaço.' })).toBeDefined()
+    expect((await ui.findAll({ type: 'Markdown' })).map(m => m.props.text)).toEqual(['É uma forma de repintar só um pedaço.'])
   })
 
-  test('a late answer to an older request does not replace the newer one', async ($, on) => {
+  test('a late answer lands under its own question, not the newer one', async ($, on) => {
     mock.store(on, PT)
     const clock = mock.clock(on)
     let selection = { text: 'primeiro' }
@@ -373,19 +390,21 @@ describe('explain this', () => {
     release({ value: { isAnswered: true, text: 'Resposta do primeiro.', usage: USAGE } })
     await clock.settle()
     const ui = await mountPane($)
-    expect(await ui.find({ text: 'Resposta do segundo.' })).toBeDefined()
-    expect(await ui.find({ text: 'Resposta do primeiro.' })).toBeUndefined()
+    const answers = (await ui.findAll({ type: 'Markdown' })).map(m => m.props.text)
+    expect(answers).toEqual(['Resposta do primeiro.', 'Resposta do segundo.'])
+    const questions = (await ui.findAll({ type: 'Text' })).map(el => el.text).filter(t => t.startsWith('› ') && t.length > 2)
+    expect(questions).toEqual(['› primeiro', '› segundo'])
   })
 
-  test('the explanation closes from the pane', async ($, on) => {
+  test('Clear empties the history from the pane', async ($, on) => {
     mock.store(on, PT)
     const clock = mock.clock(on)
     explainWorld(on, { text: 'abc' })
     await $.command.run({ ...RUN, args: 'explica' })
     await clock.settle()
     const ui = await mountPane($)
-    await ui.press({ key: 'close-explain' })
-    expect(await ui.find({ text: 'Explicação' })).toBeUndefined()
+    await ui.press({ key: 'clear-chat' })
+    expect(await ui.find({ text: '› abc' })).toBeUndefined()
   })
 
   test('a long selection is cut to 4000 characters', async ($, on) => {
@@ -403,7 +422,7 @@ describe('explain this', () => {
     explainWorld(on, { text: 'abc' }, { isAnswered: false, reason: 'empty-reply', usage: USAGE })
     await $.command.run({ ...RUN, args: 'explica' })
     await clock.settle()
-    expect(await (await mountPane($)).find({ text: 'Sem explicação: empty-reply' })).toBeDefined()
+    expect(await (await mountPane($)).find({ text: 'Sem resposta: empty-reply' })).toBeDefined()
   })
 
   test('explica off says how to turn it on', async ($, on) => {

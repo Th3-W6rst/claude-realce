@@ -10,7 +10,8 @@ at once:
 - tools readable at a glance, and a **proof seal** that says whether what Claude claimed was tested;
 - a spinner that says what is running ("Running the tests (last: 25s)"), and, if you want it, why each failed command
   failed;
-- notices when Claude is done or asks something, and a pane with the session's usage, timeline and files.
+- notices when Claude is done or asks something, and a session pane in tabs (overview, agent, files, turns) with an
+  **agent** you ask about the session without stopping Claude, its answer one press away from the chat.
 
 The interface follows Claude Code's language: English, or Portuguese for whoever set Claude Code to Portuguese
 (`/realce language en|pt|auto` picks one).
@@ -20,7 +21,7 @@ The interface follows Claude Code's language: English, or Portuguese for whoever
 *Drawn by the mod itself, as `/realce print` draws a reply (`/realce demo` shows it in the terminal); the table's
 numbers are just an example. On a light theme: [demo-light.png](images/demo-light.png).*
 
-Current version: 0.5.6 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
+Current version: 0.6.0 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
 [releases](https://github.com/Th3-W6rst/claude-realce/releases) · repository:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (questions and problems in *Issues*).
 
@@ -99,16 +100,28 @@ its word diff and the test run's score.*
 | `/realce doctor` | Checks what your machine gives realce (version, colors, macOS, fullscreen, editor, mermaid, Chrome) and what is missing |
 | `/realce on` · `/realce off` | Turns the whole mod on or off, keeping each flag's choice |
 | `/realce <flag> on` · `off` | Turns one feature on or off, for example `/realce column off` |
-| `/realce pane` | Opens or closes the session pane (usage, the explanation you asked for, plan, what needs you, pinned replies, timeline, files, failures with their why, agents) |
+| `/realce pane` | Opens or closes the session pane, in four tabs (keys 1–4): **Overview** (usage and plan with bars, what needs you, failures with their why and a Fix, agents at work), **Agent**, **Files**, **Turns** (pinned replies, timeline) |
+| `/realce ask [question]` | Asks the pane's agent about the session; alone, opens the Agent tab to type |
 | `/realce copy` | Copies Claude's last reply (the marks become plain markdown) |
 | `/realce summary` | Shows and copies a summary of the session in markdown: turns (time, duration, seal), tests, files, git, failures |
 | `/realce focus` | Toggles focus mode, which hides the tools that finished without error |
-| `/realce explain [text]` | Explains, in the session pane, the text you wrote, or the text selected in the conversation |
+| `/realce explain [text]` | Explains, in the pane's Agent tab, the text you wrote, or the text selected in the conversation |
 | `/realce pin` | Pins the selected reply, or the last one, in the pane; again, unpins it |
 | `/realce print` | Saves the last reply as HTML and PNG on the Desktop, in your theme's colors |
 | `/realce demo` | Shows a reply with every feature, without calling the model |
 | `/realce status` | What is off, language, theme, fullscreen, notices, updates and the cost of each drawing |
 | `/realce language en` · `pt` · `auto` | The interface's language; `auto` follows Claude Code's |
+
+### The pane's agent
+
+The **Agent** tab answers questions about the session while Claude works on its own: what changed, why a test failed,
+what comes next. In **Session** mode the answer comes from the conversation itself (a fork of it, no tools, served
+mostly from the prompt cache: about two seconds and a few hundred new tokens); a question asked while a turn runs
+waits for it to end, since a fork in the middle of a turn answers about the turn's next step instead. In **Tools**
+mode a read-only subagent looks at the project. Ready-made questions sum the session up, suggest the next step,
+explain the last failure or review the changed files. Each answer goes to the prompt box (**To chat**), is sent
+(**Send**) or copied; a failure's **Fix** in the Overview leaves a ready prompt in the box. Nothing calls the model
+until you ask; `/realce agent off` takes the tab away.
 
 `copy`, `summary`, `pane`, `focus`, `pin`, `explain`, `print` and `demo` are flags too: `/realce focus` toggles the
 mode, and `/realce explain off` turns the feature off (the command then says how to turn it back on). Two of them name
@@ -153,6 +166,7 @@ also answers to its Portuguese name (`/realce ajuda`, `/realce foco`, `/realce c
 | Guidance | `pin` (`fixar`) | Pin replies | /realce pin keeps a reply in the pane | on |
 | Guidance | `explain` (`explica`) | Explain this | /realce explain explains the selected text (Haiku) | on |
 | Guidance | `limits` (`limite`) | Usage and limits | Usage in the pane; a band when a limit or the context nears its end | on |
+| Guidance | `agent` (`agente`) | Agent in the pane | Ask about the session in the pane; the answer goes to the chat in one press | on |
 | System | `theme` (`tema`) | Follow the theme | Colors for light backgrounds, color blindness and ANSI, from Claude Code's theme | on |
 | System | `print` | Pretty print | /realce print saves the last reply as a picture | on |
 | System | `demo` | Demo | /realce demo shows everything the mod does | on |

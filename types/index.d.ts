@@ -23,7 +23,25 @@ export type AwaySummary = { minutes: number; turns: number; files: number; tests
 
 export type TimelineRow = { requestId: string; at: number; prompt: string; durationMs: number | null; seal: Seal | null; tests: TestScore | null }
 
-export type ExplainPanel = { excerpt: string; status: 'pending' | 'ready' | 'failed'; text: string }
+export type PaneTab = 'overview' | 'agent' | 'files' | 'turns'
+
+export type AskMode = 'session' | 'tools'
+
+/**
+ * One question to the pane's agent and its answer. `explain` is /realce explain's (Haiku, the excerpt as the
+ * question); `queued` waits for the main turn to end; `ms` how long the answer took; `tokens` what it cost afresh.
+ */
+export type ChatEntry = {
+  id: string
+  mode: AskMode | 'explain'
+  question: string
+  status: 'queued' | 'pending' | 'ready' | 'failed'
+  text: string
+  at: number
+  ms?: number
+  tokens?: number
+  agentId?: string
+}
 
 export type Pin = { requestId: string; at: number; preview: string }
 
@@ -57,8 +75,8 @@ export type AgentRow = { id: string; type: string; description: string; status: 
 // The engine's scan lists what each file reads and writes, so every file declares the atoms it uses itself:
 // `const X = atom({ plugin: 'realce', key: '<key>' } as const, <initial>)`, with these initial values:
 // diagrams {}, turn null, turns {}, files [], failures [], pending null, plan [], agents [],
-// paneOpen false, explanations {}, commits {}, away null, timeline [], explain null, pins [], limit null, usage null,
-// running {}; folds is a family, read as `{ plugin: 'realce', key: 'folds', id }`.
+// paneOpen false, explanations {}, commits {}, away null, timeline [], pins [], limit null, usage null,
+// running {}, tab 'overview', askMode 'session', chat []; folds is a family, read as `{ plugin: 'realce', key: 'folds', id }`.
 declare module 'claude-code' {
   interface PluginState {
     realce: {
@@ -77,11 +95,13 @@ declare module 'claude-code' {
       commits: Record<string, CommitCard[]>
       away: AwaySummary | null
       timeline: TimelineRow[]
-      explain: ExplainPanel | null
       pins: Pin[]
       limit: LimitWarning | null
       usage: UsageReading | null
       running: Record<string, RunningCall>
+      tab: PaneTab
+      askMode: AskMode
+      chat: ChatEntry[]
     }
   }
 }

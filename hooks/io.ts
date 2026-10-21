@@ -95,6 +95,18 @@ export function complete($: E, ...args: Parameters<E['model']['complete']>): Ret
   return $.model.complete(...args)
 }
 
+export function fork($: E, ...args: Parameters<E['model']['fork']>): ReturnType<E['model']['fork']> {
+  return $.model.fork(...args)
+}
+
+export function spawn($: E, ...args: Parameters<E['agent']['spawn']>): ReturnType<E['agent']['spawn']> {
+  return $.agent.spawn(...args)
+}
+
+export function fill($: E, ...args: Parameters<E['prompt']['fill']>): ReturnType<E['prompt']['fill']> {
+  return $.prompt.fill(...args)
+}
+
 export function composePrompt($: E) {
   return $.prompt.compose()
 }

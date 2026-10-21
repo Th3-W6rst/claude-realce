@@ -1,6 +1,20 @@
 # What's new in realce
 
-Versions from October 19 to 20, 2026. Those that only changed internals are left out.
+Versions from October 19 to 21, 2026. Those that only changed internals are left out.
+
+## 0.6.0
+- The session pane comes in four tabs, each on its digit: **Overview**, **Agent**, **Files** and **Turns**. The
+  overview keeps what matters at a glance: usage and the plan with bars (a long plan shows the rows around the step in
+  progress), what needs you, the last failures, the agents still at work (the finished ones are a count), and one row
+  per other tab.
+- The **Agent** tab: ask about the session without stopping Claude. Session mode answers from the conversation
+  itself (no tools, mostly from the prompt cache); a question asked during a turn waits for its end. Tools mode hands
+  the question to a read-only subagent, whose work stays out of the turn's proof seal. Ready-made questions: sum up,
+  next step, last failure, review the changed files.
+- An answer goes to the prompt box, the chat or the clipboard in one press; a failure's **Fix** leaves a ready prompt
+  in the prompt box.
+- `/realce ask <question>` asks from the prompt; `/realce explain` answers in the same history.
+- New flag `agent` (on): `/realce agent off` takes the tab and the Fix buttons away.
 
 ## 0.5.6
 - A `{!…!}` quoted inside a code block no longer reaches the "Needs you" band when the block holds another fence

@@ -19,8 +19,8 @@ export async function loadPaneOpen($: EngineInterface): Promise<void> {
   isOpen = await read($, PANE_OPEN)
 }
 
-export async function openSessionPane($: EngineInterface): Promise<void> {
-  await openPane($, { id: SESSION_PANE, title: tr('Session', 'Sessão') })
+export async function openSessionPane($: EngineInterface, focus = false): Promise<void> {
+  await openPane($, { id: SESSION_PANE, title: tr('Session', 'Sessão'), ...(focus ? { focus: true } : {}) })
   isOpen = true
   await update($, PANE_OPEN, () => true)
 }

@@ -3,6 +3,8 @@ import type { EngineInterface, On } from 'claude-code'
 import { featureOff, flagName, flagOf, FLAGS, flagSpec, getFlags, getStoredFlags, isFlagId, pickLanguage, setFlag, setMaster, type FlagId } from './flags'
 import { isPicked, pick, tr, type Lang } from './i18n'
 import { explainCommand } from './orient/explain'
+import { ask } from './orient/ask'
+import { showAgentTab } from './orient/pane/tab'
 import { pinCommand } from './orient/pins'
 import { demoCommand } from './system/demo'
 import { lastReply, printCommand } from './system/print'
@@ -17,13 +19,13 @@ import { copyText, registerCommand } from './io'
 
 const usage = () =>
   tr(
-    '[help|doctor|on|off|status|pane|copy|summary|focus|explain|pin|print|demo|language|<feature> on|off]',
-    '[ajuda|diagnostico|on|off|status|painel|copiar|resumo|foco|explica|fixar|print|demo|idioma|<recurso> on|off]',
+    '[help|doctor|on|off|status|pane|ask|copy|summary|focus|explain|pin|print|demo|language|<feature> on|off]',
+    '[ajuda|diagnostico|on|off|status|painel|pergunta|copiar|resumo|foco|explica|fixar|print|demo|idioma|<recurso> on|off]',
   )
 
 // Every command answers to its English and its Portuguese name; the help shows the one of the language in force.
 // The commands named after a flag (copy, summary, pane, focus, explain, pin) take the flag table's names.
-const COMMAND_WORDS: Readonly<Record<string, string>> = { help: 'ajuda', doctor: 'diagnostico', language: 'idioma' }
+const COMMAND_WORDS: Readonly<Record<string, string>> = { help: 'ajuda', doctor: 'diagnostico', language: 'idioma', ask: 'pergunta' }
 
 /** A command word or a flag name as the dispatcher knows it: Portuguese, the store's ids. */
 const canonical = (word: string): string => (Object.hasOwn(COMMAND_WORDS, word) ? COMMAND_WORDS[word]! : (flagOf(word)?.id ?? word))
@@ -36,6 +38,7 @@ const help = () =>
       '/realce on | off — turns everything on or off, keeping each feature’s choice',
       '/realce <feature> on | off — turns one feature on or off',
       '/realce pane — opens or closes the session pane',
+      "/realce ask [question] — asks the pane's agent about the session; alone, opens it to type",
       "/realce copy — copies Claude's last reply",
       '/realce summary — shows and copies a summary of the session in markdown',
       '/realce focus — hides the tools that finished without error',
@@ -53,6 +56,7 @@ const help = () =>
       '/realce on | off — liga ou desliga tudo, sem perder a escolha de cada recurso',
       '/realce <recurso> on | off — liga ou desliga um recurso',
       '/realce painel — abre ou fecha o painel da sessão',
+      '/realce pergunta [pergunta] — pergunta ao agente do painel sobre a sessão; sozinho, abre para digitar',
       '/realce copiar — copia a última resposta do Claude',
       '/realce resumo — mostra e copia um resumo da sessão em markdown',
       '/realce foco — esconde as ferramentas concluídas sem erro',
@@ -72,6 +76,14 @@ async function copyLastReply($: EngineInterface): Promise<string> {
   if (reply === undefined) return tr('No reply to copy yet.', 'Nenhuma resposta para copiar ainda.')
   const copied = await copyText($, { text: toPlainMarkdown(reply.text) })
   return copied.isCopied ? tr('Last reply copied.', 'Última resposta copiada.') : tr(`Could not copy: ${copied.reason}.`, `Não deu para copiar: ${copied.reason}.`)
+}
+
+/** `/realce pergunta [texto]`: the question to the pane's agent, over the session; alone, the field to type it in. */
+async function askCommand($: EngineInterface, question: string): Promise<string> {
+  await showAgentTab($, question === '')
+  if (question === '') return tr('Type the question in the pane.', 'Escreva a pergunta no painel.')
+  await ask($, question, 'session')
+  return tr('Asking in the pane.', 'Perguntando no painel.')
 }
 
 export async function registerRealceCommand($: EngineInterface): Promise<void> {
@@ -147,6 +159,10 @@ export function registerCommands(on: On): void {
       // What follows the word keeps its case: it is the text to explain.
       const given = e.args.trim().slice(typed.length)
       return { text: await gated($, 'explica', () => explainCommand($, given)) }
+    }
+    if (first === 'pergunta') {
+      const question = e.args.trim().slice(typed.length).trim()
+      return { text: await gated($, 'agente', () => askCommand($, question)) }
     }
     if (words.length === 1 && first === 'demo') {
       if (!(await getFlags($)).demo) return { text: featureOff('demo') }

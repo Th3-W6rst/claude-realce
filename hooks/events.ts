@@ -5,13 +5,14 @@ import { registerRealceCommand } from './commands'
 import { recordEnv } from './env'
 import { startPerfLog } from './perf'
 import { refreshPromptSection } from './prompt'
-import { orientAppend, orientPromptSubmit, orientSessionStart, orientToolCall, orientTurnComplete } from './orient/events'
+import { orientAppend, orientPromptSubmit, orientSessionStart, orientToolCall, orientTurnComplete, orientTurnStep } from './orient/events'
 import { screenPromptSubmit, screenSessionStart, screenToolCall, screenTurnComplete, screenTurnStart } from './screen/events'
 import { clearRunning, spinnerToolEnd, spinnerToolStart } from './screen/spinner'
 import { takeDemo, welcomeHint } from './system/demo'
 import { checkUpdate } from './system/update'
 import { refreshLanguage } from './i18n'
 import { retitleSessionPane } from './orient/paneToggle'
+import { askPromptSubmit, askTurnEnd } from './orient/ask'
 import { refreshTheme } from './theme'
 import { guard } from './safe'
 
@@ -64,7 +65,9 @@ export function registerEvents(on: On): void {
   on('prompt.submit', async ($, e, next) => {
     await guard($, 'prompt.submit (screen)', () => screenPromptSubmit($, e))
     await guard($, 'prompt.submit (guide)', () => orientPromptSubmit($, e))
-    return next(e)
+    const result = await next(e)
+    askPromptSubmit(e, result)
+    return result
   })
 
   on('tool.call', async ($, e, next) => {
@@ -81,7 +84,12 @@ export function registerEvents(on: On): void {
   })
 
   on('turn.complete', async ($, e, next) => {
-    const result = await next(e)
+    let result: Awaited<ReturnType<typeof next>>
+    try {
+      result = await next(e)
+    } finally {
+      askTurnEnd(e)
+    }
     await guard($, 'turn.complete (screen)', () => screenTurnComplete($, e))
     await guard($, 'turn.complete (spinner)', () => clearRunning($, e.agentId))
     await guard($, 'turn.complete (guide)', () => orientTurnComplete($, e))
@@ -98,6 +106,7 @@ export function registerEvents(on: On): void {
   // A main turn's first step: its stats open if no prompt.submit did, then the demo, when armed, answers it.
   on('turn.step', async function* ($, e, next) {
     await guard($, 'turn.step (screen)', () => screenTurnStart($, e))
+    orientTurnStep(e)
     // Only a turn's first step: a prompt that joined a running turn must not cut that turn's work short.
     const text = e.agentId === undefined && e.index === 0 ? takeDemo() : null
     if (text === null) return yield* next(e)

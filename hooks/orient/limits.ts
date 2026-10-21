@@ -3,7 +3,6 @@ import type { Args, EngineInterface, On } from 'claude-code'
 
 import type { LimitWarning, UsageReading } from '../../types'
 import { SCREEN } from '../palette'
-import type { Segment } from '../fit'
 import { getFlags } from '../flags'
 import { formatClock, formatDayMonth } from '../format'
 import { pickOr, tr, type Text } from '../i18n'
@@ -58,11 +57,13 @@ export function limitText(w: LimitWarning, tzOffsetMinutes: number | undefined, 
 
 const tone = (percent: number, warnAt: number) => (percent >= 95 ? SCREEN.bad : percent >= warnAt ? SCREEN.warn : SCREEN.dim)
 
-/** 'Context 30% · 5 h 46% · 7 days 12%', each part in the color its fill calls for; nothing before a reading. */
-export function usageLine(u: UsageReading): Segment[] {
+export type UsagePart = { label: string; percent: number; color: string }
+
+/** The context and each rate-limit window, in the color its fill calls for; nothing before a reading. */
+export function usageParts(u: UsageReading): UsagePart[] {
   // The context colors as its warning comes: from 90%; the windows from 80%.
   const parts = [...(u.context === null ? [] : [{ label: tr('Context', 'Contexto'), percent: u.context, warnAt: CONTEXT_WARN_AT }]), ...u.windows.map(w => ({ label: windowName(w.window), percent: w.percent, warnAt: WARN_AT }))]
-  return parts.flatMap((p, i) => [...(i > 0 ? [{ text: ' · ', color: SCREEN.dim }] : []), { text: `${p.label} ${p.percent}%`, color: tone(p.percent, p.warnAt) }])
+  return parts.map(p => ({ label: p.label, percent: p.percent, color: tone(p.percent, p.warnAt) }))
 }
 
 const readingOf = (e: Pick<Args<'session.measure'>, 'context' | 'rateLimits'>): UsageReading => ({

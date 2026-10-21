@@ -7,7 +7,7 @@ import { registerLimits } from './limits'
 import { registerNotify } from './notify'
 import { registerPaneToggle } from './paneToggle'
 import { registerQuestion } from './question'
-import { registerSessionPane } from './sessionPane'
+import { registerSessionPane } from './pane'
 
 /** The orient area's hooks with a matcher (drawings, its own events); shared events go through orient/events.ts. */
 export function registerOrient(on: On): void {

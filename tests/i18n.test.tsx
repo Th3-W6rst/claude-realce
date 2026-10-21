@@ -9,7 +9,7 @@ import { summarizeGroup } from '../hooks/screen/tools'
 import { formatDayMonth, humanizeAmount } from '../hooks/format'
 import { scanDeltas } from '../hooks/text/deltas'
 import { awayText } from '../hooks/orient/away'
-import { limitText, usageLine } from '../hooks/orient/limits'
+import { limitText, usageParts } from '../hooks/orient/limits'
 import { questionHeader } from '../hooks/orient/question'
 import { summaryText } from '../hooks/system/summary'
 import { planProgress, planSegments } from '../hooks/orient/plan'
@@ -278,7 +278,7 @@ describe('interface language', () => {
       expect(limitText({ kind: 'rate', window: 'five_hour', percent: 86, resetsAt: now + 3_600_000 }, -180, now)).toBe('⚠ 5 h limit at 86% · resets at 10:00')
       expect(limitText({ kind: 'rate', window: 'seven_day', percent: 91, resetsAt: now + 3 * 86_400_000 }, -180, now)).toBe('⚠ 7 days limit at 91% · resets Oct 23 at 09:00')
       expect(limitText({ kind: 'context', window: 'context', percent: 92, resetsAt: null }, -180, now)).toBe('⚠ Context at 92%: a /compact before anything big')
-      expect(usageLine({ context: 30, windows: [{ window: 'five_hour', percent: 46 }, { window: 'seven_day', percent: 12 }] }).map(s => s.text).join('')).toBe('Context 30% · 5 h 46% · 7 days 12%')
+      expect(usageParts({ context: 30, windows: [{ window: 'five_hour', percent: 46 }, { window: 'seven_day', percent: 12 }] }).map(p => p.label)).toEqual(['Context', '5 h', '7 days'])
       expect(questionHeader([{ question: 'q', options: [{ label: 'MIT (Recommended)' }, { label: 'Apache' }] }])).toBe('◆ Claude needs you · 1 question · recommended: MIT')
       expect(planSegments(planProgress([{ text: 'Write tests', status: 'in_progress', activeForm: 'Writing tests' }, { text: 'Ship', status: 'pending' }])!).map(s => s.text).join('')).toBe('Plan ▱▱▱▱▱▱▱▱▱▱ 0/2 · Now: Writing tests')
       const report = summaryText({

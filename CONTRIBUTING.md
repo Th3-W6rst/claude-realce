@@ -36,7 +36,7 @@ the README's flag groups:
 | `hooks/text/` | Text | A reply's prose: marks, callouts, tables, deltas, human numbers |
 | `hooks/code/` | Code | Code blocks, diagrams and the links of paths, inside a reply |
 | `hooks/screen/` | Tools | Tool rows, the diff, the turn's rule and seal, commit and agent cards, explained errors, the spinner |
-| `hooks/orient/` | Guidance | The band above the prompt, the panes, notices, limits, the away summary, pins, the timeline |
+| `hooks/orient/` | Guidance | The band above the prompt, the panes (the session pane's tabs in `orient/pane/`, its agent in `orient/ask.ts`), notices, limits, the away summary, pins, the timeline |
 | `hooks/system/` | System | Print, demo, doctor, status, summary, the update notice |
 
 Two flags live outside their group's folder: `spinner` (Guidance) in `hooks/screen/spinner.ts`, beside the tool calls
@@ -87,6 +87,9 @@ start off: a test of either turns them on with `PT_ALL` (or `OPT_IN`) from `test
     that wraps it takes none of them.
 11. The store is shared by every open session, each with its own copy of the flags: a write starts from what the store
     holds now (`setFlag`), never from the copy, or it undoes what another session changed.
+12. A Button that a press makes disappear takes the pane's focus with it, and the next keys land in the prompt box:
+    keep such a Button drawn (the Agent tab's Clear). While an `Input` holds the focus, digits and letters type into
+    it instead of pressing hotkeys.
 
 ## What the mod reaches
 

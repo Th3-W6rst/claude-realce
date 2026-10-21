@@ -3,6 +3,7 @@ import type { Args, EngineInterface, ResultOf } from 'claude-code'
 
 import { getFlags } from '../flags'
 import { refreshAgents } from './agents'
+import { askSessionStart, askTurnComplete, askTurnStep } from './ask'
 import { noteInput, noteTurnEnd } from './away'
 import { noteTurnStart, notifyFinish } from './notify'
 import { notePinnable } from './pins'
@@ -24,6 +25,7 @@ const AGENTS_POLL_MS = 2000
 export async function orientSessionStart($: EngineInterface, e: Args<'session.start'>): Promise<void> {
   // Timers die with the module: each load starts its own poll.
   await loadPaneOpen($)
+  await askSessionStart($)
   every($, AGENTS_POLL_MS, () => void refreshAgents($))
   const flags = await getFlags($)
   // On by default, so a -p run or the SDK would hold a pane nobody can see.
@@ -49,6 +51,7 @@ export async function orientToolCall($: EngineInterface, e: Args<'tool.call'>, r
 
 /** The main loop's turns and subagents' (`e.agentId`). */
 export async function orientTurnComplete($: EngineInterface, e: Args<'turn.complete'>): Promise<void> {
+  await askTurnComplete($, e)
   if (e.agentId !== undefined) return
   await notifyFinish($, e)
   await noteTurnEnd($, e)
@@ -57,6 +60,11 @@ export async function orientTurnComplete($: EngineInterface, e: Args<'turn.compl
   if (!flags.pendencias) return
   const items = extractPending(e.answer)
   await update($, PENDING, () => (items.length === 0 ? null : { items, turnId: e.turnId }))
+}
+
+/** Each step of a turn, the main loop's and subagents'. */
+export function orientTurnStep(e: Args<'turn.step'>): void {
+  askTurnStep(e)
 }
 
 /** Once the row is stored. */

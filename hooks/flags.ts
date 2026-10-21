@@ -10,7 +10,7 @@ export type FlagId =
   | 'ferramentas' | 'placar' | 'separador' | 'agentes'
   | 'pendencias' | 'plano' | 'painel' | 'spinner'
   | 'numeros' | 'selo' | 'diff' | 'erros' | 'commits' | 'foco'
-  | 'avisos' | 'som' | 'limite' | 'ausencia' | 'linha' | 'perguntas' | 'fixar' | 'explica'
+  | 'avisos' | 'som' | 'limite' | 'ausencia' | 'linha' | 'perguntas' | 'fixar' | 'explica' | 'agente'
   | 'tema' | 'print' | 'demo' | 'atualizacao' | 'resumo'
 
 type FlagGroup = 'text' | 'code' | 'tools' | 'guide' | 'system'
@@ -61,6 +61,7 @@ export const FLAGS: readonly FlagSpec[] = [
   { id: 'resumo', alias: 'summary', group: 'system', label: { en: 'Session summary', pt: 'Resumo da sessão' }, description: { en: '/realce summary copies a summary of the session in markdown', pt: '/realce resumo copia um resumo da sessão em markdown' }, isDefaultOn: true },
   // Added after the 36 keys were given out: last in the table, so no earlier flag's key moves.
   { id: 'limite', alias: 'limits', group: 'guide', label: { en: 'Usage and limits', pt: 'Uso e limites' }, description: { en: 'Usage in the pane; a band when a limit or the context nears its end', pt: 'Uso no painel; faixa quando um limite ou o contexto se aproxima do fim' }, isDefaultOn: true },
+  { id: 'agente', alias: 'agent', group: 'guide', label: { en: 'Agent in the pane', pt: 'Agente no painel' }, description: { en: 'Ask about the session in the pane; the answer goes to the chat in one press', pt: 'Pergunte sobre a sessão no painel; a resposta vai ao chat com um clique' }, isDefaultOn: true },
 ]
 
 export const FLAG_GROUPS: readonly FlagGroup[] = ['text', 'code', 'tools', 'guide', 'system']

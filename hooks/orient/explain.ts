@@ -1,12 +1,10 @@
-import { atom, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
 import { tr, type Text } from '../i18n'
-import { openSessionPane } from './paneToggle'
+import { addEntry, settleEntry } from './ask'
+import { showAgentTab } from './pane/tab'
 import { detach, readSelection } from '../io'
 import { askHaiku } from '../screen/explainError'
-
-const EXPLAIN = atom({ plugin: 'realce', key: 'explain' } as const, null)
 
 const MAX_CHARS = 4000
 // The explanation comes in the interface's language.
@@ -15,19 +13,15 @@ const SYSTEM: Text = {
   pt: 'Explique em português simples, em até 4 frases, para quem não é especialista.',
 }
 
-async function runExplain($: EngineInterface, excerpt: string): Promise<void> {
+async function runExplain($: EngineInterface, id: string, excerpt: string): Promise<void> {
+  const startedAt = await $.clock.now()
   const answer = await askHaiku($, SYSTEM, excerpt, 400, 30_000)
-  const next = 'text' in answer ? { status: 'ready' as const, text: answer.text } : { status: 'failed' as const, text: answer.reason }
-  // A newer request owns the panel: an older answer arriving late is dropped.
-  await update($, EXPLAIN, panel => (panel === null || panel.excerpt !== excerpt ? panel : { ...panel, ...next }))
-}
-
-export async function closeExplanation($: EngineInterface): Promise<void> {
-  await update($, EXPLAIN, () => null)
+  const ms = (await $.clock.now()) - startedAt
+  await settleEntry($, id, 'text' in answer ? { status: 'ready', text: answer.text, ms } : { status: 'failed', text: answer.reason, ms })
 }
 
 /**
- * `/realce explica [texto]`: the text given, or else the selection, explained in the session pane by a fast model,
+ * `/realce explica [texto]`: the text given, or else the selection, explained in the pane's Agent tab by a fast model,
  * off the command. The text works where nothing can be selected (outside fullscreen).
  */
 export async function explainCommand($: EngineInterface, given: string): Promise<string> {
@@ -39,8 +33,8 @@ export async function explainCommand($: EngineInterface, given: string): Promise
     )
   }
   const excerpt = [...text].slice(0, MAX_CHARS).join('')
-  await update($, EXPLAIN, () => ({ excerpt, status: 'pending' as const, text: '' }))
-  await openSessionPane($)
-  detach($, () => void runExplain($, excerpt))
+  const entry = await addEntry($, 'explain', excerpt, 'pending')
+  await showAgentTab($)
+  detach($, () => void runExplain($, entry.id, excerpt))
   return tr('Explaining in the pane.', 'Explicando no painel.')
 }

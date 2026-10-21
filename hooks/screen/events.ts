@@ -14,6 +14,7 @@ import { keepNewest } from '../memo'
 import { rememberTestTime } from './spinner'
 import { rememberTurn } from './turns'
 import { redraw } from '../io'
+import { isPanelAgent } from '../orient/ask'
 
 // The screen area's share of the session's shared events: hooks/events.ts calls each by name (the engine follows $
 // only into declared functions), one per event the area listens to.
@@ -54,6 +55,8 @@ async function openTurn($: EngineInterface): Promise<void> {
 /** After the call settled; subagents' calls too (`e.agentId`), which only the proof seal weighs. */
 export async function screenToolCall($: EngineInterface, e: Args<'tool.call'>, result: ResultOf['tool.call']): Promise<void> {
   if (result.deny !== undefined) return
+  // The session pane's own agent answers the person aside: its calls are not the turn's work.
+  if (e.agentId !== undefined && (await isPanelAgent($, e.agentId))) return
   const isSubagent = e.agentId !== undefined
   const at = await $.clock.now()
   const isError = result.isError === true

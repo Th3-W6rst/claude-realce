@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { limitText, limitWarning, usageLine } from '../hooks/orient/limits'
+import { limitText, limitWarning, usageParts } from '../hooks/orient/limits'
 import { TODOS, engine, mountBand, mountPane, startStandIns } from './world'
 import { PT } from './lang'
 
@@ -72,14 +72,14 @@ describe('usage limit', () => {
     expect(await ui.find({ text: '⚠ Limite de 5 h em 91%' })).toBeDefined()
   })
 
-  test('the usage line names the context and each window', () => {
-    expect(usageLine({ context: 30, windows: [{ window: 'five_hour', percent: 46 }, { window: 'seven_day', percent: 12 }] }).map(s => s.text).join('')).toBe('Contexto 30% · 5 h 46% · 7 dias 12%')
-    expect(usageLine({ context: null, windows: [] })).toEqual([])
+  test('the usage names the context and each window', () => {
+    expect(usageParts({ context: 30, windows: [{ window: 'five_hour', percent: 46 }, { window: 'seven_day', percent: 12 }] }).map(p => `${p.label} ${p.percent}%`)).toEqual(['Contexto 30%', '5 h 46%', '7 dias 12%'])
+    expect(usageParts({ context: null, windows: [] })).toEqual([])
   })
 
   test('the context colors like its warning: amber from 90%', () => {
-    const tones = (context: number) => usageLine({ context, windows: [] })[0]?.color
-    expect(tones(85)).toBe(usageLine({ context: 10, windows: [] })[0]?.color)
+    const tones = (context: number) => usageParts({ context, windows: [] })[0]?.color
+    expect(tones(85)).toBe(usageParts({ context: 10, windows: [] })[0]?.color)
     expect(tones(91)).not.toBe(tones(85))
   })
 
@@ -91,7 +91,10 @@ describe('usage limit', () => {
     await $.session.measure(measure([{ kind: 'five_hour', percentUsed: 46 }, { kind: 'seven_day', percentUsed: 12 }]))
     const ui = await mountPane($)
     expect(await ui.find({ text: 'Uso' })).toBeDefined()
-    expect(await ui.find({ text: /Contexto 30% · 5 h 46% · 7 dias 12%/ })).toBeDefined()
+    const texts = (await ui.findAll({ type: 'Text' })).map(el => el.text)
+    expect(texts).toContain('Contexto ▰▰▰▱▱▱▱▱▱▱ 30%')
+    expect(texts).toContain('5 h      ▰▰▰▰▰▱▱▱▱▱ 46%')
+    expect(texts).toContain('7 dias   ▰▱▱▱▱▱▱▱▱▱ 12%')
   })
 
   test('limite off shows nothing', async ($, on) => {
