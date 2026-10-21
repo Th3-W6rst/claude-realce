@@ -21,7 +21,7 @@ The interface follows Claude Code's language: English, or Portuguese for whoever
 *Drawn by the mod itself, as `/realce print` draws a reply (`/realce demo` shows it in the terminal); the table's
 numbers are just an example. On a light theme: [demo-light.png](images/demo-light.png).*
 
-Current version: 0.6.0 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
+Current version: 0.6.1 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
 [releases](https://github.com/Th3-W6rst/claude-realce/releases) · repository:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (questions and problems in *Issues*).
 
@@ -113,6 +113,11 @@ its word diff and the test run's score.*
 | `/realce language en` · `pt` · `auto` | The interface's language; `auto` follows Claude Code's |
 
 ### The pane's agent
+
+![The session pane's Agent tab answering about a failed test](images/pane-agent.png)
+
+*A real session (Claude Code 2.1.306, Haiku): `/realce ask` from the prompt, answered in the pane's Agent tab from
+the conversation itself in 2.9 s, with what it cost and the buttons that take the answer to the chat.*
 
 The **Agent** tab answers questions about the session while Claude works on its own: what changed, why a test failed,
 what comes next. In **Session** mode the answer comes from the conversation itself (a fork of it, no tools, served

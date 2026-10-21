@@ -5,7 +5,7 @@ import type { On } from 'claude-code'
 import { sessionPrompt } from '../hooks/orient/ask'
 import { planWindow } from '../hooks/orient/pane/overview'
 import type { PlanItem } from '../types'
-import { BASH_OK, TURN, drawnText, engine, engineEvents, engineRow, mountPane, RUN, startStandIns } from './world'
+import { BASH_OK, TURN, drawnText, engine, engineEvents, engineRow, mountPane, PANE, RUN, startStandIns } from './world'
 import { PT } from './lang'
 
 const USAGE = { input_tokens: 40, output_tokens: 24, cache_creation_input_tokens: 0, cache_read_input_tokens: 31_000 }
@@ -86,6 +86,20 @@ describe('pane agent', () => {
     expect(world.forks[0]).toContain('não chame ferramenta')
     expect(world.forks[0]!.endsWith('Pergunta: O que mudou?')).toBe(true)
     expect(await markdown(ui)).toEqual(['Mudaram **2** arquivos.'])
+    expect(await texts(ui)).toContain('17:05 · 0,0 s · 64 tokens · Sessão')
+  })
+
+  test("the answer's footer keeps its words beside the buttons in a narrow pane", async ($, on) => {
+    mock.store(on, PT)
+    const clock = mock.clock(on, { now: Date.UTC(2026, 9, 21, 20, 5) })
+    agentWorld(on, ANSWERED, { open: false, submit: false })
+    startStandIns(on)
+    engine(on)
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'Pane', requestId: 'realce-sessao', props: { ...PANE, bodyColumns: 62 } })
+    await ui.press({ key: 'tab-agent' })
+    await ui.input({ key: 'ask', text: 'O que mudou?' })
+    await clock.settle()
     expect(await texts(ui)).toContain('17:05 · 0,0 s · 64 tokens · Sessão')
   })
 

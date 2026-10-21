@@ -2,7 +2,7 @@ import { atom, update } from 'claude-code'
 import type { EngineInterface, RenderElement } from 'claude-code'
 
 import type { AskMode, ChatEntry } from '../../../types'
-import { fitEnd, segmentRow, type Segment } from '../../fit'
+import { cellWidth, fitEnd, segmentRow, type Segment } from '../../fit'
 import { formatClock, formatDecimal, formatTokens } from '../../format'
 import { tr } from '../../i18n'
 import { copyText, fill, submit, toast } from '../../io'
@@ -86,6 +86,9 @@ function statusLine(c: ChatEntry): Segment | null {
 function entryView($: EngineInterface, t: UI, c: ChatEntry, d: PaneData, cols: number): RenderElement {
   const { Box, Text, Button, Markdown } = t
   const status = statusLine(c)
+  const actions = [tr('To chat', 'Ao chat'), tr('Send', 'Enviar'), tr('Copy', 'Copiar')]
+  // The footer takes what the three buttons and their two ' · ' leave, and one cell between.
+  const footerCells = Math.max(1, cols - actions.reduce((sum, a) => sum + cellWidth(a), 0) - 2 * 3 - 1)
   return (
     <Box key={`entry-${c.id}`} flexDirection="column" marginBottom={1}>
       {segmentRow(t, [{ text: '› ', color: SCREEN.plan }, { text: c.question.replace(/\s+/g, ' '), color: SCREEN.dim }], cols)}
@@ -94,19 +97,19 @@ function entryView($: EngineInterface, t: UI, c: ChatEntry, d: PaneData, cols: n
         <Box flexDirection="row" width={cols}>
           <Box flexGrow={1}>
             <Text dimColor wrap="truncate-end">
-              {fitEnd(entryFooter(c, d.env?.tzOffsetMinutes), Math.max(1, cols - 30))}
+              {fitEnd(entryFooter(c, d.env?.tzOffsetMinutes), footerCells)}
             </Text>
           </Box>
           <Button plain key={`chat-${c.id}`} dimColor onPress={() => void toChat($, c.text)}>
-            {tr('To chat', 'Ao chat')}
+            {actions[0]}
           </Button>
           <Text dimColor> · </Text>
           <Button plain key={`send-${c.id}`} dimColor onPress={() => void submit($, { text: c.text })}>
-            {tr('Send', 'Enviar')}
+            {actions[1]}
           </Button>
           <Text dimColor> · </Text>
           <Button plain key={`copy-${c.id}`} dimColor onPress={() => void copyAnswer($, c.text)}>
-            {tr('Copy', 'Copiar')}
+            {actions[2]}
           </Button>
         </Box>
       )}

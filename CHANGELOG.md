@@ -2,6 +2,9 @@
 
 Versions from October 19 to 21, 2026. Those that only changed internals are left out.
 
+## 0.6.1
+- In a docked session pane, an answer's footer keeps its last words ("· Session") beside To chat, Send and Copy.
+
 ## 0.6.0
 - The session pane comes in four tabs, each on its digit: **Overview**, **Agent**, **Files** and **Turns**. The
   overview keeps what matters at a glance: usage and the plan with bars (a long plan shows the rows around the step in
