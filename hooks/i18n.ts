@@ -1,5 +1,5 @@
 import type { EngineInterface } from 'claude-code'
-import { listConfig, redraw } from './io'
+import { configs, redraw } from './io'
 
 // The interface's language: Claude Code's own `language` setting, or the one the person picked with
 // `/realce language`. English unless Portuguese is asked for. A leaf module: everything reads it, it reads nothing.
@@ -68,7 +68,7 @@ export async function ensureLanguage($: EngineInterface): Promise<void> {
 
 /** Reads Claude Code's language (or takes the value a `config.set` carries) and redraws what speaks it. */
 export async function refreshLanguage($: EngineInterface, value?: unknown): Promise<boolean> {
-  const setting = value ?? (await listConfig($)).find(row => row.key === 'language')?.value
+  const setting = value ?? (await configs($)).find(row => row.key === 'language')?.value
   if (!setConfigLanguage(languageOf(setting))) return false
   redrawAll($)
   return true

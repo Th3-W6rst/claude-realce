@@ -7,7 +7,7 @@ import type { EngineInterface, FsBytes } from 'claude-code'
 
 type E = EngineInterface
 
-export function runProcess($: E, ...args: Parameters<E['process']['run']>): ReturnType<E['process']['run']> {
+export function exec($: E, ...args: Parameters<E['process']['run']>): ReturnType<E['process']['run']> {
   return $.process.run(...args)
 }
 
@@ -67,7 +67,7 @@ export function openPane($: E, ...args: Parameters<E['ui']['open']>): ReturnType
   return $.ui.open(...args)
 }
 
-export function readSelection($: E, ...args: Parameters<E['ui']['selection']>): ReturnType<E['ui']['selection']> {
+export function selected($: E, ...args: Parameters<E['ui']['selection']>): ReturnType<E['ui']['selection']> {
   return $.ui.selection(...args)
 }
 
@@ -79,11 +79,11 @@ export function every($: E, ...args: Parameters<E['clock']['every']>): ReturnTyp
   return $.clock.every(...args)
 }
 
-export function registerCommand($: E, ...args: Parameters<E['command']['register']>): ReturnType<E['command']['register']> {
+export function addCommand($: E, ...args: Parameters<E['command']['register']>): ReturnType<E['command']['register']> {
   return $.command.register(...args)
 }
 
-export function listConfig($: E) {
+export function configs($: E) {
   return $.config.list()
 }
 
@@ -107,11 +107,11 @@ export function fill($: E, ...args: Parameters<E['prompt']['fill']>): ReturnType
   return $.prompt.fill(...args)
 }
 
-export function composePrompt($: E) {
+export function compose($: E) {
   return $.prompt.compose()
 }
 
-export function submitPrompt($: E, ...args: Parameters<E['prompt']['submit']>): ReturnType<E['prompt']['submit']> {
+export function submit($: E, ...args: Parameters<E['prompt']['submit']>): ReturnType<E['prompt']['submit']> {
   return $.prompt.submit(...args)
 }
 
@@ -119,7 +119,7 @@ export function sessionId($: E) {
   return $.session.id()
 }
 
-export function sessionVersion($: E) {
+export function ccVersion($: E) {
   return $.session.version()
 }
 

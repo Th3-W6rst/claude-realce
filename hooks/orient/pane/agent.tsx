@@ -5,7 +5,7 @@ import type { AskMode, ChatEntry } from '../../../types'
 import { fitEnd, segmentRow, type Segment } from '../../fit'
 import { formatClock, formatDecimal, formatTokens } from '../../format'
 import { tr } from '../../i18n'
-import { copyText, fill, submitPrompt, toast } from '../../io'
+import { copyText, fill, submit, toast } from '../../io'
 import { SCREEN } from '../../palette'
 import { shortPath } from '../../screen/toolInfo'
 import { ask, clearChat } from '../ask'
@@ -101,7 +101,7 @@ function entryView($: EngineInterface, t: UI, c: ChatEntry, d: PaneData, cols: n
             {tr('To chat', 'Ao chat')}
           </Button>
           <Text dimColor> · </Text>
-          <Button plain key={`send-${c.id}`} dimColor onPress={() => void submitPrompt($, { text: c.text })}>
+          <Button plain key={`send-${c.id}`} dimColor onPress={() => void submit($, { text: c.text })}>
             {tr('Send', 'Enviar')}
           </Button>
           <Text dimColor> · </Text>

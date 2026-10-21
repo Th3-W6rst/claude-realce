@@ -2,7 +2,7 @@ import type { Args, EngineInterface } from 'claude-code'
 
 import { getFlags } from '../flags'
 import { pick, tr, type Text } from '../i18n'
-import { detach, logLine, storeGet, storeSet, submitPrompt, toast } from '../io'
+import { detach, logLine, storeGet, storeSet, submit, toast } from '../io'
 import { errorText } from '../safe'
 
 /** The showcase reply in each language: every aid the mod draws, in one answer the model never writes. */
@@ -98,7 +98,7 @@ let isArmed = false
 
 async function submitDemo($: EngineInterface): Promise<void> {
   try {
-    const result = await submitPrompt($, { text: pick(DEMO_PROMPT) })
+    const result = await submit($, { text: pick(DEMO_PROMPT) })
     if ('drop' in result && result.drop !== undefined) throw new Error(result.drop)
   } catch (error) {
     // Armed with no prompt on its way, the demo would answer the person's next real prompt.

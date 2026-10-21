@@ -15,7 +15,7 @@ import { toPlainMarkdown } from './text/inline'
 import { cachedEnv, sessionOffset } from './env'
 import { summaryCommand } from './system/summary'
 import { doctorCommand } from './system/doctor'
-import { copyText, registerCommand } from './io'
+import { addCommand, copyText } from './io'
 
 const usage = () =>
   tr(
@@ -87,7 +87,7 @@ async function askCommand($: EngineInterface, question: string): Promise<string>
 }
 
 export async function registerRealceCommand($: EngineInterface): Promise<void> {
-  await registerCommand($, {
+  await addCommand($, {
     name: 'realce',
     description: tr("Turns realce's reading aids on and off", 'Liga e desliga os recursos de leitura do realce'),
     argumentHint: usage(),

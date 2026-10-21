@@ -3,7 +3,7 @@ import type { EngineInterface } from 'claude-code'
 import { cachedEnv } from '../env'
 import { FLAGS, getStoredFlags, isMasterOn } from '../flags'
 import { isPicked, lang, pick, tr, type Text } from '../i18n'
-import { composePrompt } from '../io'
+import { compose } from '../io'
 import { lastNotifyFailure, lastNotifyWasBanner } from '../orient/notify'
 import { perfLines } from '../perf'
 import { lastComposed, SECTION_ID } from '../prompt'
@@ -26,7 +26,7 @@ export async function statusCommand($: EngineInterface, isFullscreen: boolean): 
   const stored = await getStoredFlags($)
   const off = FLAGS.filter(f => !stored[f.id]).map(f => pick(f.label))
   const env = cachedEnv()
-  const { sections } = await composePrompt($)
+  const { sections } = await compose($)
   // Always said, for whoever reports a problem: the update line comes only on the day the check runs.
   const version = await localVersion($)
   const isTaught = sections.some(s => s.id === SECTION_ID)

@@ -7,7 +7,7 @@ import { MERMAID } from '../palette'
 import { parseBlocks } from '../text/blocks'
 import { currentTheme } from '../theme'
 import { tr } from '../i18n'
-import { exists, readFile, runProcess, writeFile } from '../io'
+import { exec, exists, readFile, writeFile } from '../io'
 import { errorText } from '../safe'
 
 const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
@@ -84,7 +84,7 @@ async function generateDiagram($: EngineInterface, source: string, hash: string,
     await writeFile($, config, JSON.stringify(MERMAID.config))
     await writeFile($, input, source)
     // Natural size at scale 2: mmdc 12 has no width option, and --size would blow small diagrams up to the screen.
-    const run = await runProcess($, mmdcArgs(mmdc, input, png, config, String(MERMAID.config.themeVariables.background)))
+    const run = await exec($, mmdcArgs(mmdc, input, png, config, String(MERMAID.config.themeVariables.background)))
     if (run.exitCode !== 0) {
       const line = run.stderr.split('\n').map(l => l.trim()).find(l => l !== '')
       // mmdc leads with `Error: `, which the block's own "Invalid diagram:" already says.

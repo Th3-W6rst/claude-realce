@@ -1,7 +1,7 @@
 import type { EngineInterface } from 'claude-code'
 import { tr } from './i18n'
 import { cachedEnv } from './env'
-import { detach, every, logLine, runProcess, sessionId, writeFile } from './io'
+import { detach, every, exec, logLine, sessionId, writeFile } from './io'
 import { errorText, failedRun } from './safe'
 
 // How long each drawing hook takes and how often it runs, kept in the module (a reload starts it over):
@@ -61,7 +61,7 @@ const KEEP_DAYS = 7
 async function prunePerf($: EngineInterface): Promise<void> {
   const home = cachedEnv()?.home
   if (home === undefined || home === '') return
-  const run = await runProcess($, ['find', `${home}/.cache/realce`, '-maxdepth', '1', '-name', 'perf-*.json', '-mtime', `+${KEEP_DAYS}`, '-delete'])
+  const run = await exec($, ['find', `${home}/.cache/realce`, '-maxdepth', '1', '-name', 'perf-*.json', '-mtime', `+${KEEP_DAYS}`, '-delete'])
   // No folder yet (the first session writes it) is no failure.
   if (run.exitCode !== 0 && !/No such file/.test(run.stderr)) logLine($, `realce: old perf files not removed (${failedRun(run, 'find')})`)
 }

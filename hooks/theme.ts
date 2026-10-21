@@ -3,7 +3,7 @@ import type { EngineInterface } from 'claude-code'
 import { bumpVersion, getFlags } from './flags'
 import { applyPalette } from './palette'
 import { PALETTES, type ThemeKind } from './paletteSets'
-import { envVar, listConfig, logLine, readFile, redraw, runProcess } from './io'
+import { configs, envVar, exec, logLine, readFile, redraw } from './io'
 import { asRecord, errorText, str } from './safe'
 
 export type { ThemeKind }
@@ -37,7 +37,7 @@ export async function refreshTheme($: EngineInterface, value?: string): Promise<
 
 /** macOS's appearance: `defaults` answers "Dark", and fails when the key is absent, which means light. */
 async function systemIsDark($: EngineInterface): Promise<boolean> {
-  const run = await runProcess($, ['defaults', 'read', '-g', 'AppleInterfaceStyle'])
+  const run = await exec($, ['defaults', 'read', '-g', 'AppleInterfaceStyle'])
   return run.exitCode === 0 && run.stdout.trim() === 'Dark'
 }
 
@@ -62,7 +62,7 @@ async function classOf($: EngineInterface, value: string): Promise<ThemeKind> {
  */
 async function resolveTheme($: EngineInterface, value?: string): Promise<ThemeKind> {
   if (!(await getFlags($)).tema) return 'dark'
-  const theme = value ?? (await listConfig($)).find(row => row.key === 'theme')?.value
+  const theme = value ?? (await configs($)).find(row => row.key === 'theme')?.value
   if (typeof theme !== 'string') return 'dark'
   try {
     return await classOf($, theme)

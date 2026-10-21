@@ -2,7 +2,7 @@ import type { Args, EngineInterface } from 'claude-code'
 
 import type { Editor, SessionEnv } from '../types'
 import { parseTzOffset } from './format'
-import { envVar, exists, redraw, runProcess } from './io'
+import { envVar, exec, exists, redraw } from './io'
 
 // Read once per load (a reload runs session.start again) and kept here: every drawing reads it from the module, as a
 // state read per row was a trip to the engine.
@@ -12,7 +12,7 @@ export const cachedEnv = () => current
 
 /** The session's offset from UTC, or the machine's (`date +%z`) when the session has not read it yet. */
 export async function sessionOffset($: EngineInterface): Promise<number> {
-  return current?.tzOffsetMinutes ?? parseTzOffset((await runProcess($, ['date', '+%z'])).stdout)
+  return current?.tzOffsetMinutes ?? parseTzOffset((await exec($, ['date', '+%z'])).stdout)
 }
 
 // The first one installed wins: links open where the person edits.
@@ -31,7 +31,7 @@ let mermaid: Promise<string | null> | null = null
 
 /** Where `which` finds the mermaid CLI, or null: asked once per load, whoever asks first. */
 export function findMermaid($: EngineInterface): Promise<string | null> {
-  mermaid ??= runProcess($, ['which', 'mmdc']).then(w => (w.exitCode === 0 && w.stdout.trim() !== '' ? w.stdout.trim() : null))
+  mermaid ??= exec($, ['which', 'mmdc']).then(w => (w.exitCode === 0 && w.stdout.trim() !== '' ? w.stdout.trim() : null))
   return mermaid
 }
 
@@ -40,7 +40,7 @@ export async function recordEnv($: EngineInterface, e: Args<'session.start'>): P
   const [home, editor, date, mmdc] = await Promise.all([
     envVar($, 'HOME'),
     detectEditor($),
-    runProcess($, ['date', '+%z']),
+    exec($, ['date', '+%z']),
     findMermaid($),
   ])
   current = { cwd: e.cwd, home: home ?? '', editor, tzOffsetMinutes: parseTzOffset(date.stdout), mmdc }

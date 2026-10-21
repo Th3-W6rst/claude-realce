@@ -11,14 +11,14 @@ import { currentTheme } from '../theme'
 import { inlineOptsOf } from '../text/inline'
 import { estimateHeight, replyHtml, shotArgs, type Picture } from './printHtml'
 import { tr } from '../i18n'
-import { envVar, exists, runProcess, transcript, writeFile } from '../io'
+import { envVar, exec, exists, transcript, writeFile } from '../io'
 
 const DIAGRAMS = atom({ plugin: 'realce', key: 'diagrams' } as const, {})
 
 
 /** The headless Chrome mermaid-cli installs, else Google Chrome; null when neither is there. */
 export async function findChrome($: EngineInterface, home: string): Promise<string | null> {
-  const found = await runProcess($, ['find', `${home}/.cache/puppeteer/chrome-headless-shell`, '-name', 'chrome-headless-shell', '-type', 'f'])
+  const found = await exec($, ['find', `${home}/.cache/puppeteer/chrome-headless-shell`, '-name', 'chrome-headless-shell', '-type', 'f'])
   for (const path of found.stdout.split('\n').map(l => l.trim()).filter(Boolean)) if (await exists($, path)) return path
   const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
   return (await exists($, chrome)) ? chrome : null
@@ -50,7 +50,7 @@ export async function printCommand($: EngineInterface): Promise<string> {
   if (chrome === null) return tr(`The PNG needs headless Chrome; HTML saved at ${base}.html.`, `PNG precisa do Chrome headless; HTML salvo em ${base}.html.`)
   const pictures = parseBlocks(reply.text).flatMap(b => (b.type === 'code' ? [picture(b.source)] : [])).filter((p): p is Picture => p !== null)
   const height = estimateHeight(reply.text, pictures, source => picture(source) !== null)
-  const run = await runProcess($, shotArgs(chrome, `${base}.png`, height, `${base}.html`), { timeoutMs: 30_000 })
+  const run = await exec($, shotArgs(chrome, `${base}.png`, height, `${base}.html`), { timeoutMs: 30_000 })
   if (run.exitCode !== 0) {
     const why = run.stderr.split('\n').map(l => l.trim()).find(Boolean) ?? tr(`exited with ${run.exitCode}`, `saiu com ${run.exitCode}`)
     return tr(`Chrome wrote no PNG (${why}); HTML saved at ${base}.html.`, `O Chrome não gerou o PNG (${why}); HTML salvo em ${base}.html.`)

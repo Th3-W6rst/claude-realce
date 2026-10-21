@@ -4,7 +4,7 @@ import type { Args, EngineInterface, ResultOf } from 'claude-code'
 import type { Pin } from '../../types'
 import { fitEnd } from '../fit'
 import { tr } from '../i18n'
-import { readSelection } from '../io'
+import { selected } from '../io'
 import { textsOf } from '../screen/toolInfo'
 
 const PINS = atom({ plugin: 'realce', key: 'pins' } as const, [])
@@ -33,7 +33,7 @@ export async function notePinnable($: EngineInterface, e: Args<'session.append'>
 
 /** `/realce pin` (`fixar`): the reply the selection lies in, or the newest one, pinned or unpinned in the session pane. */
 export async function pinCommand($: EngineInterface): Promise<string> {
-  const selection = await readSelection($)
+  const selection = await selected($)
   const target =
     selection?.requestId !== undefined ? { requestId: selection.requestId, preview: preview(selection.text) } : lastReply
   if (target === null) return tr('No reply to pin yet.', 'Nenhuma resposta para fixar ainda.')

@@ -6,7 +6,7 @@ import { formatDuration } from '../format'
 import { tr } from '../i18n'
 import { sealLabel, testsLabel, turnStatsFor } from '../screen/turns'
 import { asRecord, errorText, failedRun, guard, str } from '../safe'
-import { detach, logLine, notify, runProcess } from '../io'
+import { detach, exec, logLine, notify } from '../io'
 
 // Past this the person has likely looked away: the engine says nothing about the window's focus.
 const LONG_MS = 60_000
@@ -42,7 +42,7 @@ export async function noteTurnStart($: EngineInterface, e: Args<'prompt.submit'>
 
 async function playSound($: EngineInterface, file: string): Promise<void> {
   try {
-    const run = await runProcess($, ['afplay', file])
+    const run = await exec($, ['afplay', file])
     if (run.exitCode !== 0) logLine($, `realce: the sound did not play (${failedRun(run, 'afplay')})`)
   } catch (error) {
     logLine($, `realce: the sound did not play (${errorText(error)})`)
@@ -53,7 +53,7 @@ async function playSound($: EngineInterface, file: string): Promise<void> {
 async function systemBanner($: EngineInterface, text: string, title: string): Promise<string | null> {
   try {
     // `--` ends osascript's options: a text that starts with a dash is still the text.
-    const run = await runProcess(
+    const run = await exec(
       $,
       ['osascript', '-e', 'on run argv', '-e', 'display notification (item 1 of argv) with title (item 2 of argv)', '-e', 'end run', '--', text, title],
       { timeoutMs: 5000 },

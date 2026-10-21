@@ -3,7 +3,7 @@ import type { EngineInterface } from 'claude-code'
 import { tr, type Text } from '../i18n'
 import { addEntry, settleEntry } from './ask'
 import { showAgentTab } from './pane/tab'
-import { detach, readSelection } from '../io'
+import { detach, selected } from '../io'
 import { askHaiku } from '../screen/explainError'
 
 const MAX_CHARS = 4000
@@ -25,7 +25,7 @@ async function runExplain($: EngineInterface, id: string, excerpt: string): Prom
  * off the command. The text works where nothing can be selected (outside fullscreen).
  */
 export async function explainCommand($: EngineInterface, given: string): Promise<string> {
-  const text = given.trim() !== '' ? given.trim() : ((await readSelection($))?.text.trim() ?? '')
+  const text = given.trim() !== '' ? given.trim() : ((await selected($))?.text.trim() ?? '')
   if (text === '') {
     return tr(
       'Select some text in the conversation (in fullscreen) or write what to explain: /realce explain <text>.',
