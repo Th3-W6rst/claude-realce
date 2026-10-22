@@ -1,4 +1,4 @@
-import type { EngineInterface } from 'claude-code'
+import type { Args, EngineInterface } from 'claude-code'
 
 import { getFlags } from '../flags'
 import { pick, tr, type Text } from '../i18n'
@@ -88,12 +88,19 @@ async function runExplain($: EngineInterface, toolUseId: string, command: string
   await setExplanation($, toolUseId, 'text' in answer ? { status: 'ready', text: fitEnd(answer.text.replace(/\s+/g, ' '), MAX_CHARS) } : { status: 'failed', reason: answer.reason })
 }
 
+let isInteractive = false
+/** At each load: whether someone reads this session's rows. */
+export function noteSessionKind(e: Args<'session.start'>): void {
+  isInteractive = e.isInteractive
+}
+
 /**
  * A failed Bash call of the main loop gets one sentence from the model, off the call's dispatch. Not for a failure
  * that is an answer, one with nothing printed, a run cut short or sent to the background.
  */
 export async function maybeExplain($: EngineInterface, toolUseId: string, command: string, output: string, result: unknown): Promise<void> {
-  if (!(await getFlags($)).erros) return
+  // A -p run or the SDK shows no row to put the sentence under: the model's time would buy nothing.
+  if (!isInteractive || !(await getFlags($)).erros) return
   const record = asRecord(result)
   if (record.interrupted === true || typeof record.backgroundTaskId === 'string') return
   const line = failureLine(output)

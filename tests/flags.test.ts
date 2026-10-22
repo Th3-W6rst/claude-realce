@@ -125,43 +125,70 @@ describe('commands', () => {
     expect(opened).toBe('realce-flags')
   })
 
-  test('/realce painel opens the session pane, then closes it', async ($, on) => {
-    mock.store(on, PT)
+  // The engine's pane list as the toggle reads it: an open places the pane unless the test says the next one opens
+  // unasked in a narrow terminal; a close takes it away; widening places a waiting one.
+  function paneWorld(on: On) {
     const calls: string[] = []
+    const panes = new Map<string, boolean>()
+    let placeNext = true
     on('ui.open', ($, e) => {
       calls.push(`open ${e.id}`)
-      return { value: { isPlaced: true as const } }
+      const isPlaced = placeNext
+      placeNext = true
+      panes.set(e.id, isPlaced || (panes.get(e.id) ?? false))
+      return { value: (isPlaced ? { isPlaced: true as const } : { isPlaced: false, reason: 'narrow' }) as never }
     })
     on('ui.close', ($, e) => {
       calls.push(`close ${e.id}`)
+      panes.delete(e.id)
       return { value: undefined }
     })
+    on('ui.panes', () => ({ value: [...panes].map(([id, isPlaced]) => ({ id, title: id, isShown: isPlaced, isFocused: false, isPlaced })) }))
+    return {
+      calls,
+      openNextUnplaced: () => void (placeNext = false),
+      widen: () => {
+        for (const id of panes.keys()) panes.set(id, true)
+      },
+    }
+  }
+
+  test('/realce painel opens the session pane, then closes it', async ($, on) => {
+    mock.store(on, PT)
+    const world = paneWorld(on)
     expect((await $.command.run({ ...RUN, args: 'painel' })).text).toBe('Painel da sessão aberto.')
     expect((await $.command.run({ ...RUN, args: 'painel' })).text).toBe('Painel da sessão fechado.')
     expect((await $.command.run({ ...RUN, args: 'painel' })).text).toBe('Painel da sessão aberto.')
-    expect(calls).toEqual(['open realce-sessao', 'close realce-sessao', 'open realce-sessao'])
+    expect(world.calls).toEqual(['open realce-sessao', 'close realce-sessao', 'open realce-sessao'])
   })
 
-  test('a pane opened at start but not placed (a narrow terminal) opens on /realce painel, not closes', async ($, on) => {
+  test('a pane that opened by itself undrawn (a narrow terminal) opens on /realce painel; once drawn, it closes', async ($, on) => {
     mock.store(on, PT)
     mock.clock(on)
-    const calls: string[] = []
-    let placed = false
-    on('ui.open', ($, e) => {
-      calls.push(`open ${e.id}`)
-      return { value: placed ? { isPlaced: true as const } : ({ isPlaced: false, reason: 'narrow' } as never) }
-    })
-    on('ui.close', ($, e) => {
-      calls.push(`close ${e.id}`)
-      return { value: undefined }
-    })
+    const world = paneWorld(on)
+    on('prompt.compose', () => ({ sections: [] }))
+    on('session.start', () => ({ cwd: '/a/b' }))
+    world.openNextUnplaced()
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    expect((await $.command.run({ ...RUN, args: 'painel' })).text).toBe('Painel da sessão aberto.')
+    expect((await $.command.run({ ...RUN, args: 'painel' })).text).toBe('Painel da sessão fechado.')
+    // Opened by itself again, undrawn; the terminal widens and the engine draws it with no word to the mod.
+    world.openNextUnplaced()
+    await $.command.run({ ...RUN, args: 'painel' })
+    world.widen()
+    expect((await $.command.run({ ...RUN, args: 'painel' })).text).toBe('Painel da sessão fechado.')
+  })
+
+  test('the pane opens by itself once a session: a reload does not bring back a pane the person closed', async ($, on) => {
+    mock.store(on, PT)
+    mock.clock(on)
+    const world = paneWorld(on)
     on('prompt.compose', () => ({ sections: [] }))
     on('session.start', () => ({ cwd: '/a/b' }))
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
-    placed = true
-    expect((await $.command.run({ ...RUN, args: 'painel' })).text).toBe('Painel da sessão aberto.')
     expect((await $.command.run({ ...RUN, args: 'painel' })).text).toBe('Painel da sessão fechado.')
-    expect(calls.filter(c => c.endsWith('realce-sessao'))).toEqual(['open realce-sessao', 'open realce-sessao', 'close realce-sessao'])
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    expect(world.calls.filter(c => c.endsWith('realce-sessao'))).toEqual(['open realce-sessao', 'close realce-sessao'])
   })
 })
 
@@ -305,6 +332,20 @@ describe('prompt section', () => {
     const text = (await $.command.run({ ...RUN, args: 'status' })).text ?? ''
     expect(text).toMatch(/leva a seção de leitura/)
     expect(text).toMatch(/seção incluída; superfícies \[terminal\]/)
+    // A /context measure sends nothing: the last request stays the real one.
+    await $.prompt.compose({ ...COMPOSE, surfaces: [], traits: ['analysis'] })
+    expect((await $.command.run({ ...RUN, args: 'status' })).text ?? '').toMatch(/seção incluída; superfícies \[terminal\], traits \[\]/)
+  })
+
+  test("with realce off, a feature's command says /realce on, which is what turns it on", async ($, on) => {
+    mock.store(on, { ...PT, master: false })
+    mock.clock(on)
+    baseSections(on)
+    expect((await $.command.run({ ...RUN, args: 'resumo' })).text).toBe('Realce desligado: /realce on liga.')
+    // With the mod on and the feature off, the feature's own switch.
+    await $.command.run({ ...RUN, args: 'on' })
+    await $.command.run({ ...RUN, args: 'resumo off' })
+    expect((await $.command.run({ ...RUN, args: 'resumo' })).text).toBe('Recurso desligado: Resumo da sessão. /realce resumo on liga.')
   })
 })
 

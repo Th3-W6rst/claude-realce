@@ -94,6 +94,60 @@ describe('finish notice', () => {
     expect(played).toEqual([['afplay', '/System/Library/Sounds/Glass.aiff']])
   })
 
+  test('the sound goes only with a notice that went out: not with one turned off, refused or with nowhere to show', async ($, on) => {
+    mock.store(on, { ...PT, flags: { som: true } })
+    const clock = mock.clock(on)
+    let result: unknown = { isSent: false, reason: 'disabled' }
+    const sent: string[] = []
+    const played: string[] = []
+    on('ui.notify', ($, e) => {
+      sent.push(e.text)
+      return { value: result as never }
+    })
+    let bannerExit = 0
+    on('process.run', ($, e) => {
+      if (e.argv[0] === 'afplay') played.push(String(sent.length))
+      return { value: { exitCode: e.argv[0] === 'osascript' ? bannerExit : 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+    })
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
+    on('ui.log', () => ({ value: undefined }))
+    engine(on)
+    for (const r of [{ isSent: false, reason: 'disabled' }, { isSent: false, reason: 'refused' }, { isSent: false, reason: 'no-surface' }]) {
+      result = r
+      await longTurn($, 61_000)
+      await clock.settle()
+    }
+    expect(played).toEqual([])
+    // A terminal with no channel: the sound goes with the macOS banner, and not when the banner fails.
+    result = { isSent: false, reason: 'no-channel' }
+    bannerExit = 1
+    await longTurn($, 61_000)
+    await clock.settle()
+    expect(played).toEqual([])
+    bannerExit = 0
+    await longTurn($, 61_000)
+    await clock.settle()
+    expect(played).toEqual(['5'])
+  })
+
+  test("a question in a turn no prompt opened (an agent's notice) is measured from that turn's start", async ($, on) => {
+    mock.store(on, PT)
+    const clock = mock.clock(on)
+    const { sent } = notifyWorld(on)
+    on('turn.step', async function* ($, e) {
+      return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn' as const, usage: null }
+    })
+    await $.prompt.submit({ text: 'oi', origin: { kind: 'composer' }, wait: false })
+    await $.turn.complete({ answer: 'ok', durationMs: 20_000, isAborted: false, turnId: 't1', reason: 'answer' })
+    await clock.advance(20 * 60_000)
+    // A background agent's notice opens a turn of its own, with no prompt of the person's.
+    const stream = $.turn.step({ turnId: 't2', index: 0, model: 'm', messageCount: 3 })
+    for (let step = await stream.next(); step.done !== true; step = await stream.next()) void step
+    await clock.advance(5_000)
+    await $.tool.call({ tool: 'AskUserQuestion', questions: [{ question: 'Qual nome?', header: 'Nome', options: [], multiSelect: false }] })
+    expect(sent).toEqual([])
+  })
+
   test('a refused notice shows in status', async ($, on) => {
     mock.store(on, PT)
     mock.clock(on)

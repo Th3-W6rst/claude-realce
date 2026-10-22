@@ -2,7 +2,7 @@ import type { Args, EngineInterface } from 'claude-code'
 
 import { getFlags } from '../flags'
 import { pick, tr, type Text } from '../i18n'
-import { detach, logLine, storeGet, storeSet, submit, toast } from '../io'
+import { detach, logLine, storeGet, storeSet, submit, toast, transcript } from '../io'
 import { errorText } from '../safe'
 
 /** The showcase reply in each language: every aid the mod draws, in one answer the model never writes. */
@@ -93,7 +93,7 @@ export const DEMO_TEXTS: Text = {
 
 const DEMO_PROMPT: Text = { en: 'realce demo', pt: 'Demonstração do realce' }
 
-// Armed by the command, spent by the next step of the main loop: that step is answered here, with no request.
+// Armed by the command, spent by the first step of the demo prompt's turn: that step is answered here, with no request.
 let isArmed = false
 
 async function submitDemo($: EngineInterface): Promise<void> {
@@ -123,8 +123,23 @@ export async function welcomeHint($: EngineInterface, e: Args<'session.start'>):
 }
 
 /** The showcase, once, when the command armed it: the turn's first step (hooks/events.ts) answers with it. */
-export function takeDemo(): string | null {
+/**
+ * The showcase, for the step of the demo's own turn: the prompt it sent is the turn's last one. A turn that opens
+ * first (a prompt the person queued, an agent's notice) goes to the model, and the demo stays armed for its own.
+ */
+export async function takeDemo($: EngineInterface): Promise<string | null> {
   if (!isArmed) return null
+  let last: string | undefined
+  try {
+    last = [...(await transcript($))].reverse().find(m => m.role === 'user' && m.text.trim() !== '')?.text.trim()
+  } catch (error) {
+    // The turn is the model's then, not a showcase answered blind.
+    logLine($, `realce: demo turn not read (${errorText(error)})`)
+    return null
+  }
+  // Claude Code wraps a plugin's prompt in its own framing ("The realce plugin sent a message: …"): the demo's is a
+  // line of it.
+  if (last === undefined || !last.split('\n').some(line => line.trim() === pick(DEMO_PROMPT))) return null
   isArmed = false
   return pick(DEMO_TEXTS)
 }

@@ -40,6 +40,11 @@ export async function noteTurnStart($: EngineInterface, e: Args<'prompt.submit'>
   turnStartedAt = await $.clock.now()
 }
 
+/** A main turn no prompt of the person's opened (an agent's notice, the pane's Send) starts the clock at its first step. */
+export async function noteTurnStep($: EngineInterface, e: Args<'turn.step'>): Promise<void> {
+  if (e.agentId === undefined && e.index === 0 && turnStartedAt === null) turnStartedAt = await $.clock.now()
+}
+
 async function playSound($: EngineInterface, file: string): Promise<void> {
   try {
     const run = await exec($, ['afplay', file])
@@ -64,27 +69,33 @@ async function systemBanner($: EngineInterface, text: string, title: string): Pr
   }
 }
 
-async function bannerInstead($: EngineInterface, text: string, title: string, reason: string): Promise<void> {
+async function bannerInstead($: EngineInterface, text: string, title: string, reason: string, sound: string | null): Promise<void> {
   const failed = await systemBanner($, text, title)
   wasBanner = failed === null
   lastFailure = failed === null ? null : tr(`${reason}; macOS banner: ${failed}`, `${reason}; banner do macOS: ${failed}`)
+  if (failed === null && sound !== null) await playSound($, sound)
 }
 
 async function send($: EngineInterface, text: string, title: string, sound: string): Promise<void> {
   const result = await notify($, text, { title })
   wasBanner = false
   lastFailure = result.isSent ? null : result.reason
-  // A terminal that gives Claude Code no channel (tmux, Terminal.app) still has the system's banner. A notice the
-  // person turned off ('disabled') or a hook refused stays unsent.
+  // The sound goes with a notice that went out, never alone: none for one the person turned off ('disabled'), a hook
+  // refused or nothing could show ('no-surface').
+  const withSound = (await getFlags($)).som ? sound : null
+  // A terminal that gives Claude Code no channel (tmux, Terminal.app) still has the system's banner.
   // Off the dispatch: a question's dialog never waits on osascript.
-  if (!result.isSent && result.reason.startsWith('no-channel')) detach($, () => void bannerInstead($, text, title, result.reason))
+  if (!result.isSent && result.reason.startsWith('no-channel')) detach($, () => void bannerInstead($, text, title, result.reason, withSound))
   // afplay lasts as long as the sound: off the event's dispatch.
-  if ((await getFlags($)).som) detach($, () => void playSound($, sound))
+  else if (result.isSent && withSound !== null) detach($, () => void playSound($, withSound))
 }
 
 /** After screen's turn.complete has recorded the turn's stats. */
 export async function notifyFinish($: EngineInterface, e: Args<'turn.complete'>): Promise<void> {
-  if (e.agentId !== undefined || e.isAborted || e.durationMs < LONG_MS) return
+  if (e.agentId !== undefined) return
+  // The turn is over: the next question is measured from the next turn's start.
+  turnStartedAt = null
+  if (e.isAborted || e.durationMs < LONG_MS) return
   if (!(await getFlags($)).avisos) return
   await send($, finishText(e.durationMs, turnStatsFor(e.durationMs)), tr('Claude is done', 'Claude terminou'), SOUNDS.done)
 }

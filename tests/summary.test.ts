@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
 import { summaryText } from '../hooks/system/summary'
-import { engine } from './world'
+import { engine, startSession } from './world'
 import { PT, PT_ALL } from './lang'
 
 describe('session summary', () => {
@@ -81,9 +81,9 @@ describe('session summary', () => {
     engine(on)
     on('ui.copy', () => ({ value: { isCopied: true as const } }))
     on('session.cwd', () => ({ value: '/a/b' }))
-    on('process.run', () => ({ value: { exitCode: 0, stdout: '-0300\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
     on('ui.invalidate', () => ({ value: undefined }))
     on('model.complete', () => ({ value: { isAnswered: true, text: 'O arquivo x não existe.', usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }) as never)
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'cat x', tool_use_id: 'r1' })
     await clock.settle()
     const RUN = { command: 'realce', origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 120 } }

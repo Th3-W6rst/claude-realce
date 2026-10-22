@@ -17,7 +17,7 @@ import { buildSection } from '../hooks/prompt'
 import { FLAGS, type Flags } from '../hooks/flags'
 import { DEMO_TEXTS } from '../hooks/system/demo'
 import { extractPending } from '../hooks/orient/pending'
-import { engineRow, RUN } from './world'
+import { engineRow, RUN, startSession } from './world'
 import { OPT_IN } from './lang'
 
 const ENGINE = { plugin: 'engine', tier: 'core' as const }
@@ -31,7 +31,10 @@ function world(on: On, language: string | null) {
   on('fs.exists', () => ({ value: false }))
   on('fs.read', ($, e) => ({ deny: `ENOENT: ${e.path}` }))
   on('process.run', ($, e) => ({ value: { exitCode: e.argv[0] === 'date' ? 0 : 1, stdout: e.argv[0] === 'date' ? '-0300\n' : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
-  on('session.messages', () => ({ value: [] }))
+  // The prompts the session took, as its transcript holds them: the demo answers only its own.
+  const sent: string[] = []
+  on('session.messages', () => ({ value: sent.map(text => ({ role: 'user' as const, text, toolUses: [] })) }))
+  on('ui.panes', () => ({ value: [] }))
   on('ui.invalidate', ($, e) => {
     invalidated.push(e.event)
     return { value: undefined }
@@ -50,7 +53,7 @@ function world(on: On, language: string | null) {
   on('prompt.compose', () => ({ sections: [] }))
   on('session.start', () => ({ cwd: '/a/b' }))
   on('config.set', ($, e) => ({ value: e.value }) as never)
-  return { invalidated, toasts, titles }
+  return { invalidated, toasts, titles, sent }
 }
 
 /** What the plugin writes to its store under `language`; before mock.store, whose hooks answer. */
@@ -233,6 +236,7 @@ describe('interface language', () => {
     })
     on('tool.call', () => ({ isError: true as const, result: 'Exit code 1\ncat: x: No such file', text: 'Exit code 1\ncat: x: No such file' }))
     engineRow(on, 'ToolUse')
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'cat x', tool_use_id: 'w1' })
     await clock.settle()
     expect(String(asked[0]?.system)).toContain('in plain English')
@@ -339,8 +343,11 @@ describe('interface language', () => {
     mock.store(on, EN)
     const clock = mock.clock(on)
     on('session.version', () => ({ value: { version: '2.1.304' } }) as never)
-    on('prompt.submit', ($, e) => ({ text: e.text }))
-    const { toasts } = world(on, null)
+    const { toasts, sent } = world(on, null)
+    on('prompt.submit', ($, e) => {
+      sent.push(e.text)
+      return { text: e.text }
+    })
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
     expect(toasts).toContain('realce installed: /realce demo shows what it does; /realce help lists the commands.')
     const status = await answer($, 'status')
@@ -445,6 +452,7 @@ describe('interface language', () => {
       const { Text } = $.ui.resolve(e)
       return <Text>engine</Text>
     })
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
     // The sentence is still on its way when the session starts again: the load marks it cut short.
     await $.tool.call({ tool: 'Bash', command: 'cat x', tool_use_id: 'b1' })
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })

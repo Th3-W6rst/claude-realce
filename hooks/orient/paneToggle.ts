@@ -2,17 +2,17 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On } from 'claude-code'
 
 import { tr } from '../i18n'
-import { closePane, openPane } from '../io'
+import { closePane, openPane, panes } from '../io'
 
 const PANE_OPEN = atom({ plugin: 'realce', key: 'paneOpen' } as const, false)
+// Held for the session, across reloads: the pane opens by itself once, at the session's first load.
+const AUTO_OPENED = atom({ plugin: 'realce', key: 'paneAutoOpened' } as const, false)
 
 // The id predates the English names and stays: a pane open across a reload keeps its id.
 export const SESSION_PANE = 'realce-sessao'
 
 // The state's copy, for the agents' poll: a read every two seconds would be a trip to the engine each time.
 let isOpen = false
-// Opened unasked below 144 columns, the pane waits undrawn: the person's toggle then opens it rather than close it.
-let isPlaced = true
 
 export const isSessionPaneOpen = () => isOpen
 
@@ -22,7 +22,7 @@ export async function loadPaneOpen($: EngineInterface): Promise<void> {
 }
 
 export async function openSessionPane($: EngineInterface, focus = false): Promise<void> {
-  isPlaced = (await openPane($, { id: SESSION_PANE, title: tr('Session', 'Sessão'), ...(focus ? { focus: true } : {}) })).isPlaced
+  await openPane($, { id: SESSION_PANE, title: tr('Session', 'Sessão'), ...(focus ? { focus: true } : {}) })
   isOpen = true
   await update($, PANE_OPEN, () => true)
 }
@@ -32,9 +32,18 @@ export async function retitleSessionPane($: EngineInterface): Promise<void> {
   if (await read($, PANE_OPEN)) await openPane($, { id: SESSION_PANE, title: tr('Session', 'Sessão') })
 }
 
-/** Opens the session pane, or closes it when open; resolves whether it is open now. */
+/** The session's first load opens the pane by itself; a later load (a reload, an enable) leaves it as the person did. */
+export async function autoOpenSessionPane($: EngineInterface): Promise<void> {
+  if (await read($, AUTO_OPENED)) return
+  await update($, AUTO_OPENED, () => true)
+  await openSessionPane($)
+}
+
+/** Opens the session pane, or closes it when drawn; resolves whether it is open now. */
 export async function toggleSessionPane($: EngineInterface): Promise<boolean> {
-  if (isPlaced && (await read($, PANE_OPEN))) {
+  // The engine's word, not a copy: a pane opened unasked in a narrow terminal waits undrawn (the toggle opens it), and
+  // is drawn without a word to the mod once the terminal widens (the toggle closes it).
+  if ((await panes($)).some(p => p.id === SESSION_PANE && p.isPlaced)) {
     await closePane($, { id: SESSION_PANE })
     return false
   }

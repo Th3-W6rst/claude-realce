@@ -2,6 +2,22 @@
 
 Versions from October 19 to 22, 2026. Those that only changed internals are left out.
 
+## 0.6.4
+- With `/realce off`, a feature's command says `/realce on`, the switch that turns it back on (it named the
+  feature's own flag, which turned on nothing).
+- `/realce pane` asks Claude Code whether the pane is drawn: a pane that opened by itself in a narrow terminal and
+  was drawn once the terminal widened now closes on the first try.
+- The pane opens by itself once a session: a reload or a plugin restart no longer brings back a pane you closed.
+- The sound plays only with a notice that went out, never alone (notices turned off, refused, or nowhere to show).
+- A question's notice measures a minute of work from the start of its own turn, also in a turn an agent's notice
+  opened.
+- `errors` asks Haiku only in an interactive session: a `-p` run or the SDK has no row to show the sentence.
+- A question still waiting in the Agent tab is not asked once `/realce agent off` or `/realce off` turned it off.
+- `/realce demo` answers only its own turn: a prompt you queued before it goes to the model.
+- `/realce status` tells about a new version the day's check found, in every session; a `/context` measure no
+  longer passes for the last request.
+- Tools mode's agent runs on the session's model (`model: inherit`), not the subagent default.
+
 ## 0.6.3
 - The detailed transcript (ctrl+o) keeps Claude Code's tool rows, groups and turn line whole, focus mode and folding
   aside; a test run's score still rides above its row and an edit keeps its word diff.

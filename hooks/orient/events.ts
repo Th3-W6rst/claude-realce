@@ -5,10 +5,10 @@ import { getFlags } from '../flags'
 import { refreshAgents } from './agents'
 import { askSessionStart, askTurnComplete, askTurnStep } from './ask'
 import { noteInput, noteTurnEnd } from './away'
-import { noteTurnStart, notifyFinish } from './notify'
+import { noteTurnStart, noteTurnStep, notifyFinish } from './notify'
 import { notePinnable } from './pins'
 import { completeTimeline, recordPrompt } from './timeline'
-import { loadPaneOpen, openSessionPane } from './paneToggle'
+import { autoOpenSessionPane, loadPaneOpen } from './paneToggle'
 import { extractPending } from './pending'
 import { applyPlanCall } from './plan'
 import { every } from '../io'
@@ -28,8 +28,9 @@ export async function orientSessionStart($: EngineInterface, e: Args<'session.st
   await askSessionStart($)
   every($, AGENTS_POLL_MS, () => void refreshAgents($))
   const flags = await getFlags($)
-  // On by default, so a -p run or the SDK would hold a pane nobody can see.
-  if (flags.painel && e.isInteractive) await openSessionPane($)
+  // On by default, so a -p run or the SDK would hold a pane nobody can see. Once a session: a reload, an enable or a
+  // worker's respawn raise session.start again, and must not bring back a pane the person closed.
+  if (flags.painel && e.isInteractive) await autoOpenSessionPane($)
 }
 
 export async function orientPromptSubmit($: EngineInterface, e: Args<'prompt.submit'>): Promise<void> {
@@ -63,8 +64,9 @@ export async function orientTurnComplete($: EngineInterface, e: Args<'turn.compl
 }
 
 /** Each step of a turn, the main loop's and subagents'. */
-export function orientTurnStep(e: Args<'turn.step'>): void {
+export async function orientTurnStep($: EngineInterface, e: Args<'turn.step'>): Promise<void> {
   askTurnStep(e)
+  await noteTurnStep($, e)
 }
 
 /** Once the row is stored. */

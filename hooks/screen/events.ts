@@ -6,7 +6,7 @@ import { getFlags, isMasterOn } from '../flags'
 import { parseTestSummary } from './score'
 import { commitCards } from './commit'
 import { loadNotes, setCommit } from './notes'
-import { isAnswerExit, maybeExplain, rememberAnswer } from './explainError'
+import { isAnswerExit, maybeExplain, noteSessionKind, rememberAnswer } from './explainError'
 import { sealOf } from './seal'
 import { bashText, EDIT_TOOLS, editCounts, editedPath, failureLine, hasBashEdits } from './toolInfo'
 import { asRecord, str } from '../safe'
@@ -30,6 +30,7 @@ const MAX_FAILURES = 20
 const MAX_KEPT = 300
 
 export async function screenSessionStart($: EngineInterface, e: Args<'session.start'>): Promise<void> {
+  noteSessionKind(e)
   await loadNotes($)
 }
 

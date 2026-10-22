@@ -103,12 +103,12 @@ export function registerEvents(on: On): void {
     return stored
   })
 
-  // A main turn's first step: its stats open if no prompt.submit did, then the demo, when armed, answers it.
+  // A main turn's first step: its stats open if no prompt.submit did, then the demo, when its own turn, answers it.
   on('turn.step', async function* ($, e, next) {
     await guard($, 'turn.step (screen)', () => screenTurnStart($, e))
-    orientTurnStep(e)
+    await guard($, 'turn.step (guide)', () => orientTurnStep($, e))
     // Only a turn's first step: a prompt that joined a running turn must not cut that turn's work short.
-    const text = e.agentId === undefined && e.index === 0 ? takeDemo() : null
+    const text = e.agentId === undefined && e.index === 0 ? await takeDemo($) : null
     if (text === null) return yield* next(e)
     yield { kind: 'text' as const, index: 0, text }
     yield { kind: 'stop' as const, stopReason: 'end_turn' as const, usage: null }

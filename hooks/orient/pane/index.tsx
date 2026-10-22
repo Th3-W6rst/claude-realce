@@ -4,7 +4,7 @@ import type { EngineInterface, On, RenderElement } from 'claude-code'
 import type { PaneTab, Pin, TimelineRow, UsageReading } from '../../../types'
 import { cachedEnv } from '../../env'
 import { fitEnd } from '../../fit'
-import { getFlags } from '../../flags'
+import { getFlags, isMasterOn } from '../../flags'
 import { tr } from '../../i18n'
 import { SCREEN } from '../../palette'
 import { timed } from '../../perf'
@@ -72,7 +72,7 @@ export function registerSessionPane(on: On): void {
     const t = $.ui.resolve(e)
     const { Box } = t
     const cols = e.props.bodyColumns
-    const flags = await getFlags($)
+    const [flags, isOn] = await Promise.all([getFlags($), isMasterOn($)])
     // The env and the failures' sentences come from the module: each change of them redraws the screen.
     const env = cachedEnv()
     const [tab, mode, chat, pending, plan, files, failures, agents, timeline, pins, usage] = await Promise.all([
@@ -88,7 +88,7 @@ export function registerSessionPane(on: On): void {
       flags.fixar ? read($, PINS) : Promise.resolve([] as Pin[]),
       flags.limite ? read($, USAGE) : Promise.resolve(null as UsageReading | null),
     ])
-    const d: PaneData = { flags, env, pending, plan, files, failures, agents, timeline, pins, usage, chat, mode, isFocused: e.props.isFocused }
+    const d: PaneData = { flags, isMasterOn: isOn, env, pending, plan, files, failures, agents, timeline, pins, usage, chat, mode, isFocused: e.props.isFocused }
     const tabs = visibleTabs(d)
     const active = tabs.includes(tab) ? tab : 'overview'
     const body = active === 'agent' ? agentTab($, t, d, cols) : active === 'files' ? filesTab(t, d, cols) : active === 'turns' ? turnsTab($, t, d, cols) : overviewTab($, t, d, cols)

@@ -14,7 +14,19 @@ const PUBLIC_MARKETPLACE = 'claude-realce'
 let lastStatus: string | null = null
 
 /** What the last check found, for `/realce status`; null before one ran. */
-export const updateStatus = () => lastStatus
+/**
+ * The update line of /realce status: this load's check, or else the version the day's check found, which another
+ * session (or this one before a reload) stored.
+ */
+export async function updateStatus($: EngineInterface): Promise<string | null> {
+  if (lastStatus !== null) return lastStatus
+  const latest = await storeGet($, 'updateLatest')
+  const local = await localVersion($)
+  if (typeof latest !== 'string' || local === null) return null
+  return compareVersions(latest, local) > 0
+    ? tr(`Update: ${latest} is out (installed ${local}). What's new: ${CHANGELOG}`, `Atualização: ${latest} disponível (instalada ${local}). Novidades: ${CHANGELOG}`)
+    : tr(`Update: up to date (${local}).`, `Atualização: em dia (${local}).`)
+}
 
 /** Semver's order on `x.y.z[-pre]`, part by part as numbers: '0.10.0' after '0.9.9', '0.5.0-beta' before '0.5.0'. */
 export function compareVersions(a: string, b: string): number {
@@ -74,6 +86,7 @@ async function runCheck($: EngineInterface): Promise<void> {
     lastStatus = tr("Update: not checked (GitHub's version was not read).", 'Atualização: não verificada (versão no GitHub não lida).')
     return
   }
+  await storeSet($, 'updateLatest', remote)
   if (compareVersions(remote, local) <= 0) {
     lastStatus = tr(`Update: up to date (${local}).`, `Atualização: em dia (${local}).`)
     return

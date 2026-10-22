@@ -1,6 +1,6 @@
 import type { EngineInterface, On } from 'claude-code'
 
-import { featureOff, flagName, flagOf, FLAGS, flagSpec, getFlags, getStoredFlags, isFlagId, pickLanguage, setFlag, setMaster, type FlagId } from './flags'
+import { featureOff, flagName, flagOf, FLAGS, flagSpec, getFlags, getStoredFlags, isFlagId, isMasterOn, pickLanguage, setFlag, setMaster, type FlagId } from './flags'
 import { isPicked, pick, tr, type Lang } from './i18n'
 import { explainCommand } from './orient/explain'
 import { ask } from './orient/ask'
@@ -120,7 +120,7 @@ async function languageCommand($: EngineInterface, word: string): Promise<string
 
 /** A feature's command, or what it answers while the feature's flag is off. */
 async function gated($: EngineInterface, id: FlagId, run: () => Promise<string>): Promise<string> {
-  return (await getFlags($))[id] ? run() : featureOff(id)
+  return (await getFlags($))[id] ? run() : featureOff(id, await isMasterOn($))
 }
 
 export function registerCommands(on: On): void {
@@ -165,7 +165,7 @@ export function registerCommands(on: On): void {
       return { text: await gated($, 'agente', () => askCommand($, question)) }
     }
     if (words.length === 1 && first === 'demo') {
-      if (!(await getFlags($)).demo) return { text: featureOff('demo') }
+      if (!(await getFlags($)).demo) return { text: featureOff('demo', await isMasterOn($)) }
       await demoCommand($)
       return {}
     }

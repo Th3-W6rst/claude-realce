@@ -175,6 +175,9 @@ describe('/realce demo', () => {
       submitted.push(e.text)
       return (refuse === undefined ? { text: e.text } : { drop: refuse }) as never
     })
+    // The transcript holds the prompts submitted: the demo answers the turn of its own.
+    // As Claude Code frames a plugin's prompt in the transcript (seen live, 2.1.308).
+    on('session.messages', () => ({ value: submitted.map(text => ({ role: 'user' as const, text: `The realce plugin sent a message:\n${text}\nAddress the message above.`, toolUses: [] })) }))
     on('turn.step', async function* ($, e) {
       isModelAsked = true
       yield { kind: 'text' as const, index: 0, text: 'modelo' }
@@ -206,6 +209,20 @@ describe('/realce demo', () => {
     expect(texts.join('')).toBe(DEMO_TEXT)
     expect(result).toMatchObject({ answer: DEMO_TEXT, toolUses: [], stopReason: 'end_turn' })
     expect(world.wasModelAsked()).toBe(false)
+  })
+
+  test("a turn that opens before the demo's own (a prompt the person queued) goes to the model; the demo waits for its own", async ($, on) => {
+    mock.store(on, PT)
+    const clock = mock.clock(on)
+    const world = demoWorld(on)
+    expect(await $.command.run({ ...RUN, args: 'demo' })).toEqual({})
+    // The person's queued prompt lands last in the transcript before the demo's turn starts.
+    world.submitted.push('corrija o x')
+    const first = await readStep($)
+    expect(first.texts.join('')).toBe('modelo')
+    await clock.settle()
+    const second = await readStep($)
+    expect(second.texts.join('')).toBe(DEMO_TEXT)
   })
 
   test('the demo opens its turn, so its rule gets its stats', async ($, on) => {
@@ -470,6 +487,17 @@ describe('update notice', () => {
     await start($)
     await clock.settle()
     expect(writes).toHaveLength(1)
+  })
+
+  test("a session that did not check today still tells, in status, the version the day's check found", async ($, on) => {
+    const now = Date.UTC(2026, 9, 20, 12, 0)
+    mock.store(on, { ...PT, demoHintShown: true, updateCheckedAt: now - 3_600_000, updateLatest: '0.4.1' })
+    const clock = mock.clock(on, { now })
+    const { fetched } = updateWorld(on, { ok: true, version: '0.4.1' })
+    await start($)
+    await clock.settle()
+    expect(fetched).toEqual([])
+    expect(await status($)).toMatch(/Atualização: 0\.4\.1 disponível \(instalada 0\.4\.0\)/)
   })
 
   test('a network failure shows only in status', async ($, on) => {

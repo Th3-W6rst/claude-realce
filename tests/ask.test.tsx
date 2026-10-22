@@ -123,6 +123,26 @@ describe('pane agent', () => {
     expect(await markdown(ui)).toEqual(['Mudaram **2** arquivos.'])
   })
 
+  test('a queued question the person turned off before the turn ended is never asked', async ($, on) => {
+    mock.store(on, PT)
+    const clock = mock.clock(on)
+    const world = agentWorld(on, ANSWERED, { submit: false })
+    engineEvents(on)
+    on('turn.step', async function* () {
+      return { turnId: 't1', index: 0, answer: '', toolUses: [], stopReason: 'end_turn' as const, usage: null }
+    })
+    await stepMain($)
+    const ui = await agentPane($)
+    await ui.input({ key: 'ask', text: 'Por que demorou?' })
+    await clock.settle()
+    await $.command.run({ ...RUN, args: 'off' })
+    await $.turn.complete({ ...TURN, durationMs: 3000 })
+    await clock.settle()
+    expect(world.forks).toEqual([])
+    await $.command.run({ ...RUN, args: 'on' })
+    expect(await texts(ui)).toContain('Sem resposta: Realce desligado: /realce on liga.')
+  })
+
   test('before any turn ends there is nothing to ask about, and the pane says so', async ($, on) => {
     mock.store(on, PT)
     const clock = mock.clock(on)

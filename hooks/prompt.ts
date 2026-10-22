@@ -93,7 +93,8 @@ export function registerPrompt(on: On): void {
     // is said, and the section goes out in the language in force.
     if (isTaught) await ensureLanguage($).catch(error => logLine($, `realce: language not read (${errorText(error)})`))
     const section = isTaught ? buildSection(await getFlags($), hasMermaid) : null
-    lastCompose = { at: new Date(await $.clock.now()).toISOString(), surfaces: e.surfaces, traits: e.traits, isAdded: section !== null }
+    // A /context measure sends nothing: it is not the last request /realce status speaks of.
+    if (!e.traits.includes('analysis')) lastCompose = { at: new Date(await $.clock.now()).toISOString(), surfaces: e.surfaces, traits: e.traits, isAdded: section !== null }
     return section === null ? composed : { sections: [...composed.sections, section] }
   })
 }

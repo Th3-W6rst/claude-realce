@@ -84,8 +84,12 @@ export const flagName = (f: FlagSpec): string => tr(f.alias, f.id)
 
 export const flagSpec = (id: FlagId): FlagSpec => FLAGS.find(f => f.id === id)!
 
-/** What a feature's command answers while its flag is off. */
-export function featureOff(id: FlagId): string {
+/** The advice for a feature turned off by `/realce off`: its own flag's `on` would turn on nothing. */
+export const MASTER_OFF = () => tr('Realce is off: /realce on turns it on.', 'Realce desligado: /realce on liga.')
+
+/** What a feature's command answers while its flag is off, or while the whole mod is. */
+export function featureOff(id: FlagId, isMasterOn = true): string {
+  if (!isMasterOn) return MASTER_OFF()
   const f = flagSpec(id)
   return tr(`Feature off: ${f.label.en}. /realce ${f.alias} on turns it on.`, `Recurso desligado: ${f.label.pt}. /realce ${f.id} on liga.`)
 }

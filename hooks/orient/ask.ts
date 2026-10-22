@@ -5,6 +5,7 @@ import type { AskMode, ChatEntry } from '../../types'
 import { pick, tr, type Text } from '../i18n'
 import { detach, exec, fork, listAgents, spawn } from '../io'
 import { errorText } from '../safe'
+import { featureOff, getFlags, isMasterOn } from '../flags'
 
 const CHAT = atom({ plugin: 'realce', key: 'chat' } as const, [])
 
@@ -142,6 +143,11 @@ async function flushQueue($: EngineInterface): Promise<void> {
       if (isMainTurnRunning) return
       const next = (await read($, CHAT)).find(c => c.status === 'queued')
       if (next === undefined) return
+      // Turned off while it waited (the feature or the whole mod): it is answered with that, never asked.
+      if (!(await getFlags($)).agente) {
+        await settleEntry($, next.id, { status: 'failed', text: featureOff('agente', await isMasterOn($)) })
+        continue
+      }
       await settleEntry($, next.id, { status: 'pending' })
       await answerFromSession($, next)
     }

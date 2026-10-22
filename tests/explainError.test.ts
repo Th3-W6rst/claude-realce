@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import { isAnswerExit } from '../hooks/screen/explainError'
-import { USAGE, engineRow } from './world'
+import { USAGE, engineRow, startSession } from './world'
 import { PT, PT_ALL } from './lang'
 
 describe('error explained', () => {
@@ -40,6 +40,7 @@ describe('error explained', () => {
     mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
     await clock.settle()
     const system = String(asked[0]?.system)
@@ -53,6 +54,7 @@ describe('error explained', () => {
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
     const ui = await $.ui.mount(failedRow('b1', 'cat sumiu.txt'))
     expect(await why(ui)).toBe('↳ Explicando…')
@@ -71,6 +73,7 @@ describe('error explained', () => {
     const clock = mock.clock(on)
     engineRow(on, 'ToolGroup')
     explainWorld(on, () => ({ isAnswered: true, text: 'O arquivo não existe.', usage: USAGE }))
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
     await clock.settle()
     const calls = [{ tool_use_id: 'b1', tool: 'Bash', input: { command: 'cat sumiu.txt' }, isRunning: false, isErrored: true, isInterrupted: false }]
@@ -85,6 +88,7 @@ describe('error explained', () => {
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     explainWorld(on, () => ({ isAnswered: true, text: `O comando falhou ${'porque sim '.repeat(40)}`, usage: USAGE }))
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
     await clock.settle()
     const line = (await why(await $.ui.mount(failedRow('b1', 'cat sumiu.txt')))) ?? ''
@@ -101,6 +105,7 @@ describe('error explained', () => {
     on('session.start', () => ({ cwd: '/a/b' }))
     mock.env(on, { HOME: '/Users/u' })
     on('fs.exists', () => ({ value: false }))
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
     await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
     await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
     expect(await why(await $.ui.mount(failedRow('b1', 'cat sumiu.txt')))).toBe('↳ Sem explicação: interrompida ao recarregar o mod')
@@ -110,10 +115,25 @@ describe('error explained', () => {
     mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
     await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b2' })
     await clock.settle()
     expect(asked).toHaveLength(1)
+  })
+
+  test('a -p run or the SDK explains nothing: no row would show the sentence', async ($, on) => {
+    mock.store(on, PT_ALL)
+    const clock = mock.clock(on)
+    const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    on('config.list', () => ({ value: [] }))
+    on('session.start', () => ({ cwd: '/a/b' }))
+    mock.env(on, { HOME: '/Users/u' })
+    on('fs.exists', () => ({ value: false }))
+    await $.session.start({ cwd: '/a/b', surface: null, isInteractive: false })
+    await $.tool.call({ tool: 'Bash', command: 'cat sumiu.txt', tool_use_id: 'b1' })
+    await clock.settle()
+    expect(asked).toEqual([])
   })
 
   test('status counts the explanations sent', async ($, on) => {
@@ -121,6 +141,7 @@ describe('error explained', () => {
     const clock = mock.clock(on)
     explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
     on('prompt.compose', () => ({ sections: [] }))
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
     await $.tool.call({ tool: 'Bash', command: 'cat b', tool_use_id: 'b2' })
     await clock.settle()
@@ -132,6 +153,7 @@ describe('error explained', () => {
     mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    await startSession($, on)
     for (let i = 0; i < 21; i++) await $.tool.call({ tool: 'Bash', command: `cat f${i}`, tool_use_id: `b${i}` })
     await clock.settle()
     expect(asked).toHaveLength(20)
@@ -142,6 +164,7 @@ describe('error explained', () => {
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     const asked = explainWorld(on, () => ({ isAnswered: false, reason: 'api-error', status: 529, error: { kind: 'overloaded' }, usage: USAGE }))
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
     await clock.settle()
     expect(await why(await $.ui.mount(failedRow('b1', 'cat a')))).toBe('↳ Sem explicação: api-error')
@@ -153,6 +176,7 @@ describe('error explained', () => {
     const clock = mock.clock(on)
     engineRow(on, 'ToolUse')
     explainWorld(on, () => ({ deny: 'sem rede' }))
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
     await clock.settle()
     expect(await why(await $.ui.mount(failedRow('b1', 'cat a')))).toMatch(/^↳ Sem explicação: .*sem rede/)
@@ -162,6 +186,7 @@ describe('error explained', () => {
     mock.store(on, PT)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    await startSession($, on)
     for (const [i, command] of ['grep foo x.ts', 'test -f a && echo sim', 'quiet', 'stopped'].entries()) await $.tool.call({ tool: 'Bash', command, tool_use_id: `q${i}` })
     await clock.settle()
     expect(asked).toHaveLength(0)
@@ -181,6 +206,7 @@ describe('error explained', () => {
     mock.store(on, PT_ALL)
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'grep x sumiu.txt', tool_use_id: 'g2' })
     await clock.settle()
     expect(asked).toHaveLength(1)
@@ -190,6 +216,7 @@ describe('error explained', () => {
     mock.store(on, { ...PT, flags: { erros: false } })
     const clock = mock.clock(on)
     const asked = explainWorld(on, () => ({ isAnswered: true, text: 'x', usage: USAGE }))
+    await startSession($, on)
     await $.tool.call({ tool: 'Bash', command: 'cat a', tool_use_id: 'b1' })
     await clock.settle()
     expect(asked).toHaveLength(0)

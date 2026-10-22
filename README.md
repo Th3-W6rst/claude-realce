@@ -21,7 +21,7 @@ The interface follows Claude Code's language: English, or Portuguese for whoever
 *Drawn by the mod itself, as `/realce print` draws a reply (`/realce demo` shows it in the terminal); the table's
 numbers are just an example. On a light theme: [demo-light.png](images/demo-light.png).*
 
-Current version: 0.6.3 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
+Current version: 0.6.4 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
 [releases](https://github.com/Th3-W6rst/claude-realce/releases) · repository:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (questions and problems in *Issues*).
 
@@ -55,8 +55,9 @@ Good to know before using it:
   (`pending`): those four are a matter of taste, and the last two add lines to every turn.
 - The mod adds a short paragraph with the marks to the system prompt (only those of the features that are on).
 - Two features call Haiku on your account, about one to two thousand tokens each time: `errors` (explains a command
-  that failed, at most 20 each time the mod loads; off until you run `/realce errors on`) and `explain` (only when you
-  ask). The pane's Agent tab calls the session's model only on a question you ask.
+  that failed, at most 20 each time the mod loads, only in an interactive session; off until you run
+  `/realce errors on`) and `explain` (only when you ask). The pane's Agent tab calls the session's model only on a
+  question you ask.
 - `/realce off` pauses every feature; `claude plugin uninstall realce` removes it.
 
 To update: `claude plugin marketplace update claude-realce`, then `claude plugin update realce@claude-realce`, and
@@ -129,7 +130,8 @@ so Claude Code refuses it any edit or command in every permission mode, `bypassP
 file list from `git ls-files`; like Claude's own Read, it can open any file your account can. Ready-made questions sum the session up, suggest the next step,
 explain the last failure or review the changed files. Each answer goes to the prompt box (**To chat**), is sent
 (**Send**) or copied; a failure's **Fix** in the Overview leaves a ready prompt in the box. Nothing calls the model
-until you ask; `/realce agent off` takes the tab away.
+until you ask; `/realce agent off` takes the field, the ready-made questions and **Fix** away, and a question still
+waiting is not asked (a history already there stays readable in the tab until **Clear**).
 
 `copy`, `summary`, `pane`, `focus`, `pin`, `explain`, `print` and `demo` are flags too: `/realce focus` toggles the
 mode, and `/realce explain off` turns the feature off (the command then says how to turn it back on). Two of them name
@@ -220,24 +222,28 @@ same browser makes the PNG of `/realce print`.
   pane agent's Tools mode.
 - **Files:** reads its own `plugin.json` and, for a `custom:` theme, `~/.claude/themes/<name>.json`; checks whether
   Cursor, Visual Studio Code or Zed is in `/Applications` (where paths open) and whether there is a Desktop. Writes
-  under `~/.cache/realce/`; `/realce print` writes an HTML page and a PNG to the Desktop.
+  under `~/.cache/realce/`; `/realce print` writes an HTML page and a PNG to the Desktop, or to the home folder when
+  there is none.
 - **Settings:** reads Claude Code's settings list (`$.config.list`) for its `language` and `theme`.
-- **Store:** its flags, the on/off switch, the language you picked, whether the welcome hint was shown and when it
-  last looked for an update.
+- **Store:** its flags, the on/off switch, the language you picked, whether the welcome hint was shown, and when it
+  last looked for an update and the version it found.
 - **Session state** (`$.state`, held for the session and readable by any plugin in it): the turns and their seals,
   the files touched, the failures and their explanations, commit cards, the plan, the agents, pinned replies, the
-  timeline, the away summary, usage, the diagrams drawn, and the Agent tab's last 20 questions and answers.
+  timeline, the away summary, usage, the diagrams drawn, what needs you (the `{!…!}` texts), the calls running now
+  (their files and commands), the limit warning, the pane's state (open, opened once, tab, Agent mode), which code
+  blocks are unfolded, and the Agent tab's last 20 questions and answers.
 - **Session and clipboard:** reads the transcript and the selection (for copy, print, summary, explain and pin), the
   session's agents (the Overview's list, and whether a pane agent still runs after a reload), the session id (its
   perf file's name) and Claude Code's version (`/realce doctor`), and copies to the clipboard.
-- **Network:** one GET of its own `plugin.json` from raw.githubusercontent.com, at most once a day, to say when a new
-  version is out (`/realce updates off` stops it).
+- **Network:** one GET of its own `plugin.json` from raw.githubusercontent.com, about once a day (a failed one
+  counts), to say when a new version is out (`/realce updates off` stops it).
 - **Model:** the Haiku, to explain a failed command (up to 20 each time the mod loads, with `/realce errors on`) and
   a selection on `/realce explain`; on a question in the pane's Agent tab, a fork of the session (Session mode) or
   its own agent, whose only tool is Read (Tools mode).
 - **Prompt:** one system prompt section that teaches Claude the marks; `/realce demo` submits one prompt, which the mod
   answers itself, without the model. In the pane, only on your press: **To chat** and a failure's **Fix** put text in
-  the prompt box, and **Send** submits an answer as your prompt.
+  the prompt box, and **Send** submits an answer as your prompt. `/realce status` reads the composed system prompt's
+  sections to say whether its own is there.
 - **Environment:** reads `HOME` and `COLORTERM`.
 
 Every one of these calls goes through [hooks/io.ts](hooks/io.ts); `claude plugin validate .` lists them all.
@@ -248,7 +254,7 @@ Every one of these calls goes through [hooks/io.ts](hooks/io.ts); `claude plugin
   selecting text for `/realce explain`, only work with it; without it, the mod says so.
 - **Notify when done:** Claude Code does not say whether the window has focus; the notice goes out for turns longer
   than 1 minute and for questions asked after 1 minute of work. With no notification channel in the terminal (tmux,
-  Terminal.app), it goes out as the macOS banner.
+  Terminal.app), it goes out as the macOS banner. The sound plays only with a notice that went out.
 - **Proof seal:** tests run by a command in the background do not count; the seal stays at "⚠ no proof". It reads
   pytest, jest, vitest, bun, mocha, cargo, go test, XCTest, Swift Testing, `node --test`, RSpec and Deno.
 - **Rule after a background agent:** Claude Code measures the turn an agent's notice opens from your last prompt, not

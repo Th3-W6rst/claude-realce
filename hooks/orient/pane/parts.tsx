@@ -13,6 +13,7 @@ export type UI = Pick<Elements['terminal'], 'Box' | 'Text' | 'Button' | 'Link' |
 /** What the pane read for one drawing: each tab draws from it, none reads the state itself. */
 export type PaneData = {
   flags: Flags
+  isMasterOn: boolean
   env: SessionEnv | null
   pending: PendingItems | null
   plan: PlanItem[]

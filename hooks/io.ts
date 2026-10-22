@@ -123,6 +123,10 @@ export function ccVersion($: E) {
   return $.session.version()
 }
 
+export function panes($: E) {
+  return $.ui.panes()
+}
+
 export function closePane($: E, ...args: Parameters<E['ui']['close']>): ReturnType<E['ui']['close']> {
   return $.ui.close(...args)
 }

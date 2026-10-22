@@ -4,6 +4,7 @@ import type { EngineInterface, RenderElement } from 'claude-code'
 import type { AskMode, ChatEntry } from '../../../types'
 import { cellWidth, fitEnd, segmentRow, type Segment } from '../../fit'
 import { formatClock, formatDecimal, formatTokens } from '../../format'
+import { MASTER_OFF } from '../../flags'
 import { tr } from '../../i18n'
 import { copyText, fill, submit, toast } from '../../io'
 import { SCREEN } from '../../palette'
@@ -181,7 +182,7 @@ export function agentTab($: EngineInterface, t: UI, d: PaneData, cols: number): 
       ) : (
         <Box flexDirection="row" width={cols}>
           <Box flexGrow={1}>
-            <Text dimColor>{tr('Agent off: /realce agent on turns it on.', 'Agente desligado: /realce agente on liga.')}</Text>
+            <Text dimColor>{d.isMasterOn ? tr('Agent off: /realce agent on turns it on.', 'Agente desligado: /realce agente on liga.') : MASTER_OFF()}</Text>
           </Box>
           {/* The tab shows while a history is left (explain writes it too): Clear lets it go. */}
           <Button plain key="clear-chat" dimColor onPress={() => void clearChat($)}>

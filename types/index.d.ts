@@ -90,6 +90,7 @@ declare module 'claude-code' {
       plan: PlanItem[]
       agents: AgentRow[]
       paneOpen: boolean
+      paneAutoOpened: boolean
       explanations: Record<string, Explanation>
       /** A git command's cards by its tool_use_id, for the folded group that holds it: data, drawn in the language. */
       commits: Record<string, CommitCard[]>

@@ -27,8 +27,9 @@ export async function statusCommand($: EngineInterface, isFullscreen: boolean): 
   const off = FLAGS.filter(f => !stored[f.id]).map(f => pick(f.label))
   const env = cachedEnv()
   const { sections } = await compose($)
-  // Always said, for whoever reports a problem: the update line comes only on the day the check runs.
+  // Always said, for whoever reports a problem: the update line needs a check, this load's or the day's stored one.
   const version = await localVersion($)
+  const update = await updateStatus($)
   const isTaught = sections.some(s => s.id === SECTION_ID)
   const sent = explanationsSent()
   const failure = lastNotifyFailure()
@@ -66,7 +67,7 @@ export async function statusCommand($: EngineInterface, isFullscreen: boolean): 
         ),
     ...(failure === null ? [] : [tr(`Last notice not sent: ${failure}.`, `Último aviso não enviado: ${failure}.`)]),
     ...(lastNotifyWasBanner() ? [tr("Last notice: handed to macOS (the terminal gives Claude Code no channel).", 'Último aviso: entregue ao macOS (o terminal não dá canal ao Claude Code).')] : []),
-    ...(updateStatus() === null ? [] : [updateStatus()!]),
+    ...(update === null ? [] : [update]),
     ...perfLines(),
   ].join('\n')
 }
