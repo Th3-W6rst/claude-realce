@@ -47,7 +47,7 @@ describe('commit card', () => {
       { tool_use_id: 'p1', tool: 'Bash', input: { command: 'pytest' }, isRunning: false, isErrored: false, isInterrupted: false },
       { tool_use_id: 'g1', tool: 'Bash', input: { command: 'git commit -m x' }, isRunning: false, isErrored: false, isInterrupted: false },
     ]
-    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false, isCallsOnly: true } })
     expect(await drawnText(ui, 'realce-group')).toBe('◇ Rodou 2 comandos · ● commit 9cd805a')
   })
 
@@ -63,9 +63,9 @@ describe('commit card', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: OUTPUT }))
     await $.tool.call({ tool: 'Bash', command: 'git commit -m x', tool_use_id: 'g1' })
     const calls = [{ tool_use_id: 'g1', tool: 'Bash', input: { command: 'git commit -m x' }, isRunning: false, isErrored: false, isInterrupted: false }]
-    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false, isCallsOnly: true } })
     const before = reads
-    for (let i = 0; i < 3; i++) await ui.redraw({ calls, isActive: false, isExpanded: false })
+    for (let i = 0; i < 3; i++) await ui.redraw({ calls, isActive: false, isExpanded: false, isCallsOnly: true })
     expect(reads - before).toBe(0)
     expect(await drawnText(ui, 'realce-group')).toBe('◇ Rodou 1 comando · ● commit 9cd805a')
   })

@@ -141,6 +141,28 @@ describe('commands', () => {
     expect((await $.command.run({ ...RUN, args: 'painel' })).text).toBe('Painel da sessão aberto.')
     expect(calls).toEqual(['open realce-sessao', 'close realce-sessao', 'open realce-sessao'])
   })
+
+  test('a pane opened at start but not placed (a narrow terminal) opens on /realce painel, not closes', async ($, on) => {
+    mock.store(on, PT)
+    mock.clock(on)
+    const calls: string[] = []
+    let placed = false
+    on('ui.open', ($, e) => {
+      calls.push(`open ${e.id}`)
+      return { value: placed ? { isPlaced: true as const } : ({ isPlaced: false, reason: 'narrow' } as never) }
+    })
+    on('ui.close', ($, e) => {
+      calls.push(`close ${e.id}`)
+      return { value: undefined }
+    })
+    on('prompt.compose', () => ({ sections: [] }))
+    on('session.start', () => ({ cwd: '/a/b' }))
+    await $.session.start({ cwd: '/a/b', surface: 'terminal', isInteractive: true })
+    placed = true
+    expect((await $.command.run({ ...RUN, args: 'painel' })).text).toBe('Painel da sessão aberto.')
+    expect((await $.command.run({ ...RUN, args: 'painel' })).text).toBe('Painel da sessão fechado.')
+    expect(calls.filter(c => c.endsWith('realce-sessao'))).toEqual(['open realce-sessao', 'open realce-sessao', 'close realce-sessao'])
+  })
 })
 
 describe('flags pane', () => {
@@ -259,6 +281,8 @@ describe('prompt section', () => {
     expect((await $.prompt.compose(COMPOSE)).sections.map(s => s.id)).toEqual(['intro', 'realce:reading-aids'])
     expect((await $.prompt.compose({ ...COMPOSE, traits: ['bare'] })).sections.map(s => s.id)).toEqual(['intro'])
     expect((await $.prompt.compose({ ...COMPOSE, surfaces: [], traits: ['print'] })).sections.map(s => s.id)).toEqual(['intro'])
+    // A teammate writes to its lead, not to the person.
+    expect((await $.prompt.compose({ ...COMPOSE, traits: ['teammate'] })).sections.map(s => s.id)).toEqual(['intro'])
   })
 
   test('a compose ahead of session.start still teaches diagrams where mmdc is', async ($, on) => {

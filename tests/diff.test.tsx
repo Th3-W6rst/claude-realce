@@ -86,6 +86,15 @@ describe('readable diff', () => {
     expect(await ui.find({ text: 'linha 39' })).toBeDefined()
   })
 
+  test('in ctrl+o a long diff shows every line, and focus mode does not hide it', async ($, on) => {
+    mock.store(on, { ...PT, flags: { foco: true } })
+    engineResult(on)
+    const output = editOutput(Array.from({ length: 40 }, (_, i) => `+linha ${i}`))
+    const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolResult', requestId: 'e9', props: { tool_use_id: 'e9', tool: 'Edit', output, isErrored: false, isExpanded: true } })
+    expect(await ui.find({ text: 'linha 39' })).toBeDefined()
+    expect(await ui.find({ key: 'diff-fold' })).toBeUndefined()
+  })
+
   test('a 2000-line diff draws folded and fast', async ($, on) => {
     mock.store(on, PT)
     engineResult(on)

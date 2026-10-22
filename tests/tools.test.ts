@@ -83,7 +83,7 @@ describe('tools by kind', () => {
     const call = { tool_use_id: 'r1', tool: 'Bash', input: { command: 'python3 -m pytest -q' }, isRunning: true, isErrored: false, isInterrupted: false, output: BASH_OK('2 passed in 25.02s') }
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolUse', requestId: 'r1', props: call })
     expect(((await drawnText(ui, 'realce-tool')) ?? '').startsWith('◌')).toBe(false)
-    const group = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls: [call], isActive: false, isExpanded: false } })
+    const group = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls: [call], isActive: false, isExpanded: false, isCallsOnly: true } })
     expect(((await drawnText(group, 'realce-group')) ?? '').startsWith('◌')).toBe(false)
     await $.command.run({ command: 'realce', args: 'foco on', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } })
     await ui.redraw(call)
@@ -125,7 +125,7 @@ describe('tools by kind', () => {
       { tool: 'Read', input: { file_path: '/x.ts' }, isRunning: false, isErrored: false, isInterrupted: false },
       { tool: 'Grep', input: { pattern: 'x' }, isRunning: false, isErrored: false, isInterrupted: false },
     ]
-    const folded = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+    const folded = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false, isCallsOnly: true } })
     expect(await drawnText(folded, 'realce-group')).toBe('◇ Leu 1 arquivo · buscou 1 vez')
     const expanded = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: true } })
     expect(await expanded.find({ text: 'engine' })).toBeDefined()
@@ -146,7 +146,7 @@ describe('tools by kind', () => {
 })
 
 describe('focus mode', () => {
-  const row = (tool: string, input: unknown, state: Partial<{ isRunning: boolean; isErrored: boolean }> = {}, id = 'f1') => ({
+  const row = (tool: string, input: unknown, state: Partial<{ isRunning: boolean; isErrored: boolean; isExpanded: boolean; output: unknown }> = {}, id = 'f1') => ({
     plugin: 'realce' as const,
     surface: 'terminal' as const,
     component: 'ToolUse' as const,
@@ -168,6 +168,31 @@ describe('focus mode', () => {
     expect(await isHidden(result)).toBe(true)
     const failed = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolResult', requestId: 'r3', props: { tool_use_id: 'r3', tool: 'Bash', output: 'x', isErrored: true } })
     expect(await failed.find({ text: 'engine' })).toBeDefined()
+  })
+
+  test("ctrl+o shows the engine's rows whole, focus mode or not, with a test run's score above its row", async ($, on) => {
+    mock.store(on, { ...PT, flags: { foco: true } })
+    engineRow(on, 'ToolUse')
+    engineRow(on, 'ToolResult')
+    engineRow(on, 'ToolGroup')
+    const read = await $.ui.mount(row('Read', { file_path: '/a/b/x.ts' }, { isExpanded: true }, 'x1'))
+    expect(await read.find({ text: 'engine' })).toBeDefined()
+    expect(await isHidden(read)).toBe(false)
+    const tests = await $.ui.mount(row('Bash', { command: 'pytest' }, { isExpanded: true, output: BASH_OK('===== 12 passed in 0.50s =====') }, 'x2'))
+    expect((await tests.findAll({ type: 'Text' })).map(t => t.text)).toEqual(['✔ 12 passaram · ✖ 0 falharam · ⏱ 0,5s', 'engine'])
+    const result = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolResult', requestId: 'x1', props: { tool_use_id: 'x1', tool: 'Read', output: {}, isErrored: false, isExpanded: true } })
+    expect(await result.find({ text: 'engine' })).toBeDefined()
+    const calls = [{ tool: 'Read', input: { file_path: '/x.ts' }, isRunning: false, isErrored: false, isInterrupted: false }]
+    expect(await (await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: true, isCallsOnly: true } })).find({ text: 'engine' })).toBeDefined()
+  })
+
+  test("a group with more than its calls (a recalled memory) keeps the engine's line", async ($, on) => {
+    mock.store(on, PT)
+    engineRow(on, 'ToolGroup')
+    const calls = [{ tool: 'Read', input: { file_path: '/x.ts' }, isRunning: false, isErrored: false, isInterrupted: false }]
+    const group = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false, isCallsOnly: false } })
+    expect(await group.find({ key: 'realce-group' })).toBeUndefined()
+    expect(await group.find({ text: 'engine' })).toBeDefined()
   })
 
   test('foco hides a grep with no match, row and result', async ($, on) => {
@@ -205,7 +230,7 @@ describe('focus mode', () => {
     mock.store(on, { ...PT, flags: { foco: true } })
     engineRow(on, 'ToolGroup')
     const calls = [{ tool: 'Read', input: { file_path: '/x.ts' }, isRunning: false, isErrored: false, isInterrupted: false }]
-    expect(await isHidden(await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } }))).toBe(true)
+    expect(await isHidden(await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false, isCallsOnly: true } }))).toBe(true)
     const withError = [{ ...calls[0]!, isErrored: true }]
     expect(await isHidden(await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', requestId: 'g2', props: { calls: withError, isActive: false, isExpanded: false } }))).toBe(false)
   })

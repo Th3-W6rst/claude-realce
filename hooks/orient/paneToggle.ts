@@ -11,6 +11,8 @@ export const SESSION_PANE = 'realce-sessao'
 
 // The state's copy, for the agents' poll: a read every two seconds would be a trip to the engine each time.
 let isOpen = false
+// Opened unasked below 144 columns, the pane waits undrawn: the person's toggle then opens it rather than close it.
+let isPlaced = true
 
 export const isSessionPaneOpen = () => isOpen
 
@@ -20,7 +22,7 @@ export async function loadPaneOpen($: EngineInterface): Promise<void> {
 }
 
 export async function openSessionPane($: EngineInterface, focus = false): Promise<void> {
-  await openPane($, { id: SESSION_PANE, title: tr('Session', 'Sessão'), ...(focus ? { focus: true } : {}) })
+  isPlaced = (await openPane($, { id: SESSION_PANE, title: tr('Session', 'Sessão'), ...(focus ? { focus: true } : {}) })).isPlaced
   isOpen = true
   await update($, PANE_OPEN, () => true)
 }
@@ -32,7 +34,7 @@ export async function retitleSessionPane($: EngineInterface): Promise<void> {
 
 /** Opens the session pane, or closes it when open; resolves whether it is open now. */
 export async function toggleSessionPane($: EngineInterface): Promise<boolean> {
-  if (await read($, PANE_OPEN)) {
+  if (isPlaced && (await read($, PANE_OPEN))) {
     await closePane($, { id: SESSION_PANE })
     return false
   }

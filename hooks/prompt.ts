@@ -83,7 +83,8 @@ export function registerPrompt(on: On): void {
   on('prompt.compose', async ($, e, next) => {
     const composed = await next(e)
     // Marks only pay off where this mod draws them: the terminal.
-    const isTaught = e.surfaces.includes('terminal') && !e.traits.includes('bare')
+    // A teammate writes to its lead, not to the person reading the screen: no marks for it.
+    const isTaught = e.surfaces.includes('terminal') && !e.traits.includes('bare') && !e.traits.includes('teammate')
     // The session's first compose runs before session.start has recorded the env, and that prompt is the one the
     // session keeps: ask for mmdc directly, or no session is ever taught diagrams. A refused `which` is logged by
     // session.start (the same promise) and takes only the diagrams with it, not the marks.

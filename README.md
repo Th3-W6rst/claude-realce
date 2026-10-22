@@ -21,7 +21,7 @@ The interface follows Claude Code's language: English, or Portuguese for whoever
 *Drawn by the mod itself, as `/realce print` draws a reply (`/realce demo` shows it in the terminal); the table's
 numbers are just an example. On a light theme: [demo-light.png](images/demo-light.png).*
 
-Current version: 0.6.2 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
+Current version: 0.6.3 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
 [releases](https://github.com/Th3-W6rst/claude-realce/releases) · repository:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (questions and problems in *Issues*).
 
@@ -125,8 +125,8 @@ what comes next. In **Session** mode the answer comes from the conversation itse
 mostly from the prompt cache: about two seconds and a few hundred new tokens); a question asked while a turn runs
 waits for it to end, since a fork in the middle of a turn answers about the turn's next step instead. In **Tools**
 mode the mod's own agent ([agents/reader.md](agents/reader.md)) opens the project's files: Read is its only tool,
-so Claude Code refuses it any edit or command in every permission mode, `bypassPermissions` included; it gets the
-file list from `git ls-files`. Ready-made questions sum the session up, suggest the next step,
+so Claude Code refuses it any edit or command in every permission mode, `bypassPermissions` included. It gets the
+file list from `git ls-files`; like Claude's own Read, it can open any file your account can. Ready-made questions sum the session up, suggest the next step,
 explain the last failure or review the changed files. Each answer goes to the prompt box (**To chat**), is sent
 (**Send**) or copied; a failure's **Fix** in the Overview leaves a ready prompt in the box. Nothing calls the model
 until you ask; `/realce agent off` takes the tab away.
@@ -221,14 +221,15 @@ same browser makes the PNG of `/realce print`.
 - **Files:** reads its own `plugin.json` and, for a `custom:` theme, `~/.claude/themes/<name>.json`; checks whether
   Cursor, Visual Studio Code or Zed is in `/Applications` (where paths open) and whether there is a Desktop. Writes
   under `~/.cache/realce/`; `/realce print` writes an HTML page and a PNG to the Desktop.
-- **Settings:** reads Claude Code's `language` and `theme`.
+- **Settings:** reads Claude Code's settings list (`$.config.list`) for its `language` and `theme`.
 - **Store:** its flags, the on/off switch, the language you picked, whether the welcome hint was shown and when it
   last looked for an update.
 - **Session state** (`$.state`, held for the session and readable by any plugin in it): the turns and their seals,
   the files touched, the failures and their explanations, commit cards, the plan, the agents, pinned replies, the
   timeline, the away summary, usage, the diagrams drawn, and the Agent tab's last 20 questions and answers.
-- **Session and clipboard:** reads the transcript and the selection (for copy, print, summary, explain and pin), and
-  copies to the clipboard.
+- **Session and clipboard:** reads the transcript and the selection (for copy, print, summary, explain and pin), the
+  session's agents (the Overview's list, and whether a pane agent still runs after a reload), the session id (its
+  perf file's name) and Claude Code's version (`/realce doctor`), and copies to the clipboard.
 - **Network:** one GET of its own `plugin.json` from raw.githubusercontent.com, at most once a day, to say when a new
   version is out (`/realce updates off` stops it).
 - **Model:** the Haiku, to explain a failed command (up to 20 each time the mod loads, with `/realce errors on`) and
@@ -257,6 +258,10 @@ Every one of these calls goes through [hooks/io.ts](hooks/io.ts); `claude plugin
 - **A diagram while the reply streams:** until the reply is done, the mermaid block shows as code.
 - **Questions:** Claude Code does not let the question dialog be redrawn; the mod only adds a line above it.
 - **Agent card:** it depends on the notice's text; in a format the mod does not know, Claude Code's drawing stays.
+- **ctrl+o:** the detailed transcript keeps Claude Code's tool rows, groups and turn line, with the test score above a
+  test run and the word diff for edits; focus mode and folding stay out of it. A tool group that holds more than its
+  calls (an error, a recalled memory) keeps Claude Code's line too, with a failed command's sentence under it.
+  A turn line that waits on background agents keeps Claude Code's words.
 - **Other mods:** the mod draws Claude's replies, tool rows and results, the turn's line and agent notices itself, in
   place of Claude Code's drawing, so another mod's drawing of the same item beneath it does not show while that
   feature's flag is on (`/realce <flag> off`, or `/realce off`, gives it back). The band above the prompt, the

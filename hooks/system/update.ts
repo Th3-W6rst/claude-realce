@@ -56,6 +56,8 @@ async function runCheck($: EngineInterface): Promise<void> {
     return
   }
   let remote: string | null
+  // An attempt counts, whatever comes of it: offline, a session start must not ask GitHub again.
+  await storeSet($, 'updateCheckedAt', await $.clock.now())
   try {
     const response = await fetchUrl($, REMOTE)
     if (!response.ok) {
@@ -72,7 +74,6 @@ async function runCheck($: EngineInterface): Promise<void> {
     lastStatus = tr("Update: not checked (GitHub's version was not read).", 'Atualização: não verificada (versão no GitHub não lida).')
     return
   }
-  await storeSet($, 'updateCheckedAt', await $.clock.now())
   if (compareVersions(remote, local) <= 0) {
     lastStatus = tr(`Update: up to date (${local}).`, `Atualização: em dia (${local}).`)
     return

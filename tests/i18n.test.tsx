@@ -426,11 +426,11 @@ describe('interface language', () => {
     })
     await $.tool.call({ tool: 'Bash', command: 'git merge feat/x', tool_use_id: 'g1' })
     const calls = [{ tool_use_id: 'g1', tool: 'Bash', input: { command: 'git merge feat/x' }, isRunning: false, isErrored: false, isInterrupted: false }]
-    const group = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+    const group = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false, isCallsOnly: true } })
     const before = (await group.find({ key: 'realce-group' }))?.text ?? ''
     await answer($, 'language pt')
-    await group.redraw({ calls, isActive: false, isExpanded: true })
-    await group.redraw({ calls, isActive: false, isExpanded: false })
+    await group.redraw({ calls, isActive: false, isExpanded: true, isCallsOnly: true })
+    await group.redraw({ calls, isActive: false, isExpanded: false, isCallsOnly: true })
     const after = (await group.find({ key: 'realce-group' }))?.text ?? ''
     expect([before.includes('⎇ merged feat/x'), after.includes('⎇ mesclou feat/x')]).toEqual([true, true])
   })

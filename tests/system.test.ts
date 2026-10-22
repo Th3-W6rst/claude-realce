@@ -458,6 +458,20 @@ describe('update notice', () => {
     expect(await status($)).toContain('Versão instalada: 0.4.0.')
   })
 
+  test('a failed check counts too: offline, the next session start does not ask GitHub again', async ($, on) => {
+    const writes: unknown[] = []
+    on('store.set', { key: 'updateCheckedAt' }, ($, e, next) => {
+      writes.push(e.value)
+      return next(e)
+    })
+    mock.store(on, { ...PT, demoHintShown: true })
+    const clock = mock.clock(on)
+    updateWorld(on, 'deny')
+    await start($)
+    await clock.settle()
+    expect(writes).toHaveLength(1)
+  })
+
   test('a network failure shows only in status', async ($, on) => {
     mock.store(on, { ...PT, demoHintShown: true })
     const clock = mock.clock(on)

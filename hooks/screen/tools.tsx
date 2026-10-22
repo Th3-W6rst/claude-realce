@@ -180,6 +180,18 @@ function whyLine(t: T, why: Explanation): RenderElement {
   )
 }
 
+/** The engine's own row in ctrl+o, with the test run's score above it when there is one. */
+function expandedRow(t: T, score: TestScore | null, row: RenderElement): RenderElement {
+  if (score === null) return row
+  const { Box, Text } = t
+  return (
+    <Box flexDirection="column">
+      <Text color={score.failed === 0 ? SCREEN.ok : SCREEN.bad} wrap="truncate-end">{formatScore(score)}</Text>
+      {row}
+    </Box>
+  )
+}
+
 function toolRow(t: T, s: ToolSummary, state: RowState, score: TestScore | null, why: Explanation | null): RenderElement {
   const { Box, Text } = t
   const icon = state.isRunning ? '◌' : state.isErrored ? '✖' : s.icon
@@ -260,6 +272,8 @@ export function registerTools(on: On): void {
     const isRunning = isStillRunning(e.props)
     const isAnswer = isAnswered(e.props)
     const isErrored = hasFailed(e.props)
+    // ctrl+o shows the engine's row whole, focus mode or not; a test run's score rides above it.
+    if (e.props.isExpanded === true) return expandedRow($.ui.resolve(e), flags.placar && e.props.tool === 'Bash' && output !== undefined ? parseTestSummary(bashText(output)) : null, await next(e))
     // Focus mode hides what finished well, whatever the tool; running and failed calls stay in sight.
     if (flags.foco && !isRunning && !isErrored && !isInterrupted) return hiddenRow($.ui.resolve(e))
     // Only the tools summarizeTool draws: any other call stays the engine's.
@@ -285,12 +299,27 @@ export function registerTools(on: On): void {
     const flags = await getFlags($)
     if (e.surface !== 'terminal') return next(e)
     const calls = e.props.calls
+    // Unfolded, each call is its own row and follows its own rules.
+    if (e.props.isExpanded) return next(e)
     if (flags.foco && !calls.some(c => isStillRunning(c) || hasFailed(c))) return hiddenRow($.ui.resolve(e))
-    if (!flags.ferramentas || e.props.isExpanded) return next(e)
-    const cards = flags.commits ? calls.flatMap(c => (c.tool_use_id === undefined ? [] : [commitFor(c.tool_use_id)].filter((x): x is string => x !== null))) : []
+    if (!flags.ferramentas) return next(e)
     // The folded group is what the screen shows: a failed command's sentence rides under it, the first one's.
     const failed = flags.erros ? calls.filter(c => hasFailed(c) && c.tool === 'Bash' && c.tool_use_id !== undefined) : []
     const why = failed.map(c => explanationFor(c.tool_use_id!)).find(w => w !== null) ?? null
+    // A group with more than its calls (an error, a recalled memory, a hook's timing) keeps the engine's line, which
+    // names them; the failed command's sentence goes under it.
+    if (e.props.isCallsOnly !== true) {
+      const line = await next(e)
+      if (why === null) return line
+      const t = $.ui.resolve(e)
+      return (
+        <t.Box key="realce-group-why" flexDirection="column">
+          {line}
+          {whyLine(t, why)}
+        </t.Box>
+      )
+    }
+    const cards = flags.commits ? calls.flatMap(c => (c.tool_use_id === undefined ? [] : [commitFor(c.tool_use_id)].filter((x): x is string => x !== null))) : []
     const key = `${e.requestId}|${flagsVersion()}|${calls.map(c => `${c.tool}${+isStillRunning(c)}${+hasFailed(c)}`).join(',')}|${cards.join(',')}|${why === null ? '' : JSON.stringify(why)}`
     return memo('ToolGroup', key, () => {
       const t = $.ui.resolve(e)
@@ -314,7 +343,7 @@ export function registerTools(on: On): void {
   on('ui.render', { component: 'ToolResult' }, async ($, e, next) => timed('ToolResult', async () => {
     const flags = await getFlags($)
     // An answered call (a grep with no match) finished well: its result goes with its row.
-    if (!flags.foco || e.surface !== 'terminal' || (e.props.isErrored && !wasAnswer(e.props.tool_use_id))) return next(e)
+    if (!flags.foco || e.surface !== 'terminal' || e.props.isExpanded === true || (e.props.isErrored && !wasAnswer(e.props.tool_use_id))) return next(e)
     return hiddenRow($.ui.resolve(e))
   }))
 }

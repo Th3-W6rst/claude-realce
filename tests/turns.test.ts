@@ -182,6 +182,17 @@ describe('proof seal', () => {
     expect(await turnWith($, on, [EDIT], 'Vou olhar o resto amanhã.')).not.toMatch(/provado|sem prova|afirmou/)
   })
 
+  test("ctrl+o and a line waiting on background agents keep the engine's line", async ($, on) => {
+    expect(await turnWith($, on, [EDIT, GREEN], 'Pronto.')).toContain('✔ provado')
+    const expanded = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'TurnDuration', props: { word: 'Baked', durationMs: 7_000, isExpanded: true }, viewport: { columns: 100, rows: 40 } })
+    expect(await expanded.find({ key: 'realce-turn' })).toBeUndefined()
+    expect(await expanded.find({ text: 'engine' })).toBeDefined()
+    const waiting = { word: 'Baked', durationMs: 7_000, waitingFor: { agents: [{ id: 'a1', agentType: 'general-purpose' }], workflows: 0 } }
+    const line = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'TurnDuration', props: waiting as never, viewport: { columns: 100, rows: 40 } })
+    expect(await line.find({ key: 'realce-turn' })).toBeUndefined()
+    expect(await line.find({ text: 'engine' })).toBeDefined()
+  })
+
   test('the seal survives a narrow rule', async ($, on) => {
     const rule = await turnWith($, on, [EDIT, GREEN], 'Pronto.', {}, 30)
     expect(rule).toContain('7s · ✔ provado')
@@ -245,12 +256,13 @@ describe('session tracking', () => {
     const text = (await drawnText(row, 'realce-tool')) ?? ''
     expect(text.startsWith('✖')).toBe(false)
     expect(text).toContain('sem resultado')
+    // The engine says the group holds an error (isCallsOnly absent): its own line stays.
     const group = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls: [call], isActive: false, isExpanded: false } })
-    expect(await drawnText(group, 'realce-group')).not.toContain('com erro')
+    expect(await group.find({ key: 'realce-group' })).toBeUndefined()
+    expect(await group.find({ text: 'engine' })).toBeDefined()
   })
 
-  test('a folded group without outputs still counts a real grep error', async ($, on) => {
-    // Seen live: the group's calls came without output, and a grep that exited 2 lost its "com erro".
+  test("a folded group with a failed call keeps the engine's line, which names the error", async ($, on) => {
     mock.store(on, PT)
     mock.clock(on)
     engineRow(on, 'ToolGroup')
@@ -266,7 +278,8 @@ describe('session tracking', () => {
       { tool_use_id: 'a2', tool: 'Bash', input: { command: 'grep x sumiu.txt' }, isRunning: false, isErrored: true, isInterrupted: false },
     ]
     const group = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
-    expect(await drawnText(group, 'realce-group')).toContain('1 com erro')
+    expect(await group.find({ key: 'realce-group' })).toBeUndefined()
+    expect(await group.find({ text: 'engine' })).toBeDefined()
   })
 
   test('the master switch off tracks nothing', async ($, on) => {

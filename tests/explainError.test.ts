@@ -76,6 +76,8 @@ describe('error explained', () => {
     const calls = [{ tool_use_id: 'b1', tool: 'Bash', input: { command: 'cat sumiu.txt' }, isRunning: false, isErrored: true, isInterrupted: false }]
     const ui = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
     expect(await why(ui)).toBe('↳ Por quê: O arquivo não existe.')
+    // The group holds an error, so the engine's line stays above the sentence.
+    expect(await ui.find({ text: 'engine' })).toBeDefined()
   })
 
   test('a long answer is cut to two lines', async ($, on) => {

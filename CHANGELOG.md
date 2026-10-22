@@ -2,6 +2,16 @@
 
 Versions from October 19 to 22, 2026. Those that only changed internals are left out.
 
+## 0.6.3
+- The detailed transcript (ctrl+o) keeps Claude Code's tool rows, groups and turn line whole, focus mode and folding
+  aside; a test run's score still rides above its row and an edit keeps its word diff.
+- A tool group that holds more than its calls (an error, a recalled memory, a hook's timing) keeps Claude Code's line,
+  which names them, with a failed command's sentence under it; a turn line waiting on background agents keeps
+  Claude Code's words.
+- `/realce pane` opens a pane that opened by itself in a narrow terminal but was not drawn, instead of closing it.
+- The update check counts a failed attempt too: offline, it asks GitHub at most once a day.
+- A teammate's system prompt no longer gets the marks: it writes to its lead, not to you.
+
 ## 0.6.2
 - The pane agent's Tools mode is read-only by construction: it runs the mod's own agent, whose only tool is Read, so
   Claude Code refuses it any edit or command whatever the permission mode (before, a prompt asked it to change

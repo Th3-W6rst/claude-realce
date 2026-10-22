@@ -147,7 +147,7 @@ async function setFold($: EngineInterface, id: string, isOpen: boolean): Promise
 export function registerDiff(on: On): void {
   on('ui.render', { component: 'ToolResult', props: { tool: ['Edit', 'Write', 'NotebookEdit'] } }, async ($, e, next) => timed('ToolResult:diff', async () => {
     const flags = await getFlags($)
-    if (e.surface === 'terminal' && flags.foco && !e.props.isErrored) {
+    if (e.surface === 'terminal' && flags.foco && !e.props.isErrored && e.props.isExpanded !== true) {
       const { Box } = $.ui.resolve(e)
       return <Box key="realce-hidden" />
     }
@@ -162,7 +162,8 @@ export function registerDiff(on: On): void {
     if (!Array.isArray(out.structuredPatch) || out.structuredPatch.length === 0) return next(e)
     // The hunk headers speak the language: a change of it parses the rows again.
     const lines = memo('diffLines', `${id}|${languageVersion()}`, () => diffLines(out.structuredPatch), 500)
-    const isLong = flags.dobrar && lines.filter(l => l.kind !== 'hunk').length > FOLD_AT
+    // ctrl+o shows every line: a long diff folds only in the compact view.
+    const isLong = flags.dobrar && e.props.isExpanded !== true && lines.filter(l => l.kind !== 'hunk').length > FOLD_AT
     const isOpen = isLong && (await read($, { ...FOLDS, id })) === true
     // The tree holds the fold's handler: rebuilt per draw, from rows that are memoized.
     return patchTree($.ui.resolve(e), lines, isLong, isOpen, () => void setFold($, id, !isOpen))

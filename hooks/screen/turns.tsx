@@ -105,7 +105,8 @@ export function rememberTurn(key: string, stats: TurnStats): void {
 export function registerTurns(on: On): void {
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => timed('TurnDuration', async () => {
     const flags = await getFlags($)
-    if ((!flags.separador && !flags.selo) || e.surface !== 'terminal') return next(e)
+    // ctrl+o shows the engine's line whole; a line waiting on background agents says so in the engine's words.
+    if ((!flags.separador && !flags.selo) || e.surface !== 'terminal' || e.props.isExpanded === true || e.props.waitingFor !== undefined) return next(e)
     if (!isLoaded) {
       for (const [key, stats] of Object.entries(await read($, TURNS))) if (!known.has(key)) known.set(key, stats)
       isLoaded = true
