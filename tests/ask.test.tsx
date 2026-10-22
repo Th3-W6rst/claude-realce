@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { sessionPrompt } from '../hooks/orient/ask'
+import { sessionPrompt, toolsPrompt } from '../hooks/orient/ask'
 import { planWindow } from '../hooks/orient/pane/overview'
 import type { PlanItem } from '../types'
 import { BASH_OK, TURN, drawnText, engine, engineEvents, engineRow, mountPane, PANE, RUN, startStandIns } from './world'
@@ -16,7 +16,7 @@ const ANSWERED = () => ({ isAnswered: true, text: 'Mudaram **2** arquivos.', usa
 // whose other stand-ins already answer ui.open or prompt.submit leaves them out (`beneath`).
 function agentWorld(on: On, fork: (prompt: string) => unknown = ANSWERED, beneath: { open?: false; submit?: false } = {}) {
   const forks: string[] = []
-  const spawns: { prompt: string; description?: string }[] = []
+  const spawns: { prompt: string; description?: string; subagent_type?: string }[] = []
   const fills: { text: string; mode?: string }[] = []
   const submits: string[] = []
   const copies: string[] = []
@@ -169,7 +169,7 @@ describe('pane agent', () => {
     await clock.settle()
     expect(world.spawns).toHaveLength(1)
     expect(world.spawns[0]!.description).toBe('Realce: Tem teste para o x.ts?')
-    expect(world.spawns[0]!.prompt).toContain('não altere nada')
+    expect(world.spawns[0]!.prompt).toContain('Leia o que precisar')
     // The kit's spawn starts no agent (its id is the engine's to set): the entry says no agent started.
     expect(await texts(ui)).toContain('Sem resposta: Nenhum agente começou.')
   })
@@ -193,6 +193,33 @@ describe('pane agent', () => {
     await $.turn.complete({ ...TURN, answer: 'Pronto.', durationMs: 7000 })
     const rule = await $.ui.mount({ plugin: 'realce', surface: 'terminal', component: 'TurnDuration', props: { word: 'Baked', durationMs: 7000 }, viewport: { columns: 100, rows: 40 } })
     expect(await drawnText(rule, 'realce-turn')).toContain('✔ provado')
+  })
+
+  test("the Tools question goes to the pane's read-only agent, with the project's files", async ($, on) => {
+    mock.store(on, PT)
+    const clock = mock.clock(on)
+    const world = agentWorld(on)
+    const runs: (readonly string[])[] = []
+    on('process.run', ($, e) => {
+      runs.push(e.argv)
+      return { value: { exitCode: 0, stdout: 'cart.py\ntests/test_cart.py\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+    })
+    const ui = await agentPane($)
+    await ui.press({ key: 'mode-tools' })
+    await ui.input({ key: 'ask', text: 'Tem teste?' })
+    await clock.settle()
+    expect(runs.filter(argv => argv[0] === 'git')).toEqual([['git', 'ls-files', '--cached', '--others', '--exclude-standard']])
+    // The emitted request: the plugin's own agent (agents/reader.md, whose only tool is Read), never the general one.
+    expect(world.spawns).toMatchObject([{ tool: 'Agent', subagent_type: 'realce:reader', description: 'Realce: Tem teste?' }])
+    expect(world.spawns[0]!.prompt).toContain('Os arquivos do projeto:\ncart.py\ntests/test_cart.py')
+    expect(world.spawns[0]!.prompt).toMatch(/Pergunta: Tem teste\?$/)
+  })
+
+  test("the reader is offered to the pane alone, and a folder git does not list says so", async ($, on) => {
+    mock.store(on, PT)
+    expect(await $.agent.offer({ agent: 'realce:reader', description: 'x', source: 'plugin', provider: { plugin: 'realce', tier: 'community' } } as never)).toMatchObject({ isOffered: false })
+    expect(toolsPrompt(null, 'oi')).toContain('Sem lista de arquivos: o git não lista esta pasta.')
+    expect(toolsPrompt(Array.from({ length: 3 }, (_, i) => `f${i}`).join('\n'), 'oi')).toContain('f0\nf1\nf2')
   })
 
   test('a refused subagent says why', async ($, on) => {

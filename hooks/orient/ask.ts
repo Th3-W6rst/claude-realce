@@ -1,9 +1,9 @@
 import { atom, read, update } from 'claude-code'
-import type { Args, EngineInterface, ModelForkResult, ModelUsage, ResultOf } from 'claude-code'
+import type { Args, EngineInterface, ModelForkResult, ModelUsage, On, ResultOf } from 'claude-code'
 
 import type { AskMode, ChatEntry } from '../../types'
 import { pick, tr, type Text } from '../i18n'
-import { detach, fork, listAgents, spawn } from '../io'
+import { detach, exec, fork, listAgents, spawn } from '../io'
 import { errorText } from '../safe'
 
 const CHAT = atom({ plugin: 'realce', key: 'chat' } as const, [])
@@ -21,9 +21,15 @@ const SESSION_FRAME: Text = {
   pt: 'Esta é uma pergunta lateral de um painel ao lado da sessão, não um passo da tarefa: não continue a tarefa e não chame ferramenta. Responda em português, curto (no máximo 8 linhas curtas), em markdown.',
 }
 const TOOLS_FRAME: Text = {
-  en: 'A question from the realce pane about the current project. Look at what you need, change nothing, and answer in English, briefly (at most 10 short lines), in markdown.',
-  pt: 'Uma pergunta do painel do realce sobre o projeto atual. Olhe o que precisar, não altere nada e responda em português, curto (no máximo 10 linhas curtas), em markdown.',
+  en: 'A question from the realce pane about the current project. Read what you need and answer in English, briefly (at most 10 short lines), in markdown.',
+  pt: 'Uma pergunta do painel do realce sobre o projeto atual. Leia o que precisar e responda em português, curto (no máximo 10 linhas curtas), em markdown.',
 }
+// Tools mode runs the plugin's own agent, `agents/reader.md`, whose only tool is Read: the engine refuses any other
+// call in every permission mode, where a prompt, an agent's permission mode or the plugin's own hooks (skipped for the
+// calls of an agent it started) do not hold under bypassPermissions (measured 22-10). With no shell to list the
+// project, the agent gets its files in the prompt.
+const READER = 'realce:reader'
+const MAX_FILES = 400
 
 // A fork in the middle of a turn answers about the turn's next step, slowly and uncached: a question waits for the end.
 let isMainTurnRunning = false
@@ -88,10 +94,26 @@ async function answerFromSession($: EngineInterface, entry: ChatEntry): Promise<
   else await settleEntry($, entry.id, { status: 'failed', text: failureText(reply), ms })
 }
 
+/** The project's files as git sees them, the first 400, for an agent that can only read; null where git lists none. */
+async function projectFiles($: EngineInterface): Promise<string | null> {
+  const run = await exec($, ['git', 'ls-files', '--cached', '--others', '--exclude-standard'], { timeoutMs: 5000 }).catch(() => null)
+  if (run === null || run.exitCode !== 0) return null
+  const files = run.stdout.split('\n').filter(line => line !== '')
+  const more = files.length - MAX_FILES
+  return [...files.slice(0, MAX_FILES), ...(more > 0 ? [tr(`… and ${more} more`, `… e mais ${more}`)] : [])].join('\n')
+}
+
+/** What the reader gets: the frame, the project's files when git lists them, and the question. */
+export function toolsPrompt(files: string | null, question: string): string {
+  const listing = files === null ? tr('No file list: git does not list this folder.', 'Sem lista de arquivos: o git não lista esta pasta.') : tr(`The project's files:\n${files}`, `Os arquivos do projeto:\n${files}`)
+  return [pick(TOOLS_FRAME), listing, tr(`Question: ${question}`, `Pergunta: ${question}`)].join('\n\n')
+}
+
 async function answerWithTools($: EngineInterface, entry: ChatEntry): Promise<void> {
   const short = [...entry.question.replace(/\s+/g, ' ')].slice(0, DESCRIPTION_CHARS).join('')
   try {
-    const started = await spawn($, { prompt: `${pick(TOOLS_FRAME)}\n\n${entry.question}`, description: `Realce: ${short}` })
+    const prompt = toolsPrompt(await projectFiles($), entry.question)
+    const started = await spawn($, { prompt, description: `Realce: ${short}`, subagentType: READER })
     if ('deny' in started && started.deny !== undefined) {
       await settleEntry($, entry.id, { status: 'failed', text: tr(`Refused: ${started.deny}`, `Recusado: ${started.deny}`) })
       return
@@ -104,6 +126,11 @@ async function answerWithTools($: EngineInterface, entry: ChatEntry): Promise<vo
   } catch (error) {
     await settleEntry($, entry.id, { status: 'failed', text: errorText(error) })
   }
+}
+
+/** The reader is the pane's alone: the model's own list of agent types leaves it out. */
+export function registerReader(on: On): void {
+  on('agent.offer', { agent: READER }, () => ({ isOffered: false }))
 }
 
 /** Answers the queued questions one by one, while no main turn runs. */

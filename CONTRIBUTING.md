@@ -45,7 +45,7 @@ engine call), `flags.ts`, `i18n.ts`, `fit.tsx` (cutting text to cells), `format.
 `layout.ts` (sizes), `palette.ts` and `paletteSets.ts` (colors), `theme.ts`, `perf.ts` and `prompt.ts` (the system
 prompt section). `types/index.d.ts` is the contract of the mod's `$.state` values. The tests mirror the modules
 (`tests/band.test.tsx` for `hooks/orient/band.tsx`); `tests/world.tsx` holds the engine stand-ins several of them
-share.
+share. `agents/reader.md` is the pane agent's Tools-mode agent (its only tool is Read).
 
 ## Two languages
 
@@ -90,6 +90,9 @@ start off: a test of either turns them on with `PT_ALL` (or `OPT_IN`) from `test
 12. A Button that a press makes disappear takes the pane's focus with it, and the next keys land in the prompt box:
     keep such a Button drawn (the Agent tab's Clear). While an `Input` holds the focus, digits and letters type into
     it instead of pressing hotkeys.
+13. The mod's own hooks cannot guard an agent it started: the engine skips them as re-entry for that agent's calls
+    (measured on `tool.check` and `agent.spawn`, 22-10). A limit on such an agent goes in its definition (`tools` in
+    `agents/reader.md`); neither a prompt nor the agent's `permissionMode` holds under `bypassPermissions`.
 
 ## What the mod reaches
 

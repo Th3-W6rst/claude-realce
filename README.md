@@ -21,7 +21,7 @@ The interface follows Claude Code's language: English, or Portuguese for whoever
 *Drawn by the mod itself, as `/realce print` draws a reply (`/realce demo` shows it in the terminal); the table's
 numbers are just an example. On a light theme: [demo-light.png](images/demo-light.png).*
 
-Current version: 0.6.1 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
+Current version: 0.6.2 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
 [releases](https://github.com/Th3-W6rst/claude-realce/releases) · repository:
 [Th3-W6rst/claude-realce](https://github.com/Th3-W6rst/claude-realce) (questions and problems in *Issues*).
 
@@ -123,7 +123,9 @@ The **Agent** tab answers questions about the session while Claude works on its 
 what comes next. In **Session** mode the answer comes from the conversation itself (a fork of it, no tools, served
 mostly from the prompt cache: about two seconds and a few hundred new tokens); a question asked while a turn runs
 waits for it to end, since a fork in the middle of a turn answers about the turn's next step instead. In **Tools**
-mode a read-only subagent looks at the project. Ready-made questions sum the session up, suggest the next step,
+mode the mod's own agent ([agents/reader.md](agents/reader.md)) opens the project's files: Read is its only tool,
+so Claude Code refuses it any edit or command in every permission mode, `bypassPermissions` included; it gets the
+file list from `git ls-files`. Ready-made questions sum the session up, suggest the next step,
 explain the last failure or review the changed files. Each answer goes to the prompt box (**To chat**), is sent
 (**Send**) or copied; a failure's **Fix** in the Overview leaves a ready prompt in the box. Nothing calls the model
 until you ask; `/realce agent off` takes the tab away.
@@ -213,7 +215,8 @@ same browser makes the PNG of `/realce print`.
   `which mmdc` and `mmdc` (mermaid-cli) to render diagrams into `~/.cache/realce/diagrams`; `osascript` for a macOS
   notification when the terminal has no notification channel; `afplay` for a sound (off by default); `find` to locate
   a headless Chrome for `/realce print` and to remove its own week-old perf files in `~/.cache/realce`; that headless
-  Chrome, or Google Chrome run headless when there is none, to save `/realce print`'s PNG.
+  Chrome, or Google Chrome run headless when there is none, to save `/realce print`'s PNG; `git ls-files` for the
+  pane agent's Tools mode.
 - **Files:** reads its own `plugin.json` and, for a `custom:` theme, `~/.claude/themes/<name>.json`; checks whether
   Cursor, Visual Studio Code or Zed is in `/Applications` (where paths open) and whether there is a Desktop. Writes
   under `~/.cache/realce/`; `/realce print` writes an HTML page and a PNG to the Desktop.
@@ -225,7 +228,8 @@ same browser makes the PNG of `/realce print`.
 - **Network:** one GET of its own `plugin.json` from raw.githubusercontent.com, at most once a day, to say when a new
   version is out (`/realce updates off` stops it).
 - **Model:** the Haiku, to explain a failed command (up to 20 each time the mod loads, with `/realce errors on`) and
-  a selection on `/realce explain`.
+  a selection on `/realce explain`; on a question in the pane's Agent tab, a fork of the session (Session mode) or
+  its own agent, whose only tool is Read (Tools mode).
 - **Prompt:** one system prompt section that teaches Claude the marks; `/realce demo` submits one prompt, which the mod
   answers itself, without the model.
 - **Environment:** reads `HOME` and `COLORTERM`.

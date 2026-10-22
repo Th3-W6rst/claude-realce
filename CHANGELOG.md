@@ -1,6 +1,12 @@
 # What's new in realce
 
-Versions from October 19 to 21, 2026. Those that only changed internals are left out.
+Versions from October 19 to 22, 2026. Those that only changed internals are left out.
+
+## 0.6.2
+- The pane agent's Tools mode is read-only by construction: it runs the mod's own agent, whose only tool is Read, so
+  Claude Code refuses it any edit or command whatever the permission mode (before, a prompt asked it to change
+  nothing, and under `bypassPermissions` it could still write). It gets the project's file list from `git ls-files`,
+  and the model's own list of agent types leaves it out.
 
 ## 0.6.1
 - In a docked session pane, an answer's footer keeps its last words ("· Session") beside To chat, Send and Copy.

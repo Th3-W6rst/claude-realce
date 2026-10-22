@@ -1,5 +1,6 @@
 import type { On } from 'claude-code'
 
+import { registerReader } from './ask'
 import { registerAway } from './away'
 import { registerBand } from './band'
 import { registerFlagsPane } from './flagsPane'
@@ -19,4 +20,5 @@ export function registerOrient(on: On): void {
   registerLimits(on)
   registerFlagsPane(on)
   registerPaneToggle(on)
+  registerReader(on)
 }
