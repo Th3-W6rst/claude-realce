@@ -27,8 +27,9 @@ Current version: 0.6.2 · what's new in the [CHANGELOG](CHANGELOG.md) and in the
 
 ## Requirements
 
-- **Claude Code 2.1.304 or newer** (`claude --version`), in the terminal. In the desktop and mobile apps the mod only
-  turns Claude's marks into plain bold.
+- **Claude Code 2.1.304 or newer** (`claude --version`), in the terminal. In the desktop and mobile apps the replies,
+  tool rows, diff, turn's line and spinner keep Claude Code's drawing, with Claude's marks as plain bold; the band
+  above the prompt (plan, limits, away summary, "Needs you") and the commands work there too.
 - **macOS** for the notices, the sound, the print and the paths that open in the editor. The rest works on any system.
 - **A terminal with 24-bit color** (Ghostty, iTerm2, WezTerm, Kitty): `echo $COLORTERM` should answer `truecolor`.
 - **Optional:** mermaid-cli, for diagrams and for the PNG of `/realce print` (see [Diagrams](#diagrams)).
@@ -55,8 +56,8 @@ Good to know before using it:
 - The mod adds a short paragraph with the marks to the system prompt (only those of the features that are on).
 - Two features call Haiku on your account, about one to two thousand tokens each time: `errors` (explains a command
   that failed, at most 20 each time the mod loads; off until you run `/realce errors on`) and `explain` (only when you
-  ask).
-- `/realce off` pauses everything; `claude plugin uninstall realce` removes it.
+  ask). The pane's Agent tab calls the session's model only on a question you ask.
+- `/realce off` pauses every feature; `claude plugin uninstall realce` removes it.
 
 To update: `claude plugin marketplace update claude-realce`, then `claude plugin update realce@claude-realce`, and
 reopen Claude Code. `/realce status` says when a new version is out.
@@ -223,6 +224,9 @@ same browser makes the PNG of `/realce print`.
 - **Settings:** reads Claude Code's `language` and `theme`.
 - **Store:** its flags, the on/off switch, the language you picked, whether the welcome hint was shown and when it
   last looked for an update.
+- **Session state** (`$.state`, held for the session and readable by any plugin in it): the turns and their seals,
+  the files touched, the failures and their explanations, commit cards, the plan, the agents, pinned replies, the
+  timeline, the away summary, usage, the diagrams drawn, and the Agent tab's last 20 questions and answers.
 - **Session and clipboard:** reads the transcript and the selection (for copy, print, summary, explain and pin), and
   copies to the clipboard.
 - **Network:** one GET of its own `plugin.json` from raw.githubusercontent.com, at most once a day, to say when a new
@@ -231,7 +235,8 @@ same browser makes the PNG of `/realce print`.
   a selection on `/realce explain`; on a question in the pane's Agent tab, a fork of the session (Session mode) or
   its own agent, whose only tool is Read (Tools mode).
 - **Prompt:** one system prompt section that teaches Claude the marks; `/realce demo` submits one prompt, which the mod
-  answers itself, without the model.
+  answers itself, without the model. In the pane, only on your press: **To chat** and a failure's **Fix** put text in
+  the prompt box, and **Send** submits an answer as your prompt.
 - **Environment:** reads `HOME` and `COLORTERM`.
 
 Every one of these calls goes through [hooks/io.ts](hooks/io.ts); `claude plugin validate .` lists them all.
@@ -252,6 +257,10 @@ Every one of these calls goes through [hooks/io.ts](hooks/io.ts); `claude plugin
 - **A diagram while the reply streams:** until the reply is done, the mermaid block shows as code.
 - **Questions:** Claude Code does not let the question dialog be redrawn; the mod only adds a line above it.
 - **Agent card:** it depends on the notice's text; in a format the mod does not know, Claude Code's drawing stays.
+- **Other mods:** the mod draws Claude's replies, tool rows and results, the turn's line and agent notices itself, in
+  place of Claude Code's drawing, so another mod's drawing of the same item beneath it does not show while that
+  feature's flag is on (`/realce <flag> off`, or `/realce off`, gives it back). The band above the prompt, the
+  question dialog and the spinner keep what Claude Code and other mods draw there.
 
 Performance: with the mod on, typing and scrolling take as long as with `/realce off`. To work on the mod, see
 [CONTRIBUTING](CONTRIBUTING.md).

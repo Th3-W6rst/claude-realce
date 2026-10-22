@@ -15,6 +15,7 @@ tsc -p .                                 # types (Claude Code writes .claude-plu
 claude plugin validate .                 # what Claude Code would refuse at load
 python3 scripts/flags-table.py --check   # the README's flags table and "Current version" match the code
 python3 scripts/footprint.py             # the validator reports every engine call, uncut
+node scripts/ui-review.mjs               # no control-character string under hooks/ (the catalogue's UI scan)
 ```
 
 On GitHub, `.github/workflows/test.yml` runs the same checks but `tsc` on every push and pull request, against the
@@ -103,6 +104,22 @@ names the function each call sits in and cuts its report at 1,000 characters; ca
 footprint, and hold a cut one back. `python3 scripts/footprint.py` fails on a cut and says how much room is left. Calls
 made right in a hook (`$.state`, `$.ui.resolve`, `$.clock.now`) stay there. `$.env.get` takes its name as a literal, so
 `envVar` has one branch per variable.
+
+## Before a catalogue review
+
+[awesome-claude-code-mods](https://github.com/karanb192/awesome-claude-code-mods) scans the mod and then reviews it
+with engine tests against what the README says. Each point below held the mod back once, or would hold it:
+
+- **Shared sites compose** (rule 10): the band above the prompt keeps what `next(e)` drew, and a hook that draws an
+  item in place of Claude Code's says so in the README's *Known limitations*.
+- **A promise is enforced, not asked for:** what the README says the mod will not do is held by the engine (the
+  agent's `tools`, a refusal), never by a prompt, and a test checks the request that goes out. Check it live under
+  `bypassPermissions` too (rule 13).
+- **No control character in a string under `hooks/`**: the scan holds any `ui.render` mod with one back from
+  publication. `node scripts/ui-review.mjs` runs the same test; a cache key joins its parts with `JSON.stringify`,
+  not a NUL.
+- **The footprint is whole** (`python3 scripts/footprint.py`) and *What it reads, runs and sends* names every call in
+  `hooks/io.ts`: each process, path, network address, model use, prompt write and state the mod keeps.
 
 ## Performance
 

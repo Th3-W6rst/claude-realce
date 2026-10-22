@@ -76,7 +76,7 @@ function pieceRuns(t: T, pieces: readonly DiffPiece[], color: string | undefined
 function linePieces(line: DiffLine): DiffPiece[] | null {
   if (line.pair === undefined) return null
   const [before, after] = line.kind === 'add' ? [line.pair, line.text] : [line.text, line.pair]
-  const diff = memo('wordDiff', `${before}\u0000${after}`, () => wordDiff(before, after), 5000)
+  const diff = memo('wordDiff', JSON.stringify([before, after]), () => wordDiff(before, after), 5000)
   return (line.kind === 'add' ? diff?.added : diff?.removed) ?? null
 }
 
